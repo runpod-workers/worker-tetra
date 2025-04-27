@@ -1,15 +1,18 @@
-FROM runpod/base:0.6.3-cuda11.8.0
+FROM pytorch/pytorch:latest
 
-# Set python3.11 as the default python
-RUN ln -sf $(which python3.11) /usr/local/bin/python && \
-    ln -sf $(which python3.11) /usr/local/bin/python3
+# Set working directory
+WORKDIR /app
 
-# Install dependencies
-COPY requirements.txt /requirements.txt
-RUN uv pip install --upgrade -r /requirements.txt --no-cache-dir --system
+# Install only necessary system dependencies
+RUN apt-get update && apt-get install -y --no-install-recommends \
+    git \
+    && rm -rf /var/lib/apt/lists/*
 
-# Add files
-ADD handler.py .
+# Copy application code
+COPY README.md handler.py requirements.txt ./
 
-# Run the handler
-CMD python -u /handler.py
+# Install Python dependencies
+RUN pip install --no-cache-dir -r requirements.txt
+
+# Set the entrypoint
+CMD ["python", "handler.py"]
