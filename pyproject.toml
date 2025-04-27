@@ -1,0 +1,9 @@
+[project]
+name = "worker-tetra"
+version = "0.1.2"
+description = "Dynamic GPU provisioning for ML workloads with transparent execution"
+readme = "README.md"
+requires-python = ">=3.9,<3.13"
+dependencies = [
+    "tetra-rp~=0.1.0",
+]
