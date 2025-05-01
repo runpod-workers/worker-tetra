@@ -14,15 +14,12 @@ setup:
 	git submodule init
 	git submodule update
 
-build: requirements
+build: setup
 	docker buildx build \
 	--no-cache \
 	--platform linux/amd64 \
 	-t $(FULL_IMAGE) \
 	. --load
-
-requirements:
-	uv pip compile pyproject.toml > requirements.txt
 
 push:
 	docker push $(FULL_IMAGE)

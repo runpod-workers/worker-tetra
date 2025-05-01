@@ -5,5 +5,13 @@ description = "Dynamic GPU provisioning for ML workloads with transparent execut
 readme = "README.md"
 requires-python = ">=3.9,<3.13"
 dependencies = [
-    "tetra-rp~=0.1.0",
+    "cloudpickle>=3.1.1",
+    "pydantic>=2.11.4",
+    "runpod~=1.7.0",
+]
+
+[dependency-groups]
+dev = [
+    "pytest>=8.3.5",
+    "pytest-mock>=3.14.0",
 ]
