@@ -2,15 +2,17 @@ IMAGE = deanqrunpod/tetrarc
 TAG = latest
 FULL_IMAGE = $(IMAGE):$(TAG)
 
-.PHONY: dev
+.PHONY: setup
 
 # Check if 'uv' is installed
 ifeq (, $(shell which uv))
 $(error "uv is not installed. Please install it before running this Makefile.")
 endif
 
-dev:
-	uv sync --all-groups
+setup:
+	uv sync
+	git submodule init
+	git submodule update
 
 build: requirements
 	docker buildx build \
@@ -25,5 +27,5 @@ requirements:
 push:
 	docker push $(FULL_IMAGE)
 
-proto:
-# TODO: auto-generate proto files
+dev:
+	uv sync --all-groups
