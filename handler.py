@@ -2,9 +2,16 @@ import traceback
 import runpod
 import base64
 import cloudpickle
-import sys
 import subprocess
 import importlib
+import io
+import logging
+from contextlib import redirect_stdout, redirect_stderr
+from remote_execution import (
+    FunctionRequest,
+    FunctionResponse,
+    RemoteExecutorStub,
+)
 
 
 class RemoteExecutor(RemoteExecutorStub):
@@ -28,6 +35,8 @@ class RemoteExecutor(RemoteExecutorStub):
             print(installed.stdout)
         else:
             return installed
+
+        return self.execute(request)
 
     def install_dependencies(self, packages) -> FunctionResponse:
         """
