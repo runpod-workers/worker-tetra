@@ -26,7 +26,7 @@ build-cpu: setup
 	docker buildx build \
 	--no-cache \
 	--platform linux/amd64 \
-	-t $(FULL_IMAGE)-cpu \
+	-t $(IMAGE)-cpu:$(TAG) \
 	-f Dockerfile-cpu \
 	. --load
 
@@ -34,7 +34,7 @@ push:
 	docker push $(FULL_IMAGE)
 
 push-cpu:
-	docker push $(FULL_IMAGE)-cpu
+	docker push $(IMAGE)-cpu:$(TAG)
 
 dev:
 	uv sync --all-groups
