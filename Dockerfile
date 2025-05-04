@@ -1,18 +1,29 @@
-FROM pytorch/pytorch:latest
+FROM pytorch/pytorch:2.2.0-cuda12.1-cudnn8-runtime AS builder
 
-# Set working directory
 WORKDIR /app
 
-# Install only necessary system dependencies
+# Install build tools and uv (only in builder stage)
 RUN apt-get update && apt-get install -y --no-install-recommends \
-    git \
-    && rm -rf /var/lib/apt/lists/*
+    git curl build-essential ca-certificates \
+ && curl -LsSf https://astral.sh/uv/install.sh | sh \
+ && cp ~/.local/bin/uv /usr/local/bin/uv \
+ && chmod +x /usr/local/bin/uv
 
-# Copy application code
-COPY README.md handler.py requirements.txt ./
+# Copy app code and install dependencies
+COPY README.md remote_execution.py handler.py pyproject.toml uv.lock ./
+RUN uv sync
 
-# Install Python dependencies
-RUN pip install --no-cache-dir -r requirements.txt
 
-# Set the entrypoint
-CMD ["python", "handler.py"]
+# --- Final stage: strip build tools, retain only runtime essentials ---
+FROM pytorch/pytorch:2.2.0-cuda12.1-cudnn8-runtime
+
+WORKDIR /app
+
+# Copy app and uv binary from builder
+COPY --from=builder /app /app
+COPY --from=builder /usr/local/bin/uv /usr/local/bin/uv
+
+# Clean up any unnecessary system tools
+RUN rm -rf /var/lib/apt/lists/*
+
+CMD ["uv", "run", "handler.py"]
