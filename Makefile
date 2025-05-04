@@ -22,8 +22,19 @@ build: setup
 	-t $(FULL_IMAGE) \
 	. --load
 
+build-cpu: setup
+	docker buildx build \
+	--no-cache \
+	--platform linux/amd64 \
+	-t $(FULL_IMAGE)-cpu \
+	-f Dockerfile-cpu \
+	. --load
+
 push:
 	docker push $(FULL_IMAGE)
+
+push-cpu:
+	docker push $(FULL_IMAGE)-cpu
 
 dev:
 	uv sync --all-groups
