@@ -6,6 +6,7 @@ import subprocess
 import importlib
 import io
 import logging
+import os
 from contextlib import redirect_stdout, redirect_stderr
 from remote_execution import (
     FunctionRequest,
@@ -37,6 +38,66 @@ class RemoteExecutor(RemoteExecutorStub):
             return installed
 
         return self.execute(request)
+    
+    def install_system_dependencies(self, packages) -> FunctionResponse:
+        """
+        Install system packages using apt-get.
+
+        Args:
+            packages: List of system package names
+
+        Returns:
+            FunctionResponse: Object indicating success or failure with details
+        """
+        if not packages:
+            return FunctionResponse(success=True, stdout="No system packages to install")
+
+        print(f"Installing system dependencies: {packages}")
+
+        try:
+            # Update package list first
+            update_process = subprocess.Popen(
+                ["apt-get", "update"],
+                stdout=subprocess.PIPE,
+                stderr=subprocess.PIPE,
+            )
+            update_stdout, update_stderr = update_process.communicate()
+            
+            if update_process.returncode != 0:
+                return FunctionResponse(
+                    success=False,
+                    error="Error updating package list",
+                    stdout=update_stderr.decode(),
+                )
+
+            # Install the packages
+            # -y flag for non-interactive, --no-install-recommends to keep it minimal
+            process = subprocess.Popen(
+                ["apt-get", "install", "-y", "--no-install-recommends"] + packages,
+                stdout=subprocess.PIPE,
+                stderr=subprocess.PIPE,
+                env={**os.environ, "DEBIAN_FRONTEND": "noninteractive"}  # Prevent prompts
+            )
+
+            stdout, stderr = process.communicate()
+
+            if process.returncode != 0:
+                return FunctionResponse(
+                    success=False,
+                    error="Error installing system packages",
+                    stdout=stderr.decode(),
+                )
+            else:
+                print(f"Successfully installed system packages: {packages}")
+                return FunctionResponse(
+                    success=True,
+                    stdout=stdout.decode(),
+                )
+        except Exception as e:
+            return FunctionResponse(
+                success=False,
+                error=f"Exception during system package installation: {e}",
+            )
 
     def install_dependencies(self, packages) -> FunctionResponse:
         """
