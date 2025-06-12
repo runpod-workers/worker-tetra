@@ -31,14 +31,23 @@ class RemoteExecutor(RemoteExecutorStub):
         Returns:
             FunctionResponse object with execution result
         """
-        installed = self.install_dependencies(request.dependencies)
-        if installed.success:
-            print(installed.stdout)
-        else:
-            return installed
+        # Install system dependencies first
+        if request.system_dependencies:
+            sys_installed = self.install_system_dependencies(request.system_dependencies)
+            if not sys_installed.success:
+                return sys_installed
+            print(sys_installed.stdout)
 
+        # Install Python dependencies next
+        if request.dependencies:
+            py_installed = self.install_dependencies(request.dependencies)
+            if not py_installed.success:
+                return py_installed
+            print(py_installed.stdout)
+
+        # Execute the function
         return self.execute(request)
-    
+
     def install_system_dependencies(self, packages) -> FunctionResponse:
         """
         Install system packages using apt-get.
