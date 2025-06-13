@@ -12,7 +12,7 @@ endif
 setup:
 	uv sync
 	git submodule init
-	git submodule update
+	git submodule update --remote --merge
 	cp tetra-rp/src/tetra_rp/protos/remote_execution.py .
 
 build: setup
