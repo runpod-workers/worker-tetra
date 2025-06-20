@@ -1,6 +1,7 @@
-IMAGE = deanqrunpod/tetrarc
-TAG = latest
+IMAGE = runpod/tetra-rp
+TAG = local
 FULL_IMAGE = $(IMAGE):$(TAG)
+FULL_IMAGE_CPU = $(IMAGE)-cpu:$(TAG)
 
 .PHONY: setup
 
@@ -22,8 +23,12 @@ build: setup
 	-t $(FULL_IMAGE) \
 	. --load
 
-push:
-	docker push $(FULL_IMAGE)
+build-cpu: setup
+	docker buildx build \
+	--no-cache \
+	--platform linux/amd64 \
+	-t $(FULL_IMAGE_CPU) \
+	. --load
 
 dev:
 	uv sync --all-groups
