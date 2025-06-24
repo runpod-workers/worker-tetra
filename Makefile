@@ -27,6 +27,7 @@ build-cpu: setup
 	docker buildx build \
 	--no-cache \
 	--platform linux/amd64 \
+	-f Dockerfile-cpu \
 	-t $(FULL_IMAGE_CPU) \
 	. --load
 
