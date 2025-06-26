@@ -21,5 +21,12 @@ jobs:
         id: release
         with:
           release-type: python
-          package-name: worker-tetra
           token: ${{ secrets.GITHUB_TOKEN }}
+
+  call-docker-build:
+    needs: release-please
+    if: ${{ needs.release-please.outputs.release_created }}
+    uses: ./.github/workflows/docker-prod.yml
+    secrets: inherit
+    with:
+      tag: ${{ needs.release-please.outputs.tag_name }}
