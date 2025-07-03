@@ -20,13 +20,13 @@ from remote_execution import (
 
 class RemoteExecutor(RemoteExecutorStub):
     """
-    Enhanced RemoteExecutor class with class-based execution support.
+    RemoteExecutor class for executing functions and classes in a serverless environment.
     Inherits from RemoteExecutorStub.
     """
 
     def __init__(self):
         super().__init__()
-        # NEW: Instance registry for persistent class instances
+        # Instance registry for persistent class instances
         self.class_instances: Dict[str, Any] = {}
         self.instance_metadata: Dict[str, Dict] = {}
 
@@ -56,14 +56,14 @@ class RemoteExecutor(RemoteExecutorStub):
                 return py_installed
             print(py_installed.stdout)
 
-        # NEW: Route to appropriate execution method based on type
+        # Route to appropriate execution method based on type
         execution_type = getattr(request, "execution_type", "function")
         if execution_type == "class":
             return self.execute_class_method(request)
         else:
             return self.execute(request)  # Your existing function execution
 
-    # NEW METHOD: Class method execution
+    # METHOD: Class method execution
     def execute_class_method(self, request: FunctionRequest) -> FunctionResponse:
         """
         Execute a class method with instance management.
@@ -265,7 +265,10 @@ class RemoteExecutor(RemoteExecutorStub):
                 ["apt-get", "install", "-y", "--no-install-recommends"] + packages,
                 stdout=subprocess.PIPE,
                 stderr=subprocess.PIPE,
-                env={**os.environ, "DEBIAN_FRONTEND": "noninteractive"},
+                env={
+                    **os.environ,
+                    "DEBIAN_FRONTEND": "noninteractive",
+                },  # Prevent interactive prompts
             )
 
             stdout, stderr = process.communicate()
@@ -290,7 +293,11 @@ class RemoteExecutor(RemoteExecutorStub):
 
     def install_dependencies(self, packages) -> FunctionResponse:
         """
-        Install Python packages using pip.
+        Install Python packages using pip with proper process completion handling.
+        Args:
+            packages: List of package names or package specifications
+        Returns:
+            FunctionResponse: Object indicating success or failure with details
         """
         if not packages:
             return FunctionResponse(success=True, stdout="No packages to install")
@@ -328,13 +335,18 @@ class RemoteExecutor(RemoteExecutorStub):
     def execute(self, request: FunctionRequest) -> FunctionResponse:
         """
         Execute a function as a remote resource.
+        Args:
+            request: FunctionRequest object containing function details
+        Returns:
+            FunctionResponse object with execution result
         """
         stdout_io = io.StringIO()
         stderr_io = io.StringIO()
         log_io = io.StringIO()
-
+        # Capture all stdout, stderr, and logs into variables and supply them to the FunctionResponse
         with redirect_stdout(stdout_io), redirect_stderr(stderr_io):
             try:
+                # Redirect logging to capture log messages
                 log_handler = logging.StreamHandler(log_io)
                 log_handler.setLevel(logging.DEBUG)
                 logger = logging.getLogger()
@@ -365,6 +377,7 @@ class RemoteExecutor(RemoteExecutorStub):
                 combined_output = (
                     stdout_io.getvalue() + stderr_io.getvalue() + log_io.getvalue()
                 )
+                # Capture full traceback for better debugging
                 traceback_str = traceback.format_exc()
                 error_message = f"{str(e)}\n{traceback_str}"
 
@@ -375,9 +388,11 @@ class RemoteExecutor(RemoteExecutorStub):
                 )
 
             finally:
+                # Remove the log handler to avoid duplicate logs
                 logger.removeHandler(log_handler)
-
+        # Serialize result using cloudpickle
         serialized_result = base64.b64encode(cloudpickle.dumps(result)).decode("utf-8")
+        # Combine stdout, stderr, and logs
         combined_output = (
             stdout_io.getvalue() + stderr_io.getvalue() + log_io.getvalue()
         )
@@ -409,5 +424,6 @@ async def handler(event: dict) -> dict:
     return output.model_dump()
 
 
+# Start the RunPod serverless handler
 if __name__ == "__main__":
     runpod.serverless.start({"handler": handler})
