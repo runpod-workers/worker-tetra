@@ -135,9 +135,10 @@ class RemoteExecutor(RemoteExecutorStub):
             success=True,
             result=serialized_result,
             stdout=combined_output,
+            instance_id=instance_id,
+            instance_info=self.instance_metadata.get(instance_id, {}),
         )
 
-    # NEW METHOD: Get or create class instance
     def _get_or_create_instance(self, request: FunctionRequest) -> tuple[Any, str]:
         """
         Get existing instance or create new one.
@@ -147,7 +148,7 @@ class RemoteExecutor(RemoteExecutorStub):
 
         # Check if we should reuse existing instance
         if not create_new and instance_id and instance_id in self.class_instances:
-            print(f"Reusing existing instance: {instance_id}")
+            logging.de(f"Reusing existing instance: {instance_id}")
             return self.class_instances[instance_id], instance_id
 
         # Create new instance
@@ -155,7 +156,6 @@ class RemoteExecutor(RemoteExecutorStub):
 
         # Execute class code
         namespace = {}
-        # e
         exec(request.class_code, namespace)
 
         if request.class_name not in namespace:
@@ -200,7 +200,6 @@ class RemoteExecutor(RemoteExecutorStub):
         print(f"Created instance with ID: {instance_id}")
         return instance, instance_id
 
-    # NEW METHOD: Update instance metadata
     def _update_instance_metadata(self, instance_id: str):
         """Update metadata for an instance."""
         if instance_id in self.instance_metadata:
@@ -209,7 +208,6 @@ class RemoteExecutor(RemoteExecutorStub):
                 datetime.now().isoformat()
             )
 
-    # NEW METHOD: Cleanup old instances
     def cleanup_instances(self, max_age_minutes: int = 60):
         """Clean up old instances"""
         from datetime import datetime, timedelta
