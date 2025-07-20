@@ -8,6 +8,7 @@ import io
 import logging
 import os
 import uuid
+import sys
 from datetime import datetime
 from contextlib import redirect_stdout, redirect_stderr
 from typing import Dict, Any
@@ -15,6 +16,13 @@ from remote_execution import (
     FunctionRequest,
     FunctionResponse,
     RemoteExecutorStub,
+)
+
+
+logging.basicConfig(
+    level=logging.DEBUG,  # or INFO for less verbose output
+    stream=sys.stdout,  # send logs to stdout (so docker captures it)
+    format="%(asctime)s - %(levelname)s - %(name)s - %(message)s",
 )
 
 
@@ -148,11 +156,11 @@ class RemoteExecutor(RemoteExecutorStub):
 
         # Check if we should reuse existing instance
         if not create_new and instance_id and instance_id in self.class_instances:
-            logging.de(f"Reusing existing instance: {instance_id}")
+            logging.debug(f"Reusing existing instance: {instance_id}")
             return self.class_instances[instance_id], instance_id
 
         # Create new instance
-        print(f"Creating new instance of class: {request.class_name}")
+        logging.info(f"Creating new instance of class: {request.class_name}")
 
         # Execute class code
         namespace = {}
@@ -197,7 +205,7 @@ class RemoteExecutor(RemoteExecutorStub):
             "last_used": datetime.now().isoformat(),
         }
 
-        print(f"Created instance with ID: {instance_id}")
+        logging.info(f"Created instance with ID: {instance_id}")
         return instance, instance_id
 
     def _update_instance_metadata(self, instance_id: str):
