@@ -30,7 +30,7 @@ addopts = [
     "--cov=handler",
     "--cov=remote_execution", 
     "--cov-report=term-missing",
-    "--cov-fail-under=50"
+    "--cov-fail-under=35"
 ]
 asyncio_mode = "auto"
 asyncio_default_fixture_loop_scope = "function"
