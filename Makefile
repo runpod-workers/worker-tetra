@@ -58,3 +58,18 @@ test-coverage:
 test-fast:
 	uv run pytest tests/ -v -x --tb=short
 
+# Linting commands
+lint:
+	uv run ruff check .
+
+lint-fix:
+	uv run ruff check . --fix
+
+format:
+	uv run ruff format .
+
+format-check:
+	uv run ruff format --check .
+
+# Quality gates (used in CI)
+quality-check: format-check lint test-coverage
