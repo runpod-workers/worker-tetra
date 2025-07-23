@@ -70,9 +70,6 @@ jobs:
         with:
           enable-cache: true
 
-      - name: Setup dependencies
-        run: make setup
-
       - name: Check code formatting with ruff
         run: make format-check
 
