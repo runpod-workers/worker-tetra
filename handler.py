@@ -53,6 +53,9 @@ class RemoteExecutor(RemoteExecutorStub):
             sys_installed = self.install_system_dependencies(
                 request.system_dependencies
             )
+            sys_installed = self.install_system_dependencies(
+                request.system_dependencies
+            )
             if not sys_installed.success:
                 return sys_installed
             print(sys_installed.stdout)

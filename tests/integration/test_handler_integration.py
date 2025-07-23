@@ -10,7 +10,7 @@ from remote_execution import FunctionRequest
 
 class TestHandlerIntegration:
     """Integration tests using test_input.json and test_class_input.json."""
-    
+
     def setup_method(self):
         """Setup for each test method."""
         self.test_data_dir = Path(__file__).parent.parent.parent
@@ -18,24 +18,42 @@ class TestHandlerIntegration:
         self.test_class_input_file = self.test_data_dir / "test_class_input.json"
 
     @pytest.mark.asyncio
+    async def test_handler_end_to_end(self):
+        """Test complete handler workflow with simple function"""
+        event = {
+            "input": {
+                "function_name": "hello_world",
+                "function_code": "def hello_world():\n    return 'hello world'",
+                "args": [],
+                "kwargs": {},
+            }
+        }
+
+        result = await handler(event)
+
+        assert result["success"] is True
+        assert result["error"] is None
+        assert result["result"] is not None
+
+    @pytest.mark.asyncio
     async def test_handler_with_test_input_json(self):
         """Test handler using test_input.json."""
         # Load the test input data
         with open(self.test_input_file, "r") as f:
             test_data = json.load(f)
-        
+
         # Execute through the handler
         result = await handler(test_data)
-        
+
         # Verify the response
         assert result["success"] is True
         assert "result" in result
         assert result["error"] is None
-        
+
         # Decode and verify the actual result
         decoded_result = cloudpickle.loads(base64.b64decode(result["result"]))
         assert decoded_result == "hello world"
-        
+
         # Check that stdout was captured
         assert "going to say hello" in result["stdout"]
 
@@ -45,20 +63,20 @@ class TestHandlerIntegration:
         # Load the test class input data
         with open(self.test_class_input_file, "r") as f:
             test_data = json.load(f)
-        
+
         # Execute through the handler
         result = await handler(test_data)
-        
+
         # Verify the response
         assert result["success"] is True
         assert "result" in result
         assert result["error"] is None
         assert "instance_id" in result
-        
+
         # Decode and verify the actual result
         decoded_result = cloudpickle.loads(base64.b64decode(result["result"]))
         assert decoded_result == "Value is: hello"
-        
+
         # Verify instance information
         assert result["instance_id"] is not None
         assert "instance_info" in result
@@ -69,7 +87,7 @@ class TestHandlerIntegration:
     async def test_class_instance_reuse(self):
         """Test reusing class instances across multiple calls."""
         executor = RemoteExecutor()
-        
+
         # First call - create instance
         request1 = FunctionRequest(
             execution_type="class",
@@ -80,16 +98,16 @@ class TestHandlerIntegration:
             constructor_kwargs={},
             args=[],
             kwargs={},
-            create_new_instance=True
+            create_new_instance=True,
         )
-        
+
         response1 = await executor.ExecuteFunction(request1)
         assert response1.success is True
         instance_id = response1.instance_id
-        
+
         result1 = cloudpickle.loads(base64.b64decode(response1.result))
         assert result1 == 1
-        
+
         # Second call - reuse instance
         request2 = FunctionRequest(
             execution_type="class",
@@ -99,16 +117,16 @@ class TestHandlerIntegration:
             instance_id=instance_id,
             create_new_instance=False,
             args=[],
-            kwargs={}
+            kwargs={},
         )
-        
+
         response2 = await executor.ExecuteFunction(request2)
         assert response2.success is True
         assert response2.instance_id == instance_id
-        
+
         result2 = cloudpickle.loads(base64.b64decode(response2.result))
         assert result2 == 2  # Should increment from previous state
-        
+
         # Verify metadata was updated
         assert response2.instance_info["method_calls"] == 2
 
@@ -120,7 +138,7 @@ class TestHandlerIntegration:
         result = await handler(invalid_event)
         assert result["success"] is False
         assert "Error in handler" in result["error"]
-        
+
         # Test with missing required fields
         invalid_event2 = {
             "input": {
@@ -136,9 +154,9 @@ class TestHandlerIntegration:
         """Test handling complex data types through the full pipeline."""
         test_data = {
             "numbers": [1, 2, 3, 4, 5],
-            "metadata": {"name": "test", "version": 1.0}
+            "metadata": {"name": "test", "version": 1.0},
         }
-        
+
         event = {
             "input": {
                 "function_name": "process_data",
@@ -150,14 +168,16 @@ def process_data(data):
         'processed': True
     }
 """,
-                "args": [base64.b64encode(cloudpickle.dumps(test_data)).decode("utf-8")],
-                "kwargs": {}
+                "args": [
+                    base64.b64encode(cloudpickle.dumps(test_data)).decode("utf-8")
+                ],
+                "kwargs": {},
             }
         }
-        
+
         result = await handler(event)
         assert result["success"] is True
-        
+
         decoded_result = cloudpickle.loads(base64.b64decode(result["result"]))
         assert decoded_result["sum"] == 15
         assert decoded_result["name"] == "test"

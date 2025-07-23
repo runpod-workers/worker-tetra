@@ -7,13 +7,47 @@ requires-python = ">=3.9,<3.13"
 dependencies = [
     "cloudpickle>=3.1.1",
     "pydantic>=2.11.4",
-    "runpod~=1.7.0",
+    "runpod",
 ]
 
 [dependency-groups]
 dev = [
     "pytest>=8.3.5",
     "pytest-mock>=3.14.0",
-    "pytest-asyncio>=0.24.0",
     "pytest-cov>=6.0.0",
+    "pytest-asyncio>=0.24.0",
+    "ruff>=0.8.0",
+]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+python_files = ["test_*.py"]
+python_classes = ["Test*"]
+python_functions = ["test_*"]
+addopts = [
+    "-v",
+    "--tb=short",
+    "--cov=handler",
+    "--cov=remote_execution", 
+    "--cov-report=term-missing",
+    "--cov-fail-under=35"
+]
+asyncio_mode = "auto"
+asyncio_default_fixture_loop_scope = "function"
+markers = [
+    "unit: Unit tests",
+    "integration: Integration tests",
+    "slow: Slow tests"
+]
+filterwarnings = [
+    "ignore::DeprecationWarning",
+    "ignore::PendingDeprecationWarning",
+    "ignore::pytest.PytestDeprecationWarning",
+    "ignore::pytest.PytestUnknownMarkWarning"
+]
+
+[tool.ruff]
+# Exclude tetra-rp directory since it's a separate repository
+exclude = [
+    "tetra-rp/",
 ]
