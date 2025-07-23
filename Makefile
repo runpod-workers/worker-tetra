@@ -4,6 +4,7 @@ FULL_IMAGE = $(IMAGE):$(TAG)
 FULL_IMAGE_CPU = $(IMAGE)-cpu:$(TAG)
 
 .PHONY: setup help
+.PHONY: setup help
 
 # Check if 'uv' is installed
 ifeq (, $(shell which uv))
@@ -78,5 +79,9 @@ format: # Format code with ruff
 format-check: # Check code formatting
 	uv run ruff format --check .
 
+# Type checking
+typecheck: # Check types with mypy
+	uv run mypy .
+
 # Quality gates (used in CI)
-quality-check: format-check lint test-coverage # Run all quality checks (format, lint, test)
+quality-check: format-check lint typecheck test-coverage

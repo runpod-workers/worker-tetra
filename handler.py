@@ -53,9 +53,6 @@ class RemoteExecutor(RemoteExecutorStub):
             sys_installed = self.install_system_dependencies(
                 request.system_dependencies
             )
-            sys_installed = self.install_system_dependencies(
-                request.system_dependencies
-            )
             if not sys_installed.success:
                 return sys_installed
             print(sys_installed.stdout)
@@ -254,7 +251,7 @@ class RemoteExecutor(RemoteExecutorStub):
                 env={
                     **os.environ,
                     "DEBIAN_FRONTEND": "noninteractive",
-                },  # Prevent interactive prompts
+                },  # Prevent prompts
             )
 
             stdout, stderr = process.communicate()
@@ -349,6 +346,7 @@ class RemoteExecutor(RemoteExecutorStub):
 
                 func = namespace[request.function_name]
 
+                # Deserialize arguments using cloudpickle
                 args = [
                     cloudpickle.loads(base64.b64decode(arg)) for arg in request.args
                 ]
@@ -378,6 +376,7 @@ class RemoteExecutor(RemoteExecutorStub):
                 logger.removeHandler(log_handler)
         # Serialize result using cloudpickle
         serialized_result = base64.b64encode(cloudpickle.dumps(result)).decode("utf-8")
+
         # Combine stdout, stderr, and logs
         combined_output = (
             stdout_io.getvalue() + stderr_io.getvalue() + log_io.getvalue()
