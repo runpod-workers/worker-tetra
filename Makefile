@@ -1,4 +1,4 @@
-IMAGE = mwiki/tetra-rp
+IMAGE = runpod/tetra-rp
 TAG = local
 FULL_IMAGE = $(IMAGE):$(TAG)
 FULL_IMAGE_CPU = $(IMAGE)-cpu:$(TAG)
