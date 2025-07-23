@@ -10,8 +10,19 @@ ifeq (, $(shell which uv))
 $(error "uv is not installed. Please install it before running this Makefile.")
 endif
 
-setup:
-	uv sync
+clean:
+	rm -rf dist build *.egg-info
+	find . -type d -name __pycache__ -exec rm -rf {} +
+	find . -type f -name "*.pyc" -delete
+	find . -type f -name "*.pkl" -delete
+
+dev:
+	uv sync --all-groups
+
+upgrade:
+	uv sync --upgrade
+
+setup: dev
 	git submodule init
 	git submodule update --remote --merge
 	cp tetra-rp/src/tetra_rp/protos/remote_execution.py .
@@ -31,5 +42,3 @@ build-cpu: setup
 	-t $(FULL_IMAGE_CPU) \
 	. --load
 
-dev:
-	uv sync --all-groups
