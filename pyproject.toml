@@ -1,6 +1,6 @@
 [project]
 name = "worker-tetra"
-version = "0.3.0"
+version = "0.3.1"
 description = "Dynamic GPU provisioning for ML workloads with transparent execution"
 readme = "README.md"
 requires-python = ">=3.9,<3.13"
