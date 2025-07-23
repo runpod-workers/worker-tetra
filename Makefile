@@ -10,14 +10,14 @@ ifeq (, $(shell which uv))
 $(error "uv is not installed. Please install it before running this Makefile.")
 endif
 
+dev:
+	uv sync --all-groups
+
 clean:
 	rm -rf dist build *.egg-info
 	find . -type d -name __pycache__ -exec rm -rf {} +
 	find . -type f -name "*.pyc" -delete
 	find . -type f -name "*.pkl" -delete
-
-dev:
-	uv sync --all-groups
 
 upgrade:
 	uv sync --upgrade
