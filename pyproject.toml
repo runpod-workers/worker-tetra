@@ -45,3 +45,9 @@ filterwarnings = [
     "ignore::pytest.PytestDeprecationWarning",
     "ignore::pytest.PytestUnknownMarkWarning"
 ]
+
+[tool.ruff]
+# Exclude tetra-rp directory since it's a separate repository
+exclude = [
+    "tetra-rp/",
+]
