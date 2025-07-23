@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.3.1](https://github.com/runpod-workers/worker-tetra/compare/v0.3.0...v0.3.1) (2025-07-23)
+
+
+### Bug Fixes
+
+* broken ci ([#13](https://github.com/runpod-workers/worker-tetra/issues/13)) ([b25d822](https://github.com/runpod-workers/worker-tetra/commit/b25d8220ef0389dea6a83fd9a4450be459e79244))
+
 ## [0.3.0](https://github.com/runpod-workers/worker-tetra/compare/v0.2.0...v0.3.0) (2025-07-23)
 
 
