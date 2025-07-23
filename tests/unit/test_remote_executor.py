@@ -10,18 +10,23 @@ from remote_execution import FunctionRequest
 
 class TestRemoteExecutor:
     """Unit tests for the RemoteExecutor class."""
-    
+
     def setup_method(self):
         """Setup for each test method."""
         self.executor = RemoteExecutor()
-    
+
     def encode_args(self, *args):
         """Helper to encode arguments."""
-        return [base64.b64encode(cloudpickle.dumps(arg)).decode("utf-8") for arg in args]
-    
+        return [
+            base64.b64encode(cloudpickle.dumps(arg)).decode("utf-8") for arg in args
+        ]
+
     def encode_kwargs(self, **kwargs):
         """Helper to encode keyword arguments."""
-        return {k: base64.b64encode(cloudpickle.dumps(v)).decode("utf-8") for k, v in kwargs.items()}
+        return {
+            k: base64.b64encode(cloudpickle.dumps(v)).decode("utf-8")
+            for k, v in kwargs.items()
+        }
 
     def test_executor_init(self):
         """Test RemoteExecutor initialization."""
@@ -37,11 +42,11 @@ class TestRemoteExecutor:
             function_name="hello",
             function_code="def hello():\n    return 'hello world'",
             args=[],
-            kwargs={}
+            kwargs={},
         )
-        
+
         response = self.executor.execute(request)
-        
+
         assert response.success is True
         result = cloudpickle.loads(base64.b64decode(response.result))
         assert result == "hello world"
@@ -53,11 +58,11 @@ class TestRemoteExecutor:
             function_name="add",
             function_code="def add(a, b):\n    return a + b",
             args=self.encode_args(5, 3),
-            kwargs={}
+            kwargs={},
         )
-        
+
         response = self.executor.execute(request)
-        
+
         assert response.success is True
         result = cloudpickle.loads(base64.b64decode(response.result))
         assert result == 8
@@ -73,11 +78,11 @@ class TestRemoteExecutor:
             constructor_args=self.encode_args("test"),
             constructor_kwargs={},
             args=[],
-            kwargs={}
+            kwargs={},
         )
-        
+
         response = self.executor.execute_class_method(request)
-        
+
         assert response.success is True
         assert response.instance_id is not None
         result = cloudpickle.loads(base64.b64decode(response.result))
@@ -90,11 +95,11 @@ class TestRemoteExecutor:
             function_name="error_func",
             function_code="def error_func():\n    raise ValueError('Test error')",
             args=[],
-            kwargs={}
+            kwargs={},
         )
-        
+
         response = self.executor.execute(request)
-        
+
         assert response.success is False
         assert "Test error" in response.error
 
@@ -105,13 +110,12 @@ class TestRemoteExecutor:
         mock_process.returncode = 0
         mock_process.communicate.return_value = (b"Successfully installed", b"")
         mock_popen.return_value = mock_process
-        
+
         response = self.executor.install_dependencies(["numpy"])
-        
+
         assert response.success is True
         mock_popen.assert_called_once_with(
             ["uv", "pip", "install", "--no-cache-dir", "numpy"],
             stdout=subprocess.PIPE,
-            stderr=subprocess.PIPE
+            stderr=subprocess.PIPE,
         )
-
