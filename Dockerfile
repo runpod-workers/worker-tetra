@@ -10,7 +10,7 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
  && chmod +x /usr/local/bin/uv
 
 # Copy app code and install dependencies
-COPY README.md remote_execution.py handler.py pyproject.toml uv.lock ./
+COPY README.md remote_execution.py handler.py pyproject.toml uv.lock test_input.json ./
 RUN uv sync
 
 
