@@ -33,7 +33,9 @@ class RemoteExecutor(RemoteExecutorStub):
         """
         # Install system dependencies first
         if request.system_dependencies:
-            sys_installed = self.install_system_dependencies(request.system_dependencies)
+            sys_installed = self.install_system_dependencies(
+                request.system_dependencies
+            )
             if not sys_installed.success:
                 return sys_installed
             print(sys_installed.stdout)
@@ -59,7 +61,9 @@ class RemoteExecutor(RemoteExecutorStub):
             FunctionResponse: Object indicating success or failure with details
         """
         if not packages:
-            return FunctionResponse(success=True, stdout="No system packages to install")
+            return FunctionResponse(
+                success=True, stdout="No system packages to install"
+            )
 
         print(f"Installing system dependencies: {packages}")
 
@@ -71,7 +75,7 @@ class RemoteExecutor(RemoteExecutorStub):
                 stderr=subprocess.PIPE,
             )
             update_stdout, update_stderr = update_process.communicate()
-            
+
             if update_process.returncode != 0:
                 return FunctionResponse(
                     success=False,
@@ -85,7 +89,10 @@ class RemoteExecutor(RemoteExecutorStub):
                 ["apt-get", "install", "-y", "--no-install-recommends"] + packages,
                 stdout=subprocess.PIPE,
                 stderr=subprocess.PIPE,
-                env={**os.environ, "DEBIAN_FRONTEND": "noninteractive"}  # Prevent prompts
+                env={
+                    **os.environ,
+                    "DEBIAN_FRONTEND": "noninteractive",
+                },  # Prevent prompts
             )
 
             stdout, stderr = process.communicate()
@@ -192,7 +199,9 @@ class RemoteExecutor(RemoteExecutorStub):
                 func = namespace[request.function_name]
 
                 # Deserialize arguments using cloudpickle
-                args = [cloudpickle.loads(base64.b64decode(arg)) for arg in request.args]
+                args = [
+                    cloudpickle.loads(base64.b64decode(arg)) for arg in request.args
+                ]
                 kwargs = {
                     k: cloudpickle.loads(base64.b64decode(v))
                     for k, v in request.kwargs.items()
@@ -222,12 +231,12 @@ class RemoteExecutor(RemoteExecutorStub):
                 logger.removeHandler(log_handler)
 
         # Serialize result using cloudpickle
-        serialized_result = base64.b64encode(cloudpickle.dumps(result)).decode(
-            "utf-8"
-        )
+        serialized_result = base64.b64encode(cloudpickle.dumps(result)).decode("utf-8")
 
         # Combine stdout, stderr, and logs
-        combined_output = stdout_io.getvalue() + stderr_io.getvalue() + log_io.getvalue()
+        combined_output = (
+            stdout_io.getvalue() + stderr_io.getvalue() + log_io.getvalue()
+        )
 
         # Return success response
         return FunctionResponse(
