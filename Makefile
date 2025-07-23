@@ -42,3 +42,19 @@ build-cpu: setup
 	-t $(FULL_IMAGE_CPU) \
 	. --load
 
+# Test commands
+test:
+	uv run pytest tests/ -v
+
+test-unit:
+	uv run pytest tests/unit/ -v -m "not integration"
+
+test-integration:
+	uv run pytest tests/integration/ -v -m integration
+
+test-coverage:
+	uv run pytest tests/ -v --cov=handler --cov=remote_execution --cov-report=term-missing
+
+test-fast:
+	uv run pytest tests/ -v -x --tb=short
+
