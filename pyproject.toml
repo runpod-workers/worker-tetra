@@ -17,6 +17,7 @@ dev = [
     "pytest-cov>=6.0.0",
     "pytest-asyncio>=0.24.0",
     "ruff>=0.8.0",
+    "mypy>=1.11.0",
 ]
 
 [tool.pytest.ini_options]
@@ -51,3 +52,35 @@ filterwarnings = [
 exclude = [
     "tetra-rp/",
 ]
+
+[tool.mypy]
+# Basic configuration
+python_version = "3.9"
+warn_return_any = true
+warn_unused_configs = true
+disallow_untyped_defs = false  # Start lenient, can be stricter later
+disallow_incomplete_defs = false
+check_untyped_defs = true
+
+# Import discovery
+mypy_path = "."
+namespace_packages = true
+
+# Error output
+show_error_codes = true
+show_column_numbers = true
+pretty = true
+
+# Exclude directories
+exclude = [
+    "tetra-rp/",
+    "tests/",  # Start by excluding tests, can add later
+]
+
+# Per-module options
+[[tool.mypy.overrides]]
+module = [
+    "runpod.*",
+    "cloudpickle.*",
+]
+ignore_missing_imports = true
