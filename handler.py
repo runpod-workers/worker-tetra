@@ -7,7 +7,11 @@ import importlib
 import io
 import logging
 import os
+import uuid
+import sys
+from datetime import datetime
 from contextlib import redirect_stdout, redirect_stderr
+from typing import Dict, Any
 from remote_execution import (
     FunctionRequest,
     FunctionResponse,
@@ -15,15 +19,28 @@ from remote_execution import (
 )
 
 
+logging.basicConfig(
+    level=logging.DEBUG,  # or INFO for less verbose output
+    stream=sys.stdout,  # send logs to stdout (so docker captures it)
+    format="%(asctime)s - %(levelname)s - %(name)s - %(message)s",
+)
+
+
 class RemoteExecutor(RemoteExecutorStub):
     """
-    RemoteExecutor class for executing functions in a serverless environment.
+    RemoteExecutor class for executing functions and classes in a serverless environment.
     Inherits from RemoteExecutorStub.
     """
 
+    def __init__(self):
+        super().__init__()
+        # Instance registry for persistent class instances
+        self.class_instances: Dict[str, Any] = {}
+        self.instance_metadata: Dict[str, Dict] = {}
+
     async def ExecuteFunction(self, request: FunctionRequest) -> FunctionResponse:
         """
-        Execute a function on the remote resource.
+        Execute a function or class method on the remote resource.
 
         Args:
             request: FunctionRequest object containing function details
@@ -47,18 +64,161 @@ class RemoteExecutor(RemoteExecutorStub):
                 return py_installed
             print(py_installed.stdout)
 
-        # Execute the function
-        return self.execute(request)
+        # Route to appropriate execution method based on type
+        execution_type = getattr(request, "execution_type", "function")
+        if execution_type == "class":
+            return self.execute_class_method(request)
+        else:
+            return self.execute(request)  # Your existing function execution
+
+    # METHOD: Class method execution
+    def execute_class_method(self, request: FunctionRequest) -> FunctionResponse:
+        """
+        Execute a class method with instance management.
+        """
+        stdout_io = io.StringIO()
+        stderr_io = io.StringIO()
+        log_io = io.StringIO()
+
+        with redirect_stdout(stdout_io), redirect_stderr(stderr_io):
+            try:
+                # Setup logging
+                log_handler = logging.StreamHandler(log_io)
+                log_handler.setLevel(logging.DEBUG)
+                logger = logging.getLogger()
+                logger.addHandler(log_handler)
+
+                # Get or create class instance
+                instance, instance_id = self._get_or_create_instance(request)
+
+                # Get the method to call
+                method_name = getattr(request, "method_name", "__call__")
+                if not hasattr(instance, method_name):
+                    return FunctionResponse(
+                        success=False,
+                        error=f"Method '{method_name}' not found in class '{request.class_name}'",
+                    )
+
+                method = getattr(instance, method_name)
+
+                # Deserialize method arguments
+                args = [
+                    cloudpickle.loads(base64.b64decode(arg)) for arg in request.args
+                ]
+                kwargs = {
+                    k: cloudpickle.loads(base64.b64decode(v))
+                    for k, v in request.kwargs.items()
+                }
+
+                # Execute the method
+                result = method(*args, **kwargs)
+
+                # Update instance metadata
+                self._update_instance_metadata(instance_id)
+
+            except Exception as e:
+                # Error handling
+                combined_output = (
+                    stdout_io.getvalue() + stderr_io.getvalue() + log_io.getvalue()
+                )
+                traceback_str = traceback.format_exc()
+                error_message = f"{str(e)}\n{traceback_str}"
+
+                return FunctionResponse(
+                    success=False,
+                    error=error_message,
+                    stdout=combined_output,
+                )
+
+            finally:
+                logger.removeHandler(log_handler)
+
+        # Serialize result
+        serialized_result = base64.b64encode(cloudpickle.dumps(result)).decode("utf-8")
+        combined_output = (
+            stdout_io.getvalue() + stderr_io.getvalue() + log_io.getvalue()
+        )
+
+        return FunctionResponse(
+            success=True,
+            result=serialized_result,
+            stdout=combined_output,
+            instance_id=instance_id,
+            instance_info=self.instance_metadata.get(instance_id, {}),
+        )
+
+    def _get_or_create_instance(self, request: FunctionRequest) -> tuple[Any, str]:
+        """
+        Get existing instance or create new one.
+        """
+        instance_id = getattr(request, "instance_id", None)
+        create_new = getattr(request, "create_new_instance", True)
+
+        # Check if we should reuse existing instance
+        if not create_new and instance_id and instance_id in self.class_instances:
+            logging.debug(f"Reusing existing instance: {instance_id}")
+            return self.class_instances[instance_id], instance_id
+
+        # Create new instance
+        logging.info(f"Creating new instance of class: {request.class_name}")
+
+        # Execute class code
+        namespace = {}
+        exec(request.class_code, namespace)
+
+        if request.class_name not in namespace:
+            raise ValueError(
+                f"Class '{request.class_name}' not found in the provided code"
+            )
+
+        cls = namespace[request.class_name]
+
+        # Deserialize constructor arguments
+        constructor_args = []
+        constructor_kwargs = {}
+
+        if hasattr(request, "constructor_args") and request.constructor_args:
+            constructor_args = [
+                cloudpickle.loads(base64.b64decode(arg))
+                for arg in request.constructor_args
+            ]
+
+        if hasattr(request, "constructor_kwargs") and request.constructor_kwargs:
+            constructor_kwargs = {
+                k: cloudpickle.loads(base64.b64decode(v))
+                for k, v in request.constructor_kwargs.items()
+            }
+
+        # Create instance
+        instance = cls(*constructor_args, **constructor_kwargs)
+
+        # Generate instance ID if not provided
+        if not instance_id:
+            instance_id = f"{request.class_name}_{uuid.uuid4().hex[:8]}"
+
+        # Store instance
+        self.class_instances[instance_id] = instance
+        self.instance_metadata[instance_id] = {
+            "class_name": request.class_name,
+            "created_at": datetime.now().isoformat(),
+            "method_calls": 0,
+            "last_used": datetime.now().isoformat(),
+        }
+
+        logging.info(f"Created instance with ID: {instance_id}")
+        return instance, instance_id
+
+    def _update_instance_metadata(self, instance_id: str):
+        """Update metadata for an instance."""
+        if instance_id in self.instance_metadata:
+            self.instance_metadata[instance_id]["method_calls"] += 1
+            self.instance_metadata[instance_id]["last_used"] = (
+                datetime.now().isoformat()
+            )
 
     def install_system_dependencies(self, packages) -> FunctionResponse:
         """
         Install system packages using apt-get.
-
-        Args:
-            packages: List of system package names
-
-        Returns:
-            FunctionResponse: Object indicating success or failure with details
         """
         if not packages:
             return FunctionResponse(
@@ -84,7 +244,6 @@ class RemoteExecutor(RemoteExecutorStub):
                 )
 
             # Install the packages
-            # -y flag for non-interactive, --no-install-recommends to keep it minimal
             process = subprocess.Popen(
                 ["apt-get", "install", "-y", "--no-install-recommends"] + packages,
                 stdout=subprocess.PIPE,
@@ -118,10 +277,8 @@ class RemoteExecutor(RemoteExecutorStub):
     def install_dependencies(self, packages) -> FunctionResponse:
         """
         Install Python packages using pip with proper process completion handling.
-
         Args:
             packages: List of package names or package specifications
-
         Returns:
             FunctionResponse: Object indicating success or failure with details
         """
@@ -131,21 +288,15 @@ class RemoteExecutor(RemoteExecutorStub):
         print(f"Installing dependencies: {packages}")
 
         try:
-            # Use pip to install the packages
-            # Note: communicate() already waits for process completion
             process = subprocess.Popen(
                 ["uv", "pip", "install", "--no-cache-dir"] + packages,
                 stdout=subprocess.PIPE,
                 stderr=subprocess.PIPE,
             )
 
-            # This waits for the process to complete and captures output
             stdout, stderr = process.communicate()
-
-            # Force reload of installed packages
             importlib.invalidate_caches()
 
-            # Simply rely on pip's return code
             if process.returncode != 0:
                 return FunctionResponse(
                     success=False,
@@ -167,17 +318,14 @@ class RemoteExecutor(RemoteExecutorStub):
     def execute(self, request: FunctionRequest) -> FunctionResponse:
         """
         Execute a function as a remote resource.
-
         Args:
             request: FunctionRequest object containing function details
-
         Returns:
             FunctionResponse object with execution result
         """
         stdout_io = io.StringIO()
         stderr_io = io.StringIO()
         log_io = io.StringIO()
-
         # Capture all stdout, stderr, and logs into variables and supply them to the FunctionResponse
         with redirect_stdout(stdout_io), redirect_stderr(stderr_io):
             try:
@@ -207,15 +355,12 @@ class RemoteExecutor(RemoteExecutorStub):
                     for k, v in request.kwargs.items()
                 }
 
-                # Execute the function
                 result = func(*args, **kwargs)
 
             except Exception as e:
-                # Combine stdout, stderr, and logs
                 combined_output = (
                     stdout_io.getvalue() + stderr_io.getvalue() + log_io.getvalue()
                 )
-
                 # Capture full traceback for better debugging
                 traceback_str = traceback.format_exc()
                 error_message = f"{str(e)}\n{traceback_str}"
@@ -229,7 +374,6 @@ class RemoteExecutor(RemoteExecutorStub):
             finally:
                 # Remove the log handler to avoid duplicate logs
                 logger.removeHandler(log_handler)
-
         # Serialize result using cloudpickle
         serialized_result = base64.b64encode(cloudpickle.dumps(result)).decode("utf-8")
 
@@ -238,7 +382,6 @@ class RemoteExecutor(RemoteExecutorStub):
             stdout_io.getvalue() + stderr_io.getvalue() + log_io.getvalue()
         )
 
-        # Return success response
         return FunctionResponse(
             success=True,
             result=serialized_result,
@@ -267,6 +410,5 @@ async def handler(event: dict) -> dict:
 
 
 # Start the RunPod serverless handler
-
 if __name__ == "__main__":
     runpod.serverless.start({"handler": handler})
