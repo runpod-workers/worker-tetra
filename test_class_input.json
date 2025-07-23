@@ -1,0 +1,15 @@
+{
+  "input": {
+    "execution_type": "class",
+    "class_name": "TestClass",
+    "class_code": "class TestClass:\n    def __init__(self, value):\n        self.value = value\n    \n    def get_value(self):\n        return f'Value is: {self.value}' ",
+    "method_name": "get_value",
+    "constructor_args": [
+      "gAWVCQAAAAAAAACMBWhlbGxvlC4="
+    ],
+    "constructor_kwargs": {},
+    "args": [],
+    "kwargs": {},
+    "create_new_instance": true
+  }
+}
