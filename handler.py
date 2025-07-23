@@ -216,28 +216,6 @@ class RemoteExecutor(RemoteExecutorStub):
                 datetime.now().isoformat()
             )
 
-    def cleanup_instances(self, max_age_minutes: int = 60):
-        """Clean up old instances"""
-        from datetime import datetime, timedelta
-
-        cutoff_time = datetime.now() - timedelta(minutes=max_age_minutes)
-        instances_to_remove = []
-
-        for instance_id, metadata in self.instance_metadata.items():
-            last_used = datetime.fromisoformat(
-                metadata.get("last_used", metadata["created_at"])
-            )
-            if last_used < cutoff_time:
-                instances_to_remove.append(instance_id)
-
-        for instance_id in instances_to_remove:
-            if instance_id in self.class_instances:
-                del self.class_instances[instance_id]
-            if instance_id in self.instance_metadata:
-                del self.instance_metadata[instance_id]
-            print(f"Cleaned up instance: {instance_id}")
-
-        return len(instances_to_remove)
 
     def install_system_dependencies(self, packages) -> FunctionResponse:
         """

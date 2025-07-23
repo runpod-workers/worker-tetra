@@ -115,33 +115,3 @@ class TestRemoteExecutor:
             stderr=subprocess.PIPE
         )
 
-    def test_cleanup_instances(self):
-        """Test instance cleanup."""
-        from datetime import datetime, timedelta
-        
-        # Create test instances
-        self.executor.class_instances["old"] = Mock()
-        self.executor.class_instances["new"] = Mock()
-        
-        old_time = (datetime.now() - timedelta(hours=2)).isoformat()
-        new_time = datetime.now().isoformat()
-        
-        self.executor.instance_metadata["old"] = {
-            "class_name": "OldClass",
-            "created_at": old_time,
-            "last_used": old_time,
-            "method_calls": 1
-        }
-        
-        self.executor.instance_metadata["new"] = {
-            "class_name": "NewClass", 
-            "created_at": new_time,
-            "last_used": new_time,
-            "method_calls": 1
-        }
-        
-        cleaned_count = self.executor.cleanup_instances(max_age_minutes=60)
-        
-        assert cleaned_count == 1
-        assert "old" not in self.executor.class_instances
-        assert "new" in self.executor.class_instances
