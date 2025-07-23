@@ -1,4 +1,4 @@
-IMAGE = runpod/tetra-rp
+IMAGE = mwiki/tetra-rp
 TAG = local
 FULL_IMAGE = $(IMAGE):$(TAG)
 FULL_IMAGE_CPU = $(IMAGE)-cpu:$(TAG)
@@ -33,3 +33,6 @@ build-cpu: setup
 
 dev:
 	uv sync --all-groups
+
+test:
+	uv run pytest tests/ -v
