@@ -9,6 +9,9 @@ import logging
 import os
 import uuid
 import sys
+import fcntl
+import time
+import glob
 from datetime import datetime
 from contextlib import redirect_stdout, redirect_stderr
 from typing import Dict, Any
@@ -55,6 +58,19 @@ class RemoteExecutor(RemoteExecutorStub):
         if self.has_runpod_volume:
             self.configure_uv_cache()
             self.configure_volume_environment()
+
+    def configure_uv_cache(self):
+        """Configure uv to use the shared volume cache."""
+        if self.cache_path:
+            os.environ["UV_CACHE_DIR"] = self.cache_path
+
+    def configure_volume_environment(self):
+        """Configure environment variables for volume usage."""
+        if self.venv_path:
+            os.environ["VIRTUAL_ENV"] = self.venv_path
+            venv_bin = os.path.join(self.venv_path, "bin")
+            current_path = os.environ.get("PATH", "")
+            os.environ["PATH"] = f"{venv_bin}:{current_path}"
 
     def initialize_workspace(self, timeout: int = 30) -> FunctionResponse:
         """
@@ -192,6 +208,14 @@ class RemoteExecutor(RemoteExecutorStub):
         Returns:
             FunctionResponse object with execution result
         """
+        # Initialize workspace if using volume
+        if self.has_runpod_volume:
+            workspace_init = self.initialize_workspace()
+            if not workspace_init.success:
+                return workspace_init
+            if workspace_init.stdout:
+                print(workspace_init.stdout)
+
         # Install system dependencies first
         if request.system_dependencies:
             sys_installed = self.install_system_dependencies(
@@ -307,8 +331,9 @@ class RemoteExecutor(RemoteExecutorStub):
         logging.info(f"Creating new instance of class: {request.class_name}")
 
         # Execute class code
-        namespace = {}
-        exec(request.class_code, namespace)
+        namespace: Dict[str, Any] = {}
+        if request.class_code:
+            exec(request.class_code, namespace)
 
         if request.class_name not in namespace:
             raise ValueError(
@@ -502,70 +527,101 @@ class RemoteExecutor(RemoteExecutorStub):
         Returns:
             FunctionResponse object with execution result
         """
+        # Save current working directory
+        original_cwd = os.getcwd()
+
         stdout_io = io.StringIO()
         stderr_io = io.StringIO()
         log_io = io.StringIO()
-        # Capture all stdout, stderr, and logs into variables and supply them to the FunctionResponse
-        with redirect_stdout(stdout_io), redirect_stderr(stderr_io):
-            try:
-                # Redirect logging to capture log messages
-                log_handler = logging.StreamHandler(log_io)
-                log_handler.setLevel(logging.DEBUG)
-                logger = logging.getLogger()
-                logger.addHandler(log_handler)
 
-                namespace = {}
-                exec(request.function_code, namespace)
+        try:
+            # Change to volume workspace if available
+            if self.has_runpod_volume:
+                os.chdir(self.workspace_path)
 
-                if request.function_name not in namespace:
-                    return FunctionResponse(
-                        success=False,
-                        result=f"Function '{request.function_name}' not found in the provided code",
+                # Ensure virtual environment packages are in Python path
+                if self.venv_path and os.path.exists(self.venv_path):
+                    site_packages = glob.glob(
+                        os.path.join(self.venv_path, "lib", "python*", "site-packages")
+                    )
+                    for site_package_path in site_packages:
+                        if site_package_path not in sys.path:
+                            sys.path.insert(0, site_package_path)
+
+            # Capture all stdout, stderr, and logs into variables and supply them to the FunctionResponse
+            with redirect_stdout(stdout_io), redirect_stderr(stderr_io):
+                try:
+                    # Redirect logging to capture log messages
+                    log_handler = logging.StreamHandler(log_io)
+                    log_handler.setLevel(logging.DEBUG)
+                    logger = logging.getLogger()
+                    logger.addHandler(log_handler)
+
+                    namespace: dict = {}
+                    if request.function_code:
+                        exec(request.function_code, namespace)
+
+                    if request.function_name not in namespace:
+                        return FunctionResponse(
+                            success=False,
+                            result=f"Function '{request.function_name}' not found in the provided code",
+                        )
+
+                    func = namespace[request.function_name]
+
+                    # Deserialize arguments using cloudpickle
+                    args = [
+                        cloudpickle.loads(base64.b64decode(arg)) for arg in request.args
+                    ]
+                    kwargs = {
+                        k: cloudpickle.loads(base64.b64decode(v))
+                        for k, v in request.kwargs.items()
+                    }
+
+                    # Execute the function
+                    result = func(*args, **kwargs)
+
+                except Exception as e:
+                    # Combine stdout, stderr, and logs
+                    combined_output = (
+                        stdout_io.getvalue() + stderr_io.getvalue() + log_io.getvalue()
                     )
 
-                func = namespace[request.function_name]
+                    # Capture full traceback for better debugging
+                    traceback_str = traceback.format_exc()
+                    error_message = f"{str(e)}\n{traceback_str}"
 
-                # Deserialize arguments using cloudpickle
-                args = [
-                    cloudpickle.loads(base64.b64decode(arg)) for arg in request.args
-                ]
-                kwargs = {
-                    k: cloudpickle.loads(base64.b64decode(v))
-                    for k, v in request.kwargs.items()
-                }
+                    return FunctionResponse(
+                        success=False,
+                        error=error_message,
+                        stdout=combined_output,
+                    )
 
-                result = func(*args, **kwargs)
+                finally:
+                    # Remove the log handler to avoid duplicate logs
+                    if "logger" in locals() and "log_handler" in locals():
+                        logger.removeHandler(log_handler)
 
-            except Exception as e:
-                combined_output = (
-                    stdout_io.getvalue() + stderr_io.getvalue() + log_io.getvalue()
-                )
-                # Capture full traceback for better debugging
-                traceback_str = traceback.format_exc()
-                error_message = f"{str(e)}\n{traceback_str}"
+            # Serialize result using cloudpickle
+            serialized_result = base64.b64encode(cloudpickle.dumps(result)).decode(
+                "utf-8"
+            )
 
-                return FunctionResponse(
-                    success=False,
-                    error=error_message,
-                    stdout=combined_output,
-                )
+            # Combine stdout, stderr, and logs
+            combined_output = (
+                stdout_io.getvalue() + stderr_io.getvalue() + log_io.getvalue()
+            )
 
-            finally:
-                # Remove the log handler to avoid duplicate logs
-                logger.removeHandler(log_handler)
-        # Serialize result using cloudpickle
-        serialized_result = base64.b64encode(cloudpickle.dumps(result)).decode("utf-8")
+            # Return success response
+            return FunctionResponse(
+                success=True,
+                result=serialized_result,
+                stdout=combined_output,
+            )
 
-        # Combine stdout, stderr, and logs
-        combined_output = (
-            stdout_io.getvalue() + stderr_io.getvalue() + log_io.getvalue()
-        )
-
-        return FunctionResponse(
-            success=True,
-            result=serialized_result,
-            stdout=combined_output,
-        )
+        finally:
+            # Always restore original working directory
+            os.chdir(original_cwd)
 
 
 async def handler(event: dict) -> dict:
