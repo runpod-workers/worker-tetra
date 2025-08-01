@@ -114,8 +114,9 @@ class TestRemoteExecutor:
         response = self.executor.install_dependencies(["numpy"])
 
         assert response.success is True
-        mock_popen.assert_called_once_with(
-            ["uv", "pip", "install", "--no-cache-dir", "numpy"],
-            stdout=subprocess.PIPE,
-            stderr=subprocess.PIPE,
-        )
+        mock_popen.assert_called_once()
+        call_args = mock_popen.call_args
+        assert call_args[0][0] == ["uv", "pip", "install", "--no-cache-dir", "numpy"]
+        assert call_args[1]["stdout"] == subprocess.PIPE
+        assert call_args[1]["stderr"] == subprocess.PIPE
+        assert "env" in call_args[1]  # Environment should be passed

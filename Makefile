@@ -4,7 +4,6 @@ FULL_IMAGE = $(IMAGE):$(TAG)
 FULL_IMAGE_CPU = $(IMAGE)-cpu:$(TAG)
 
 .PHONY: setup help
-.PHONY: setup help
 
 # Check if 'uv' is installed
 ifeq (, $(shell which uv))
