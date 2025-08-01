@@ -147,6 +147,41 @@ class RemoteExecutor(RemoteExecutorStub):
                 success=False, error=f"Exception creating virtual environment: {str(e)}"
             )
 
+    def _get_installed_packages(self):
+        """Get list of currently installed packages in the virtual environment."""
+        if (
+            not self.has_runpod_volume
+            or not self.venv_path
+            or not os.path.exists(self.venv_path)
+        ):
+            return {}
+
+        try:
+            env = os.environ.copy()
+            env["VIRTUAL_ENV"] = self.venv_path
+
+            process = subprocess.Popen(
+                ["uv", "pip", "list", "--format=freeze"],
+                stdout=subprocess.PIPE,
+                stderr=subprocess.PIPE,
+                env=env,
+            )
+
+            stdout, stderr = process.communicate()
+
+            if process.returncode != 0:
+                return {}
+
+            packages = {}
+            for line in stdout.decode().strip().split("\n"):
+                if "==" in line:
+                    name, version = line.split("==", 1)
+                    packages[name] = version
+
+            return packages
+        except Exception:
+            return {}
+
     async def ExecuteFunction(self, request: FunctionRequest) -> FunctionResponse:
         """
         Execute a function or class method on the remote resource.
@@ -385,7 +420,8 @@ class RemoteExecutor(RemoteExecutorStub):
 
     def install_dependencies(self, packages) -> FunctionResponse:
         """
-        Install Python packages using pip with proper process completion handling.
+        Install Python packages using uv with differential installation support.
+
         Args:
             packages: List of package names or package specifications
         Returns:
@@ -396,16 +432,50 @@ class RemoteExecutor(RemoteExecutorStub):
 
         print(f"Installing dependencies: {packages}")
 
+        # If using volume, check which packages are already installed
+        if self.has_runpod_volume and self.venv_path and os.path.exists(self.venv_path):
+            installed_packages = self._get_installed_packages()
+            packages_to_install = []
+
+            for package in packages:
+                # Parse package specification (e.g., "numpy==1.21.0" -> "numpy", "1.21.0")
+                if "==" in package:
+                    name, version = package.split("==", 1)
+                    if (
+                        name not in installed_packages
+                        or installed_packages[name] != version
+                    ):
+                        packages_to_install.append(package)
+                else:
+                    # For packages without version specification, always install
+                    packages_to_install.append(package)
+
+            if not packages_to_install:
+                return FunctionResponse(
+                    success=True, stdout="All packages already installed"
+                )
+
+            packages = packages_to_install
+
         try:
+            # Prepare environment for virtual environment usage
+            env = os.environ.copy()
+            if self.has_runpod_volume and self.venv_path:
+                env["VIRTUAL_ENV"] = self.venv_path
+
+            # Use uv pip to install the packages
+            command = ["uv", "pip", "install", "--no-cache-dir"] + packages
             process = subprocess.Popen(
-                ["uv", "pip", "install", "--no-cache-dir"] + packages,
+                command,
                 stdout=subprocess.PIPE,
                 stderr=subprocess.PIPE,
+                env=env,
             )
 
             stdout, stderr = process.communicate()
             importlib.invalidate_caches()
 
+            # Simply rely on uv pip's return code
             if process.returncode != 0:
                 return FunctionResponse(
                     success=False,
