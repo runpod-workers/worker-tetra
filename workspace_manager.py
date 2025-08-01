@@ -5,21 +5,30 @@ import time
 from typing import Optional
 
 from remote_execution import FunctionResponse
+from constants import (
+    RUNPOD_VOLUME_PATH,
+    DEFAULT_WORKSPACE_PATH,
+    VENV_DIR_NAME,
+    UV_CACHE_DIR_NAME,
+    WORKSPACE_LOCK_FILE,
+)
 
 
 class WorkspaceManager:
     """Manages RunPod volume workspace initialization and configuration."""
 
     def __init__(self):
-        self.has_runpod_volume = os.path.exists("/runpod-volume")
-        self.workspace_path = "/runpod-volume" if self.has_runpod_volume else "/app"
+        self.has_runpod_volume = os.path.exists(RUNPOD_VOLUME_PATH)
+        self.workspace_path = (
+            RUNPOD_VOLUME_PATH if self.has_runpod_volume else DEFAULT_WORKSPACE_PATH
+        )
         self.venv_path = (
-            os.path.join(self.workspace_path, ".venv")
+            os.path.join(self.workspace_path, VENV_DIR_NAME)
             if self.has_runpod_volume
             else None
         )
         self.cache_path = (
-            os.path.join(self.workspace_path, ".uv-cache")
+            os.path.join(self.workspace_path, UV_CACHE_DIR_NAME)
             if self.has_runpod_volume
             else None
         )
@@ -63,7 +72,7 @@ class WorkspaceManager:
             )
 
         # Use file-based locking for concurrent initialization
-        lock_file = os.path.join(self.workspace_path, ".initialization.lock")
+        lock_file = os.path.join(self.workspace_path, WORKSPACE_LOCK_FILE)
 
         try:
             # Ensure workspace directory exists

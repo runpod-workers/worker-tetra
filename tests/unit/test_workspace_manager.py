@@ -6,6 +6,12 @@ from unittest.mock import patch
 
 from workspace_manager import WorkspaceManager
 from remote_execution import FunctionResponse
+from constants import (
+    RUNPOD_VOLUME_PATH,
+    DEFAULT_WORKSPACE_PATH,
+    VENV_DIR_NAME,
+    UV_CACHE_DIR_NAME,
+)
 
 
 class TestVolumeDetection:
@@ -19,10 +25,10 @@ class TestVolumeDetection:
         manager = WorkspaceManager()
 
         assert manager.has_runpod_volume is True
-        assert manager.workspace_path == "/runpod-volume"
-        assert manager.venv_path == "/runpod-volume/.venv"
-        assert manager.cache_path == "/runpod-volume/.uv-cache"
-        mock_exists.assert_called_with("/runpod-volume")
+        assert manager.workspace_path == RUNPOD_VOLUME_PATH
+        assert manager.venv_path == f"{RUNPOD_VOLUME_PATH}/{VENV_DIR_NAME}"
+        assert manager.cache_path == f"{RUNPOD_VOLUME_PATH}/{UV_CACHE_DIR_NAME}"
+        mock_exists.assert_called_with(RUNPOD_VOLUME_PATH)
 
     @patch("os.path.exists")
     def test_detects_runpod_volume_missing(self, mock_exists):
@@ -32,7 +38,7 @@ class TestVolumeDetection:
         manager = WorkspaceManager()
 
         assert manager.has_runpod_volume is False
-        assert manager.workspace_path == "/app"
+        assert manager.workspace_path == DEFAULT_WORKSPACE_PATH
         assert manager.venv_path is None
         assert manager.cache_path is None
 
@@ -43,7 +49,7 @@ class TestWorkspaceInitialization:
     @patch("os.path.exists")
     def test_workspace_initialization_creates_venv(self, mock_exists):
         """Test that workspace initialization creates virtual environment."""
-        mock_exists.side_effect = lambda path: path == "/runpod-volume"
+        mock_exists.side_effect = lambda path: path == RUNPOD_VOLUME_PATH
 
         manager = WorkspaceManager()
 
@@ -66,8 +72,8 @@ class TestWorkspaceInitialization:
     def test_workspace_already_initialized_skips_creation(self, mock_exists):
         """Test that existing workspace is not re-initialized."""
         mock_exists.side_effect = lambda path: path in [
-            "/runpod-volume",
-            "/runpod-volume/.venv",
+            RUNPOD_VOLUME_PATH,
+            f"{RUNPOD_VOLUME_PATH}/{VENV_DIR_NAME}",
         ]
 
         manager = WorkspaceManager()
@@ -100,7 +106,7 @@ class TestConcurrencySafety:
         self, mock_remove, mock_flock, mock_open, mock_makedirs, mock_exists
     ):
         """Test that concurrent initialization is handled safely."""
-        mock_exists.side_effect = lambda path: path == "/runpod-volume"
+        mock_exists.side_effect = lambda path: path == RUNPOD_VOLUME_PATH
 
         results = []
 
@@ -135,9 +141,16 @@ class TestEnvironmentConfiguration:
         with patch.dict("os.environ", {}, clear=True):
             WorkspaceManager()
 
-            assert os.environ.get("UV_CACHE_DIR") == "/runpod-volume/.uv-cache"
-            assert os.environ.get("VIRTUAL_ENV") == "/runpod-volume/.venv"
-            assert "/runpod-volume/.venv/bin" in os.environ.get("PATH", "")
+            assert (
+                os.environ.get("UV_CACHE_DIR")
+                == f"{RUNPOD_VOLUME_PATH}/{UV_CACHE_DIR_NAME}"
+            )
+            assert (
+                os.environ.get("VIRTUAL_ENV") == f"{RUNPOD_VOLUME_PATH}/{VENV_DIR_NAME}"
+            )
+            assert f"{RUNPOD_VOLUME_PATH}/{VENV_DIR_NAME}/bin" in os.environ.get(
+                "PATH", ""
+            )
 
     @patch("os.path.exists")
     def test_no_environment_changes_without_volume(self, mock_exists):
@@ -166,7 +179,7 @@ class TestWorkspaceOperations:
         original_cwd = manager.change_to_workspace()
 
         assert original_cwd == "/original"
-        mock_chdir.assert_called_once_with("/runpod-volume")
+        mock_chdir.assert_called_once_with(RUNPOD_VOLUME_PATH)
 
     @patch("os.path.exists")
     def test_change_to_workspace_no_volume(self, mock_exists):
@@ -183,10 +196,12 @@ class TestWorkspaceOperations:
     def test_setup_python_path(self, mock_glob, mock_exists):
         """Test Python path setup with virtual environment."""
         mock_exists.side_effect = lambda path: path in [
-            "/runpod-volume",
-            "/runpod-volume/.venv",
+            RUNPOD_VOLUME_PATH,
+            f"{RUNPOD_VOLUME_PATH}/{VENV_DIR_NAME}",
         ]
-        mock_glob.return_value = ["/runpod-volume/.venv/lib/python3.12/site-packages"]
+        mock_glob.return_value = [
+            f"{RUNPOD_VOLUME_PATH}/{VENV_DIR_NAME}/lib/python3.12/site-packages"
+        ]
 
         manager = WorkspaceManager()
 
@@ -195,6 +210,9 @@ class TestWorkspaceOperations:
         original_path = sys.path.copy()
         try:
             manager.setup_python_path()
-            assert "/runpod-volume/.venv/lib/python3.12/site-packages" in sys.path
+            assert (
+                f"{RUNPOD_VOLUME_PATH}/{VENV_DIR_NAME}/lib/python3.12/site-packages"
+                in sys.path
+            )
         finally:
             sys.path = original_path

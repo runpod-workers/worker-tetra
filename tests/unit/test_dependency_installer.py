@@ -4,6 +4,7 @@ from unittest.mock import Mock, patch
 
 from dependency_installer import DependencyInstaller
 from workspace_manager import WorkspaceManager
+from constants import RUNPOD_VOLUME_PATH, VENV_DIR_NAME
 
 
 class TestSystemDependencies:
@@ -110,7 +111,7 @@ class TestDifferentialInstallation:
         """Setup for each test method."""
         self.workspace_manager = Mock(spec=WorkspaceManager)
         self.workspace_manager.has_runpod_volume = True
-        self.workspace_manager.venv_path = "/runpod-volume/.venv"
+        self.workspace_manager.venv_path = f"{RUNPOD_VOLUME_PATH}/{VENV_DIR_NAME}"
         self.installer = DependencyInstaller(self.workspace_manager)
 
     @patch("os.path.exists")

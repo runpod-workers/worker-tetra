@@ -7,6 +7,7 @@ import threading
 from unittest.mock import Mock, patch
 
 from handler import RemoteExecutor, handler
+from constants import RUNPOD_VOLUME_PATH, VENV_DIR_NAME
 
 
 class TestFullWorkflowWithVolume:
@@ -22,8 +23,8 @@ class TestFullWorkflowWithVolume:
         """Test complete workflow from handler to execution with volume."""
         # Mock volume exists
         mock_exists.side_effect = lambda path: path in [
-            "/runpod-volume",
-            "/runpod-volume/.venv",
+            RUNPOD_VOLUME_PATH,
+            f"{RUNPOD_VOLUME_PATH}/{VENV_DIR_NAME}",
         ]
 
         # Mock glob for site-packages
@@ -60,7 +61,7 @@ def numpy_test():
 
             # Should have changed to volume directory
             chdir_calls = [call[0][0] for call in mock_chdir.call_args_list]
-            assert "/runpod-volume" in chdir_calls
+            assert RUNPOD_VOLUME_PATH in chdir_calls
 
             # Should have installed dependencies
             assert mock_popen.called
@@ -76,8 +77,8 @@ def numpy_test():
     ):
         """Test workflow that includes both system and Python dependencies."""
         mock_exists.side_effect = lambda path: path in [
-            "/runpod-volume",
-            "/runpod-volume/.venv",
+            RUNPOD_VOLUME_PATH,
+            f"{RUNPOD_VOLUME_PATH}/{VENV_DIR_NAME}",
         ]
 
         # Mock glob for site-packages
@@ -167,8 +168,8 @@ class TestConcurrentRequests:
     ):
         """Test multiple concurrent requests to the same endpoint."""
         mock_exists.side_effect = lambda path: path in [
-            "/runpod-volume",
-            "/runpod-volume/.venv",
+            RUNPOD_VOLUME_PATH,
+            f"{RUNPOD_VOLUME_PATH}/{VENV_DIR_NAME}",
         ]
 
         # Mock glob for site-packages
@@ -226,8 +227,8 @@ def concurrent_test():
     def test_concurrent_dependency_installation(self, mock_popen, mock_exists):
         """Test that concurrent dependency installations don't conflict."""
         mock_exists.side_effect = lambda path: path in [
-            "/runpod-volume",
-            "/runpod-volume/.venv",
+            RUNPOD_VOLUME_PATH,
+            f"{RUNPOD_VOLUME_PATH}/{VENV_DIR_NAME}",
         ]
 
         # Track installation calls
@@ -297,8 +298,8 @@ class TestMixedExecution:
 
         # Second request - volume becomes available
         mock_exists.side_effect = lambda path: path in [
-            "/runpod-volume",
-            "/runpod-volume/.venv",
+            RUNPOD_VOLUME_PATH,
+            f"{RUNPOD_VOLUME_PATH}/{VENV_DIR_NAME}",
         ]
 
         event_with_volume = {
@@ -314,7 +315,7 @@ class TestMixedExecution:
         result_with_volume = await handler(event_with_volume)
         assert result_with_volume["success"] is True
         chdir_calls = [call[0][0] for call in mock_chdir.call_args_list]
-        assert "/runpod-volume" in chdir_calls
+        assert RUNPOD_VOLUME_PATH in chdir_calls
 
     @patch("os.path.exists")
     @patch("subprocess.Popen")
@@ -325,7 +326,7 @@ class TestMixedExecution:
     ):
         """Test graceful fallback when volume initialization fails."""
         mock_exists.side_effect = (
-            lambda path: path == "/runpod-volume"
+            lambda path: path == RUNPOD_VOLUME_PATH
         )  # Volume exists but venv doesn't exist
 
         # Mock file operations
@@ -367,8 +368,8 @@ class TestErrorHandlingIntegration:
     ):
         """Test proper error handling when dependency installation fails in volume."""
         mock_exists.side_effect = lambda path: path in [
-            "/runpod-volume",
-            "/runpod-volume/.venv",
+            RUNPOD_VOLUME_PATH,
+            f"{RUNPOD_VOLUME_PATH}/{VENV_DIR_NAME}",
         ]
 
         # Mock failed dependency installation
