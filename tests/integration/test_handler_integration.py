@@ -370,7 +370,7 @@ def direct_test():
             kwargs={},
         )
 
-        result = executor.execute(request)
+        result = executor.function_executor.execute(request)
 
         assert result.success is True
         deserialized_result = cloudpickle.loads(base64.b64decode(result.result))

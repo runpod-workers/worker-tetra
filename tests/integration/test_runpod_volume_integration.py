@@ -244,7 +244,7 @@ def concurrent_test():
         mock_popen.side_effect = track_popen
 
         def install_deps(executor, packages):
-            return executor.install_dependencies(packages)
+            return executor.dependency_installer.install_dependencies(packages)
 
         # Create multiple executors trying to install different packages
         executors = [RemoteExecutor() for _ in range(3)]

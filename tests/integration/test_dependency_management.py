@@ -1,6 +1,6 @@
 import pytest
 from unittest.mock import patch, MagicMock
-from handler import RemoteExecutor
+from remote_executor import RemoteExecutor
 from remote_execution import FunctionRequest
 
 
@@ -22,7 +22,9 @@ class TestDependencyManagement:
             )
             mock_popen.return_value = mock_process
 
-            result = executor.install_dependencies(["requests", "numpy"])
+            result = executor.dependency_installer.install_dependencies(
+                ["requests", "numpy"]
+            )
 
             assert result.success is True
             assert "Successfully installed" in result.stdout
@@ -63,7 +65,9 @@ class TestDependencyManagement:
 
             mock_popen.side_effect = [mock_update_process, mock_install_process]
 
-            result = executor.install_system_dependencies(["curl", "wget"])
+            result = executor.dependency_installer.install_system_dependencies(
+                ["curl", "wget"]
+            )
 
             assert result.success is True
             assert "Installing curl" in result.stdout
@@ -108,9 +112,13 @@ def test_with_deps():
         )
 
         with (
-            patch.object(executor, "install_dependencies") as mock_py_deps,
-            patch.object(executor, "install_system_dependencies") as mock_sys_deps,
-            patch.object(executor, "execute") as mock_execute,
+            patch.object(
+                executor.dependency_installer, "install_dependencies"
+            ) as mock_py_deps,
+            patch.object(
+                executor.dependency_installer, "install_system_dependencies"
+            ) as mock_sys_deps,
+            patch.object(executor.function_executor, "execute") as mock_execute,
         ):
             # Mock successful dependency installations
             mock_sys_deps.return_value = type(
@@ -147,7 +155,9 @@ def test_with_deps():
             )
             mock_popen.return_value = mock_process
 
-            result = executor.install_dependencies(["nonexistent-package"])
+            result = executor.dependency_installer.install_dependencies(
+                ["nonexistent-package"]
+            )
 
             assert result.success is False
             assert result.error == "Error installing packages"
@@ -168,7 +178,7 @@ def test_with_deps():
             )
             mock_popen.return_value = mock_process
 
-            result = executor.install_system_dependencies(["curl"])
+            result = executor.dependency_installer.install_system_dependencies(["curl"])
 
             assert result.success is False
             assert result.error == "Error updating package list"
@@ -187,8 +197,10 @@ def test_with_deps():
         )
 
         with (
-            patch.object(executor, "install_dependencies") as mock_deps,
-            patch.object(executor, "execute") as mock_execute,
+            patch.object(
+                executor.dependency_installer, "install_dependencies"
+            ) as mock_deps,
+            patch.object(executor.function_executor, "execute") as mock_execute,
         ):
             # Mock failed dependency installation
             mock_deps.return_value = type(
@@ -196,7 +208,7 @@ def test_with_deps():
                 (object,),
                 {
                     "success": False,
-                    "error": "Package not found",
+                    "error": "Error installing packages",
                     "stdout": "error details",
                 },
             )()
@@ -208,7 +220,7 @@ def test_with_deps():
 
             # Verify failure response
             assert result.success is False
-            assert result.error == "Package not found"
+            assert result.error == "Error installing packages"
 
     @pytest.mark.integration
     def test_empty_dependency_lists(self):
@@ -216,12 +228,12 @@ def test_with_deps():
         executor = RemoteExecutor()
 
         # Test empty Python dependencies
-        py_result = executor.install_dependencies([])
+        py_result = executor.dependency_installer.install_dependencies([])
         assert py_result.success is True
         assert py_result.stdout == "No packages to install"
 
         # Test empty system dependencies
-        sys_result = executor.install_system_dependencies([])
+        sys_result = executor.dependency_installer.install_system_dependencies([])
         assert sys_result.success is True
         assert sys_result.stdout == "No system packages to install"
 
@@ -237,7 +249,9 @@ def test_with_deps():
             mock_popen.return_value = mock_process
 
             # Test Python dependency command
-            executor.install_dependencies(["package1", "package2>=1.0.0"])
+            executor.dependency_installer.install_dependencies(
+                ["package1", "package2>=1.0.0"]
+            )
 
             py_call = mock_popen.call_args
             expected_cmd = [
@@ -264,7 +278,7 @@ def test_with_deps():
             mock_popen.side_effect = [mock_update, mock_install]
 
             # Test system dependency command
-            executor.install_system_dependencies(["pkg1", "pkg2"])
+            executor.dependency_installer.install_system_dependencies(["pkg1", "pkg2"])
 
             install_call = mock_popen.call_args_list[1]
             expected_cmd = [
@@ -288,13 +302,17 @@ def test_with_deps():
 
         with patch("subprocess.Popen", side_effect=Exception("Subprocess error")):
             # Test Python dependency exception
-            py_result = executor.install_dependencies(["some-package"])
+            py_result = executor.dependency_installer.install_dependencies(
+                ["some-package"]
+            )
             assert py_result.success is False
             assert "Exception during package installation" in py_result.error
             assert "Subprocess error" in py_result.error
 
             # Test system dependency exception
-            sys_result = executor.install_system_dependencies(["some-package"])
+            sys_result = executor.dependency_installer.install_system_dependencies(
+                ["some-package"]
+            )
             assert sys_result.success is False
             assert "Exception during system package installation" in sys_result.error
             assert "Subprocess error" in sys_result.error
