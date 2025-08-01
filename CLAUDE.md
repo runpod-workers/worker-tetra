@@ -174,11 +174,21 @@ python handler.py            # Test handler locally with test_input.json
 ## File Structure Highlights
 
 ```
-├── handler.py              # Main serverless function handler
+├── handler.py              # Main serverless function handler with volume support
 ├── remote_execution.py     # Protocol definitions
+├── PLAN.md                # TDD implementation plan for volume workspace
 ├── Dockerfile             # GPU container definition  
 ├── Dockerfile-cpu         # CPU container definition
 ├── test_input.json        # Sample input for local testing
+├── tests/                 # Comprehensive test suite
+│   ├── conftest.py        # Shared test fixtures
+│   ├── unit/              # Unit tests for individual components
+│   │   ├── test_runpod_volume_workspace.py  # Volume detection and initialization
+│   │   ├── test_volume_execution.py         # Volume-aware execution
+│   │   └── test_*.py      # Other unit tests
+│   └── integration/       # End-to-end integration tests
+│       ├── test_runpod_volume_integration.py # Volume workflow tests
+│       └── test_*.py      # Other integration tests
 ├── tetra-rp/              # Git submodule - Tetra SDK
 │   ├── src/tetra_rp/
 │   │   ├── client.py      # @remote decorator
