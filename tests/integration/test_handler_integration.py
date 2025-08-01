@@ -17,13 +17,18 @@ class TestHandlerIntegration:
         self.test_input_file = self.test_data_dir / "test_input.json"
         self.test_class_input_file = self.test_data_dir / "test_class_input.json"
 
+    @pytest.mark.integration
     @pytest.mark.asyncio
-    async def test_handler_end_to_end(self):
-        """Test complete handler workflow with simple function"""
+    async def test_end_to_end_simple_function(self):
+        """Test complete end-to-end execution of a simple function."""
         event = {
             "input": {
                 "function_name": "hello_world",
-                "function_code": "def hello_world():\n    return 'hello world'",
+                "function_code": """
+def hello_world():
+    print("Hello from integration test")
+    return "integration success"
+""",
                 "args": [],
                 "kwargs": {},
             }
@@ -32,8 +37,125 @@ class TestHandlerIntegration:
         result = await handler(event)
 
         assert result["success"] is True
-        assert result["error"] is None
-        assert result["result"] is not None
+        deserialized_result = cloudpickle.loads(base64.b64decode(result["result"]))
+        assert deserialized_result == "integration success"
+        assert "Hello from integration test" in result["stdout"]
+
+    @pytest.mark.integration
+    @pytest.mark.asyncio
+    async def test_end_to_end_function_with_args(self):
+        """Test complete execution with function arguments."""
+        arg1 = base64.b64encode(cloudpickle.dumps(10)).decode("utf-8")
+        arg2 = base64.b64encode(cloudpickle.dumps(5)).decode("utf-8")
+
+        event = {
+            "input": {
+                "function_name": "calculate",
+                "function_code": """
+def calculate(a, b):
+    print(f"Calculating {a} * {b}")
+    result = a * b
+    print(f"Result: {result}")
+    return result
+""",
+                "args": [arg1, arg2],
+                "kwargs": {},
+            }
+        }
+
+        result = await handler(event)
+
+        assert result["success"] is True
+        deserialized_result = cloudpickle.loads(base64.b64decode(result["result"]))
+        assert deserialized_result == 50
+        assert "Calculating 10 * 5" in result["stdout"]
+        assert "Result: 50" in result["stdout"]
+
+    @pytest.mark.integration
+    @pytest.mark.asyncio
+    async def test_end_to_end_function_with_kwargs(self):
+        """Test complete execution with keyword arguments."""
+        kwarg_value = base64.b64encode(cloudpickle.dumps("integration")).decode("utf-8")
+
+        event = {
+            "input": {
+                "function_name": "greet",
+                "function_code": """
+def greet(name="world"):
+    message = f"Hello, {name}!"
+    print(message)
+    return message
+""",
+                "args": [],
+                "kwargs": {"name": kwarg_value},
+            }
+        }
+
+        result = await handler(event)
+
+        assert result["success"] is True
+        deserialized_result = cloudpickle.loads(base64.b64decode(result["result"]))
+        assert deserialized_result == "Hello, integration!"
+        assert "Hello, integration!" in result["stdout"]
+
+    @pytest.mark.integration
+    @pytest.mark.asyncio
+    async def test_end_to_end_function_error_handling(self):
+        """Test error handling in end-to-end execution."""
+        event = {
+            "input": {
+                "function_name": "error_func",
+                "function_code": """
+def error_func():
+    print("About to raise an error")
+    raise ValueError("Integration test error")
+""",
+                "args": [],
+                "kwargs": {},
+            }
+        }
+
+        result = await handler(event)
+
+        assert result["success"] is False
+        assert "Integration test error" in result["error"]
+        assert "ValueError" in result["error"]
+        assert "About to raise an error" in result["stdout"]
+
+    @pytest.mark.integration
+    @pytest.mark.asyncio
+    async def test_end_to_end_function_with_logging(self):
+        """Test function execution with logging output."""
+        event = {
+            "input": {
+                "function_name": "log_test",
+                "function_code": """
+def log_test():
+    import logging
+    logging.basicConfig(level=logging.INFO)
+    logger = logging.getLogger(__name__)
+    
+    logger.info("This is an info message")
+    logger.warning("This is a warning message")
+    print("This is a print statement")
+    
+    return "logging complete"
+""",
+                "args": [],
+                "kwargs": {},
+            }
+        }
+
+        result = await handler(event)
+
+        assert result["success"] is True
+        deserialized_result = cloudpickle.loads(base64.b64decode(result["result"]))
+        assert deserialized_result == "logging complete"
+
+        # Should capture both print and log output
+        output = result["stdout"]
+        assert "This is a print statement" in output
+        # Note: logging output might be captured depending on handler setup
 
     @pytest.mark.asyncio
     async def test_handler_with_test_input_json(self):
@@ -148,6 +270,164 @@ class TestHandlerIntegration:
         }
         result2 = await handler(invalid_event2)
         assert result2["success"] is False
+
+    @pytest.mark.integration
+    @pytest.mark.asyncio
+    async def test_end_to_end_complex_data_types(self):
+        """Test serialization/deserialization of complex data types."""
+        complex_input = {
+            "list": [1, 2, 3],
+            "dict": {"nested": {"deep": "value"}},
+            "tuple": (4, 5, 6),
+        }
+
+        serialized_input = base64.b64encode(cloudpickle.dumps(complex_input)).decode(
+            "utf-8"
+        )
+
+        event = {
+            "input": {
+                "function_name": "process_data",
+                "function_code": """
+def process_data(data):
+    result = {
+        "received_list": data["list"],
+        "received_dict": data["dict"],
+        "received_tuple": list(data["tuple"]),
+        "total_count": len(data["list"]) + len(data["tuple"])
+    }
+    return result
+""",
+                "args": [serialized_input],
+                "kwargs": {},
+            }
+        }
+
+        result = await handler(event)
+
+        assert result["success"] is True
+        deserialized_result = cloudpickle.loads(base64.b64decode(result["result"]))
+
+        assert deserialized_result["received_list"] == [1, 2, 3]
+        assert deserialized_result["received_dict"] == {"nested": {"deep": "value"}}
+        assert deserialized_result["received_tuple"] == [4, 5, 6]
+        assert deserialized_result["total_count"] == 6
+
+    @pytest.mark.integration
+    @pytest.mark.asyncio
+    async def test_end_to_end_function_not_found(self):
+        """Test error when function name doesn't exist in code."""
+        event = {
+            "input": {
+                "function_name": "nonexistent_function",
+                "function_code": """
+def some_other_function():
+    return "wrong function"
+""",
+                "args": [],
+                "kwargs": {},
+            }
+        }
+
+        result = await handler(event)
+
+        assert result["success"] is False
+        assert "Function 'nonexistent_function' not found" in result["result"]
+
+    @pytest.mark.integration
+    @pytest.mark.asyncio
+    async def test_end_to_end_invalid_python_code(self):
+        """Test error handling with invalid Python code."""
+        event = {
+            "input": {
+                "function_name": "bad_function",
+                "function_code": """
+def bad_function(:
+    return "this is invalid syntax"
+""",
+                "args": [],
+                "kwargs": {},
+            }
+        }
+
+        result = await handler(event)
+
+        assert result["success"] is False
+        assert "SyntaxError" in result["error"] or "invalid syntax" in result["error"]
+
+    @pytest.mark.integration
+    def test_remote_executor_direct_execution(self):
+        """Test RemoteExecutor direct method calls."""
+        executor = RemoteExecutor()
+
+        request = FunctionRequest(
+            function_name="direct_test",
+            function_code="""
+def direct_test():
+    return "direct execution success"
+""",
+            args=[],
+            kwargs={},
+        )
+
+        result = executor.execute(request)
+
+        assert result.success is True
+        deserialized_result = cloudpickle.loads(base64.b64decode(result.result))
+        assert deserialized_result == "direct execution success"
+
+    @pytest.mark.integration
+    @pytest.mark.asyncio
+    async def test_malformed_input_handling(self):
+        """Test handling of various malformed inputs."""
+        test_cases = [
+            {},  # Empty event
+            {"input": {}},  # Missing required fields
+            {"input": {"function_name": "test"}},  # Missing function_code
+            {"input": {"function_code": "def test(): pass"}},  # Missing function_name
+        ]
+
+        for malformed_event in test_cases:
+            result = await handler(malformed_event)
+            assert result["success"] is False
+            assert "error" in result
+
+    @pytest.mark.integration
+    @pytest.mark.asyncio
+    async def test_real_world_scenario(self):
+        """Test a realistic function execution scenario."""
+        event = {
+            "input": {
+                "function_name": "data_processor",
+                "function_code": """
+def data_processor():
+    import json
+    import datetime
+    
+    # Simulate some data processing
+    data = {
+        "timestamp": str(datetime.datetime.now()),
+        "processed_items": [i**2 for i in range(5)],
+        "status": "completed"
+    }
+    
+    print(f"Processed {len(data['processed_items'])} items")
+    return data
+""",
+                "args": [],
+                "kwargs": {},
+            }
+        }
+
+        result = await handler(event)
+
+        assert result["success"] is True
+        deserialized_result = cloudpickle.loads(base64.b64decode(result["result"]))
+
+        assert "timestamp" in deserialized_result
+        assert deserialized_result["processed_items"] == [0, 1, 4, 9, 16]
+        assert deserialized_result["status"] == "completed"
+        assert "Processed 5 items" in result["stdout"]
 
     @pytest.mark.asyncio
     async def test_complex_data_serialization(self):
