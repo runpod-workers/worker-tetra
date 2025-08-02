@@ -100,31 +100,12 @@ jobs:
 
       - name: Test local handler execution
         run: |
-          echo "Testing handler with all test_*.json files..."
-          test_files=(test_*.json)
-          if [ ! -e "${test_files[0]}" ]; then
-            echo "No test_*.json files found"
+          timeout 30s make test-handler || exit_code=$?
+          if [ ${exit_code:-0} -eq 124 ]; then
+            echo "Handler testing timed out"
             exit 1
-          fi
-          
-          failed_tests=()
-          for test_file in "${test_files[@]}"; do
-            echo "Testing with $test_file..."
-            if PYTHONPATH=src RUNPOD_TEST_INPUT="$(cat "$test_file")" timeout 30s uv run python src/handler.py > /dev/null 2>&1; then
-              echo "✓ $test_file: PASSED"
-            else
-              exit_code=$?
-              echo "✗ $test_file: FAILED (exit code: $exit_code)"
-              failed_tests+=("$test_file")
-            fi
-          done
-          
-          if [ ${#failed_tests[@]} -eq 0 ]; then
-            echo "All tests passed!"
-            exit 0
           else
-            echo "Failed tests: ${failed_tests[*]}"
-            exit 1
+            exit ${exit_code:-0}
           fi
 
   release:

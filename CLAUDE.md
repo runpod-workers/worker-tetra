@@ -68,7 +68,12 @@ make build-cpu               # Build CPU-only Docker image
 
 ### Local Testing  
 ```bash
-python handler.py            # Test handler locally with test_input.json
+# Test handler locally with test_input.json
+PYTHONPATH=src RUNPOD_TEST_INPUT="$(cat test_input.json)" uv run python src/handler.py
+
+# Test with other test files
+PYTHONPATH=src RUNPOD_TEST_INPUT="$(cat test_class_input.json)" uv run python src/handler.py
+PYTHONPATH=src RUNPOD_TEST_INPUT="$(cat test_hf_input.json)" uv run python src/handler.py
 ```
 
 ### Submodule Management
@@ -154,7 +159,12 @@ make test-unit               # Run unit tests only
 make test-integration        # Run integration tests only
 make test-coverage           # Run tests with coverage report
 make test-fast               # Run tests with fail-fast mode
-python handler.py            # Test handler locally with test_input.json
+make test-handler            # Test handler locally with all test_*.json files (same as CI)
+
+# Test handler locally with specific test files
+PYTHONPATH=src RUNPOD_TEST_INPUT="$(cat test_input.json)" uv run python src/handler.py
+PYTHONPATH=src RUNPOD_TEST_INPUT="$(cat test_class_input.json)" uv run python src/handler.py
+PYTHONPATH=src RUNPOD_TEST_INPUT="$(cat test_hf_input.json)" uv run python src/handler.py
 ```
 
 ### Testing Framework
@@ -198,7 +208,9 @@ python handler.py            # Test handler locally with test_input.json
 ├── PLAN.md                # TDD implementation plan for volume workspace
 ├── Dockerfile             # GPU container definition  
 ├── Dockerfile-cpu         # CPU container definition
-├── test_input.json        # Sample input for local testing
+├── test_input.json        # Basic function execution test
+├── test_class_input.json   # Class execution test
+├── test_hf_input.json      # HuggingFace model download test
 ├── tests/                 # Comprehensive test suite
 │   ├── conftest.py        # Shared test fixtures
 │   ├── unit/              # Unit tests for individual components
@@ -226,6 +238,7 @@ python handler.py            # Test handler locally with test_input.json
 ### GitHub Actions Workflows
 - **CI/CD** (`.github/workflows/ci.yml`): Single workflow handling tests, linting, releases, and Docker builds
   - Runs tests and linting on PRs and pushes to main
+  - **Local execution testing**: Automatically tests all `test_*.json` files in root directory to validate handler functionality
   - Manages releases via `release-please` on main branch
   - Builds and pushes `:dev` tagged images on main branch pushes
   - Builds and pushes production images with semantic versioning on releases
