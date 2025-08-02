@@ -32,7 +32,7 @@ upgrade: # Upgrade all dependencies
 setup: dev # Initialize project, sync deps, update submodules
 	git submodule init
 	git submodule update --remote --merge
-	cp tetra-rp/src/tetra_rp/protos/remote_execution.py .
+	cp tetra-rp/src/tetra_rp/protos/remote_execution.py src/
 
 build: setup # Build GPU Docker image (linux/amd64)
 	docker buildx build \
@@ -78,5 +78,9 @@ format: # Format code with ruff
 format-check: # Check code formatting
 	uv run ruff format --check .
 
+# Type checking
+typecheck: # Check types with mypy
+	uv run mypy .
+
 # Quality gates (used in CI)
-quality-check: format-check lint test-coverage # Run all quality checks (format, lint, test)
+quality-check: format-check lint typecheck test-coverage
