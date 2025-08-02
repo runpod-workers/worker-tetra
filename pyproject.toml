@@ -25,11 +25,12 @@ testpaths = ["tests"]
 python_files = ["test_*.py"]
 python_classes = ["Test*"]
 python_functions = ["test_*"]
+pythonpath = ["src"]
 addopts = [
     "-v",
     "--tb=short",
+    "--cov=src",
     "--cov=handler",
-    "--cov=remote_execution", 
     "--cov-report=term-missing",
     "--cov-fail-under=35"
 ]

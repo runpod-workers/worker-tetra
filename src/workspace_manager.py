@@ -65,11 +65,20 @@ class WorkspaceManager:
                 success=True, stdout="No volume available, using container workspace"
             )
 
-        # Check if workspace is already initialized
+        # Check if workspace is already initialized and functional
         if self.venv_path and os.path.exists(self.venv_path):
-            return FunctionResponse(
-                success=True, stdout="Workspace already initialized"
-            )
+            validation_result = self._validate_virtual_environment()
+            if validation_result.success:
+                return FunctionResponse(
+                    success=True, stdout="Workspace already initialized"
+                )
+            else:
+                # Virtual environment exists but is broken, recreate it
+                print(
+                    f"Virtual environment validation failed: {validation_result.error}"
+                )
+                print("Recreating virtual environment...")
+                self._remove_broken_virtual_environment()
 
         # Use file-based locking for concurrent initialization
         lock_file = os.path.join(self.workspace_path, WORKSPACE_LOCK_FILE)
@@ -87,10 +96,12 @@ class WorkspaceManager:
                     start_time = time.time()
                     while time.time() - start_time < timeout:
                         if self.venv_path and os.path.exists(self.venv_path):
-                            return FunctionResponse(
-                                success=True,
-                                stdout="Workspace initialized by another worker",
-                            )
+                            validation_result = self._validate_virtual_environment()
+                            if validation_result.success:
+                                return FunctionResponse(
+                                    success=True,
+                                    stdout="Workspace initialized by another worker",
+                                )
                         time.sleep(0.5)
 
                     return FunctionResponse(
@@ -157,6 +168,12 @@ class WorkspaceManager:
     def setup_python_path(self):
         """Add virtual environment packages to Python path if available."""
         if self.has_runpod_volume and self.venv_path and os.path.exists(self.venv_path):
+            # Validate venv before using it
+            validation_result = self._validate_virtual_environment()
+            if not validation_result.success:
+                print(f"Warning: Virtual environment is invalid: {validation_result.error}")
+                return
+                
             import glob
             import sys
 
@@ -166,3 +183,79 @@ class WorkspaceManager:
             for site_package_path in site_packages:
                 if site_package_path not in sys.path:
                     sys.path.insert(0, site_package_path)
+
+    def _validate_virtual_environment(self) -> FunctionResponse:
+        """
+        Validate that the virtual environment is functional.
+        
+        Returns:
+            FunctionResponse indicating if the venv is valid
+        """
+        if not self.venv_path or not os.path.exists(self.venv_path):
+            return FunctionResponse(
+                success=False, error="Virtual environment does not exist"
+            )
+        
+        python_exe = os.path.join(self.venv_path, "bin", "python3")
+        
+        # Check if Python executable exists and is not a broken symlink
+        if not os.path.exists(python_exe):
+            return FunctionResponse(
+                success=False, error=f"Python executable not found at {python_exe}"
+            )
+        
+        # Check if it's a broken symlink (need to resolve the full path)
+        if os.path.islink(python_exe):
+            try:
+                # Use os.path.realpath to resolve the full symlink chain
+                resolved_path = os.path.realpath(python_exe)
+                if not os.path.exists(resolved_path):
+                    return FunctionResponse(
+                        success=False,
+                        error=f"Broken symlink at {python_exe}, underlying Python interpreter removed",
+                    )
+            except (OSError, ValueError) as e:
+                return FunctionResponse(
+                    success=False,
+                    error=f"Error resolving symlink at {python_exe}: {str(e)}",
+                )
+        
+        # Try to execute a simple Python command to verify functionality
+        try:
+            process = subprocess.Popen(
+                [python_exe, "-c", "import sys; print(sys.version)"],
+                stdout=subprocess.PIPE,
+                stderr=subprocess.PIPE,
+            )
+            try:
+                stdout, stderr = process.communicate(timeout=10)
+            except subprocess.TimeoutExpired:
+                process.kill()
+                return FunctionResponse(
+                    success=False, error="Python interpreter validation timed out"
+                )
+            
+            if process.returncode != 0:
+                return FunctionResponse(
+                    success=False,
+                    error=f"Python interpreter failed to execute: {stderr.decode()}",
+                )
+            
+            return FunctionResponse(
+                success=True, stdout="Virtual environment is functional"
+            )
+        except Exception as e:
+            return FunctionResponse(
+                success=False, error=f"Error validating virtual environment: {str(e)}"
+            )
+
+    def _remove_broken_virtual_environment(self):
+        """Remove broken virtual environment directory."""
+        if self.venv_path and os.path.exists(self.venv_path):
+            import shutil
+
+            try:
+                shutil.rmtree(self.venv_path)
+                print(f"Removed broken virtual environment at {self.venv_path}")
+            except Exception as e:
+                print(f"Error removing broken virtual environment: {str(e)}")

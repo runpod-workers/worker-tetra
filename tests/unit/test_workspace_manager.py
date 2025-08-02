@@ -77,7 +77,11 @@ class TestWorkspaceInitialization:
         ]
 
         manager = WorkspaceManager()
-        result = manager.initialize_workspace()
+        
+        # Mock the validation to return success for existing venv
+        with patch.object(manager, "_validate_virtual_environment") as mock_validate:
+            mock_validate.return_value = FunctionResponse(success=True, stdout="Valid venv")
+            result = manager.initialize_workspace()
 
         assert result.success is True
         assert "already initialized" in result.stdout
@@ -209,10 +213,13 @@ class TestWorkspaceOperations:
 
         original_path = sys.path.copy()
         try:
-            manager.setup_python_path()
-            assert (
-                f"{RUNPOD_VOLUME_PATH}/{VENV_DIR_NAME}/lib/python3.12/site-packages"
-                in sys.path
-            )
+            # Mock the validation to return success
+            with patch.object(manager, "_validate_virtual_environment") as mock_validate:
+                mock_validate.return_value = FunctionResponse(success=True, stdout="Valid venv")
+                manager.setup_python_path()
+                assert (
+                    f"{RUNPOD_VOLUME_PATH}/{VENV_DIR_NAME}/lib/python3.12/site-packages"
+                    in sys.path
+                )
         finally:
             sys.path = original_path

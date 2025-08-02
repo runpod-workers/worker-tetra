@@ -90,6 +90,17 @@ class DependencyInstaller:
             and self.workspace_manager.venv_path
             and os.path.exists(self.workspace_manager.venv_path)
         ):
+            # Validate virtual environment before using it
+            validation_result = self.workspace_manager._validate_virtual_environment()
+            if not validation_result.success:
+                print(f"Virtual environment is invalid: {validation_result.error}")
+                print("Reinitializing workspace...")
+                init_result = self.workspace_manager.initialize_workspace()
+                if not init_result.success:
+                    return FunctionResponse(
+                        success=False,
+                        error=f"Failed to reinitialize workspace: {init_result.error}",
+                    )
             installed_packages = self._get_installed_packages()
             packages_to_install = self._filter_packages_to_install(
                 packages, installed_packages
