@@ -20,3 +20,10 @@ WORKSPACE_LOCK_FILE = ".initialization.lock"
 
 RUNTIMES_DIR_NAME = "runtimes"
 """Name of the runtimes directory containing per-endpoint workspaces."""
+
+# Workspace Initialization Settings
+WORKSPACE_INIT_TIMEOUT = 30
+"""Default timeout in seconds for workspace initialization lock acquisition."""
+
+WORKSPACE_LOCK_POLL_INTERVAL = 0.5
+"""Interval in seconds between lock availability checks during timeout."""

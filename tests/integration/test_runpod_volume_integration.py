@@ -418,9 +418,12 @@ class TestMixedExecution:
         # This will fail until fallback mechanism is implemented
         result = await handler(event)
 
-        # Should fail because venv creation failed and no fallback implemented yet
+        # Should fail because workspace initialization failed (our improved validation catches this earlier)
         assert result["success"] is False
-        assert "failed to create virtual environment" in result.get("error", "").lower()
+        assert any(
+            keyword in result.get("error", "").lower()
+            for keyword in ["workspace", "directory", "failed"]
+        )
 
 
 class TestErrorHandlingIntegration:

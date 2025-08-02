@@ -13,6 +13,8 @@ from constants import (
     HF_CACHE_DIR_NAME,
     WORKSPACE_LOCK_FILE,
     RUNTIMES_DIR_NAME,
+    WORKSPACE_INIT_TIMEOUT,
+    WORKSPACE_LOCK_POLL_INTERVAL,
 )
 
 
@@ -82,7 +84,9 @@ class WorkspaceManager:
             current_path = os.environ.get("PATH", "")
             os.environ["PATH"] = f"{venv_bin}:{current_path}"
 
-    def initialize_workspace(self, timeout: int = 30) -> FunctionResponse:
+    def initialize_workspace(
+        self, timeout: int = WORKSPACE_INIT_TIMEOUT
+    ) -> FunctionResponse:
         """
         Initialize the RunPod volume workspace with virtual environment.
 
@@ -97,63 +101,26 @@ class WorkspaceManager:
                 success=True, stdout="No volume available, using container workspace"
             )
 
-        # Check if workspace is already initialized and functional
-        if self.venv_path and os.path.exists(self.venv_path):
-            validation_result = self._validate_virtual_environment()
-            if validation_result.success:
-                return FunctionResponse(
-                    success=True, stdout="Workspace already initialized"
-                )
-            else:
-                # Virtual environment exists but is broken, recreate it
-                print(
-                    f"Virtual environment validation failed: {validation_result.error}"
-                )
-                print("Recreating virtual environment...")
-                self._remove_broken_virtual_environment()
+        # Atomic check: workspace exists and is functional
+        if self._is_workspace_functional():
+            return FunctionResponse(
+                success=True, stdout="Workspace already initialized"
+            )
+
+        # Validate workspace directory is accessible
+        workspace_validation = self._validate_workspace_directory()
+        if not workspace_validation.success:
+            return workspace_validation
 
         # Use file-based locking for concurrent initialization
-        lock_file = os.path.join(self.workspace_path, WORKSPACE_LOCK_FILE)
+        lock_file_path = os.path.join(self.workspace_path, WORKSPACE_LOCK_FILE)
 
         try:
-            # Ensure workspace directory exists
-            os.makedirs(self.workspace_path, exist_ok=True)
-
-            with open(lock_file, "w") as lock:
-                try:
-                    # Try to acquire exclusive lock with timeout
-                    fcntl.flock(lock.fileno(), fcntl.LOCK_EX | fcntl.LOCK_NB)
-                except (BlockingIOError, OSError):
-                    # Lock not available, wait for initialization by another worker
-                    start_time = time.time()
-                    while time.time() - start_time < timeout:
-                        if self.venv_path and os.path.exists(self.venv_path):
-                            validation_result = self._validate_virtual_environment()
-                            if validation_result.success:
-                                return FunctionResponse(
-                                    success=True,
-                                    stdout="Workspace initialized by another worker",
-                                )
-                        time.sleep(0.5)
-
-                    return FunctionResponse(
-                        success=False, error="Workspace initialization timeout"
-                    )
-
-                # We have the lock, initialize the workspace
-                return self._create_virtual_environment()
-
+            return self._initialize_with_lock(lock_file_path, timeout)
         except Exception as e:
             return FunctionResponse(
                 success=False, error=f"Failed to initialize workspace: {str(e)}"
             )
-        finally:
-            # Clean up lock file
-            try:
-                if os.path.exists(lock_file):
-                    os.remove(lock_file)
-            except OSError:
-                pass
 
     def _create_virtual_environment(self) -> FunctionResponse:
         """Create virtual environment in the volume."""
@@ -292,3 +259,146 @@ class WorkspaceManager:
                 print(f"Removed broken virtual environment at {self.venv_path}")
             except Exception as e:
                 print(f"Error removing broken virtual environment: {str(e)}")
+
+    def _is_workspace_functional(self) -> bool:
+        """
+        Atomically check if workspace exists and is functional.
+
+        Returns:
+            bool: True if workspace is ready to use
+        """
+        if not self.venv_path or not os.path.exists(self.venv_path):
+            return False
+
+        validation_result = self._validate_virtual_environment()
+        if not validation_result.success:
+            # Virtual environment exists but is broken, recreate it
+            print(f"Virtual environment validation failed: {validation_result.error}")
+            print("Recreating virtual environment...")
+            self._remove_broken_virtual_environment()
+            return False
+
+        return True
+
+    def _validate_workspace_directory(self) -> FunctionResponse:
+        """
+        Validate that workspace directory can be created and is writable.
+
+        Returns:
+            FunctionResponse: Success if directory is accessible
+        """
+        try:
+            # Ensure workspace directory exists and is writable
+            os.makedirs(self.workspace_path, exist_ok=True)
+
+            # Test write access
+            test_file = os.path.join(self.workspace_path, ".write_test")
+            try:
+                with open(test_file, "w") as f:
+                    f.write("test")
+                os.remove(test_file)
+            except (OSError, IOError) as e:
+                return FunctionResponse(
+                    success=False, error=f"Workspace directory not writable: {str(e)}"
+                )
+
+            return FunctionResponse(success=True)
+
+        except (OSError, IOError) as e:
+            return FunctionResponse(
+                success=False, error=f"Cannot create workspace directory: {str(e)}"
+            )
+
+    def _initialize_with_lock(
+        self, lock_file_path: str, timeout: int
+    ) -> FunctionResponse:
+        """
+        Initialize workspace using file locking with enhanced error handling.
+
+        Args:
+            lock_file_path: Path to the lock file
+            timeout: Maximum time to wait for initialization
+
+        Returns:
+            FunctionResponse: Result of initialization
+        """
+        lock_fd = None
+
+        try:
+            # Open lock file with proper file descriptor management
+            lock_fd = os.open(
+                lock_file_path, os.O_CREAT | os.O_WRONLY | os.O_TRUNC, 0o644
+            )
+
+            try:
+                # Try to acquire exclusive lock without blocking
+                fcntl.flock(lock_fd, fcntl.LOCK_EX | fcntl.LOCK_NB)
+
+                # We have the lock, double-check workspace isn't already initialized
+                if self._is_workspace_functional():
+                    return FunctionResponse(
+                        success=True, stdout="Workspace already initialized"
+                    )
+
+                # Initialize the workspace
+                return self._create_virtual_environment()
+
+            except (BlockingIOError, OSError):
+                # Lock not available, wait for initialization by another worker
+                return self._wait_for_workspace_initialization(timeout)
+
+        finally:
+            # Ensure lock file descriptor is properly closed and cleaned up
+            if lock_fd is not None:
+                try:
+                    # Release the lock if we held it
+                    fcntl.flock(lock_fd, fcntl.LOCK_UN)
+                except (OSError, IOError):
+                    pass  # Lock may have been released already
+
+                try:
+                    os.close(lock_fd)
+                except (OSError, IOError):
+                    pass  # File descriptor may have been closed already
+
+            # Clean up lock file
+            self._cleanup_lock_file(lock_file_path)
+
+    def _wait_for_workspace_initialization(self, timeout: int) -> FunctionResponse:
+        """
+        Wait for another worker to complete workspace initialization.
+
+        Args:
+            timeout: Maximum time to wait
+
+        Returns:
+            FunctionResponse: Result of waiting
+        """
+        start_time = time.time()
+
+        while time.time() - start_time < timeout:
+            if self._is_workspace_functional():
+                return FunctionResponse(
+                    success=True,
+                    stdout="Workspace initialized by another worker",
+                )
+            time.sleep(WORKSPACE_LOCK_POLL_INTERVAL)
+
+        return FunctionResponse(success=False, error="Workspace initialization timeout")
+
+    def _cleanup_lock_file(self, lock_file_path: str) -> None:
+        """
+        Safely clean up lock file with comprehensive error handling.
+
+        Args:
+            lock_file_path: Path to the lock file to remove
+        """
+        try:
+            if os.path.exists(lock_file_path):
+                os.remove(lock_file_path)
+        except (OSError, IOError) as e:
+            # Log the error but don't fail the operation
+            print(f"Warning: Could not remove lock file {lock_file_path}: {str(e)}")
+        except Exception as e:
+            # Catch any unexpected errors during cleanup
+            print(f"Unexpected error removing lock file {lock_file_path}: {str(e)}")

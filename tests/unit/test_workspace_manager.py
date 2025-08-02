@@ -123,10 +123,20 @@ class TestWorkspaceInitialization:
             with (
                 patch("os.makedirs"),
                 patch("builtins.open"),
-                patch("fcntl.flock"),
+                patch("os.open", return_value=42),
+                patch("os.close"),
                 patch("os.remove"),
+                patch("fcntl.flock"),
             ):
-                result = manager.initialize_workspace()
+                with patch.object(
+                    manager, "_is_workspace_functional", return_value=False
+                ):
+                    with patch.object(
+                        manager, "_validate_workspace_directory"
+                    ) as mock_validate:
+                        mock_validate.return_value = FunctionResponse(success=True)
+
+                        result = manager.initialize_workspace()
 
             assert result.success is True
             mock_create.assert_called_once()
@@ -171,24 +181,43 @@ class TestConcurrencySafety:
     @patch("os.path.exists")
     @patch("os.makedirs")
     @patch("builtins.open")
-    @patch("fcntl.flock")
+    @patch("os.open")
+    @patch("os.close")
     @patch("os.remove")
+    @patch("fcntl.flock")
     def test_concurrent_workspace_initialization(
-        self, mock_remove, mock_flock, mock_open, mock_makedirs, mock_exists
+        self,
+        mock_flock,
+        mock_remove,
+        mock_close,
+        mock_open_fd,
+        mock_open,
+        mock_makedirs,
+        mock_exists,
     ):
         """Test that concurrent initialization is handled safely."""
         mock_exists.side_effect = lambda path: path == RUNPOD_VOLUME_PATH
+        mock_open_fd.return_value = 42
 
         results = []
 
         def init_workspace():
             manager = WorkspaceManager()
-            with patch.object(manager, "_create_virtual_environment") as mock_create:
-                mock_create.return_value = FunctionResponse(
-                    success=True, stdout="venv created"
-                )
-                result = manager.initialize_workspace()
-                results.append(result)
+            with patch.object(
+                manager, "_validate_workspace_directory"
+            ) as mock_validate:
+                mock_validate.return_value = FunctionResponse(success=True)
+                with patch.object(
+                    manager, "_create_virtual_environment"
+                ) as mock_create:
+                    mock_create.return_value = FunctionResponse(
+                        success=True, stdout="venv created"
+                    )
+                    with patch.object(
+                        manager, "_is_workspace_functional", return_value=False
+                    ):
+                        result = manager.initialize_workspace()
+                        results.append(result)
 
         # Start multiple threads trying to initialize
         threads = [threading.Thread(target=init_workspace) for _ in range(3)]
@@ -199,6 +228,169 @@ class TestConcurrencySafety:
 
         # All should succeed
         assert len([r for r in results if r.success]) >= 1
+
+    @patch("os.path.exists")
+    @patch("os.makedirs")
+    @patch("builtins.open")
+    @patch("os.open")
+    @patch("os.close")
+    @patch("os.remove")
+    @patch("fcntl.flock")
+    @patch("time.sleep")
+    @patch("time.time")
+    def test_lock_timeout_handling(
+        self,
+        mock_time,
+        mock_sleep,
+        mock_flock,
+        mock_remove,
+        mock_close,
+        mock_open_fd,
+        mock_open,
+        mock_makedirs,
+        mock_exists,
+    ):
+        """Test that lock timeout is handled properly."""
+        mock_exists.side_effect = lambda path: path == RUNPOD_VOLUME_PATH
+        mock_open_fd.return_value = 42
+
+        # Mock time.time() to simulate timeout
+        mock_time.side_effect = [0, 15, 31]  # Start, during wait, timeout exceeded
+
+        # Mock flock to always raise BlockingIOError (lock not available)
+        mock_flock.side_effect = BlockingIOError("Resource temporarily unavailable")
+
+        manager = WorkspaceManager()
+        with patch.object(manager, "_is_workspace_functional", return_value=False):
+            with patch.object(
+                manager, "_validate_workspace_directory"
+            ) as mock_validate:
+                mock_validate.return_value = FunctionResponse(success=True)
+
+                result = manager.initialize_workspace(timeout=30)
+
+                assert result.success is False
+                assert "timeout" in result.error.lower()
+
+    @patch("os.path.exists")
+    @patch("os.makedirs")
+    @patch("os.open")
+    @patch("fcntl.flock")
+    @patch("os.close")
+    @patch("os.remove")
+    def test_lock_file_descriptor_cleanup(
+        self,
+        mock_remove,
+        mock_close,
+        mock_flock,
+        mock_open_fd,
+        mock_makedirs,
+        mock_exists,
+    ):
+        """Test that file descriptors are properly cleaned up even on errors."""
+        mock_exists.side_effect = lambda path: path == RUNPOD_VOLUME_PATH
+        mock_open_fd.return_value = 42  # Mock file descriptor
+
+        # Mock flock to raise an exception during lock acquisition
+        mock_flock.side_effect = OSError("Lock operation failed")
+
+        manager = WorkspaceManager()
+        with patch.object(manager, "_validate_workspace_directory") as mock_validate:
+            mock_validate.return_value = FunctionResponse(success=True)
+
+            result = manager.initialize_workspace()
+
+            # Should handle the error gracefully
+            assert result.success is False
+
+            # File descriptor should be closed even on error
+            mock_close.assert_called_once_with(42)
+
+    @patch("os.path.exists")
+    @patch("os.makedirs")
+    def test_workspace_directory_validation_failure(self, mock_makedirs, mock_exists):
+        """Test handling of workspace directory validation failure."""
+        # Setup initial mocking for WorkspaceManager __init__
+        mock_exists.side_effect = lambda path: path == RUNPOD_VOLUME_PATH
+
+        # Create manager with successful initialization first
+        manager = WorkspaceManager()
+
+        # Now test the specific failure case by patching the validation method
+        with patch.object(manager, "_validate_workspace_directory") as mock_validate:
+            mock_validate.return_value = FunctionResponse(
+                success=False,
+                error="Cannot create workspace directory: Permission denied",
+            )
+
+            result = manager.initialize_workspace()
+
+            assert result.success is False
+            assert "Cannot create workspace directory" in result.error
+
+    @patch("os.path.exists")
+    @patch("os.makedirs")
+    @patch("builtins.open")
+    @patch("os.remove")
+    def test_workspace_write_permission_validation(
+        self, mock_remove, mock_open_builtin, mock_makedirs, mock_exists
+    ):
+        """Test validation of write permissions in workspace directory."""
+        mock_exists.side_effect = lambda path: path == RUNPOD_VOLUME_PATH
+
+        # Mock open to raise PermissionError for write test
+        mock_open_builtin.side_effect = PermissionError("Write permission denied")
+
+        manager = WorkspaceManager()
+        result = manager.initialize_workspace()
+
+        assert result.success is False
+        assert "not writable" in result.error
+
+    @patch("os.path.exists")
+    @patch("os.makedirs")
+    @patch("builtins.open")
+    @patch("fcntl.flock")
+    @patch("os.open")
+    @patch("os.close")
+    @patch("os.remove")
+    def test_concurrent_workspace_check_race_condition(
+        self,
+        mock_remove,
+        mock_close,
+        mock_open_fd,
+        mock_flock,
+        mock_open_builtin,
+        mock_makedirs,
+        mock_exists,
+    ):
+        """Test race condition where workspace becomes functional during lock wait."""
+        mock_exists.side_effect = lambda path: path == RUNPOD_VOLUME_PATH
+        mock_open_fd.return_value = 42
+
+        # First flock call fails (lock not available), but workspace becomes ready
+        call_count = 0
+
+        def mock_flock_behavior(fd, operation):
+            nonlocal call_count
+            call_count += 1
+            if call_count == 1:
+                raise BlockingIOError("Lock not available")
+
+        mock_flock.side_effect = mock_flock_behavior
+
+        manager = WorkspaceManager()
+        with patch.object(manager, "_validate_workspace_directory") as mock_validate:
+            mock_validate.return_value = FunctionResponse(success=True)
+
+            with patch.object(manager, "_is_workspace_functional") as mock_functional:
+                # First call returns False, second call (during wait) returns True
+                mock_functional.side_effect = [False, True]
+
+                result = manager.initialize_workspace()
+
+                assert result.success is True
+                assert "initialized by another worker" in result.stdout
 
 
 class TestEnvironmentConfiguration:
