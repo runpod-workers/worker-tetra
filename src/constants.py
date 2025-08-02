@@ -12,6 +12,9 @@ VENV_DIR_NAME = ".venv"
 UV_CACHE_DIR_NAME = ".uv-cache"
 """Name of the UV package cache directory."""
 
+HF_CACHE_DIR_NAME = ".hf-cache"
+"""Name of the Hugging Face cache directory."""
+
 WORKSPACE_LOCK_FILE = ".initialization.lock"
 """Name of the workspace initialization lock file."""
 

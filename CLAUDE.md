@@ -85,6 +85,7 @@ The handler automatically detects and utilizes `/runpod-volume` for persistent w
 - **Endpoint Isolation**: Each endpoint gets its own workspace at `/runpod-volume/runtimes/{endpoint_id}`
 - **Virtual Environment**: Creates and manages endpoint-specific `.venv` for persistent package installation
 - **Shared Package Cache**: Uses `/runpod-volume/.uv-cache` for efficient package caching across all endpoints
+- **Hugging Face Cache**: Configures HF model cache at `/runpod-volume/.hf-cache` to prevent storage issues
 - **Differential Installation**: Only installs missing packages, leveraging persistent storage
 - **Concurrency Safety**: File-based locking prevents race conditions during workspace initialization
 - **Graceful Fallback**: Works normally when no volume is present
@@ -93,6 +94,10 @@ The handler automatically detects and utilizes `/runpod-volume` for persistent w
 ```
 /runpod-volume/
 ├── .uv-cache/               # Shared UV package cache (across all endpoints)
+├── .hf-cache/               # Shared Hugging Face model cache (across all endpoints)
+│   ├── transformers/        # Transformers model cache
+│   ├── datasets/            # HF datasets cache
+│   └── hub/                 # Hugging Face Hub cache
 ├── runtimes/                # Per-endpoint runtime environments
 │   ├── endpoint-1/          # Workspace for endpoint-1
 │   │   ├── .venv/           # Endpoint-specific virtual environment
@@ -105,11 +110,12 @@ The handler automatically detects and utilizes `/runpod-volume` for persistent w
 ```
 
 ### Performance Benefits
-- **Faster Cold Starts**: Pre-installed packages reduce initialization time
-- **Reduced Network Usage**: Cached packages avoid redundant downloads
+- **Faster Cold Starts**: Pre-installed packages and cached models reduce initialization time
+- **Reduced Network Usage**: Cached packages and models avoid redundant downloads
 - **Persistent State**: Function execution workspace survives across calls
 - **Endpoint Isolation**: Each endpoint maintains independent dependencies and state
-- **Optimized Resource Usage**: Shared cache across multiple endpoints while maintaining isolation
+- **Optimized Resource Usage**: Shared caches across multiple endpoints while maintaining isolation
+- **ML Model Efficiency**: Large HF models cached on volume prevent "No space left on device" errors
 
 ## Configuration
 
@@ -119,6 +125,12 @@ The handler automatically detects and utilizes `/runpod-volume` for persistent w
 - `DEBIAN_FRONTEND=noninteractive`: Set during system package installation
 - `UV_CACHE_DIR`: Automatically set to `/runpod-volume/.uv-cache` when volume detected
 - `VIRTUAL_ENV`: Automatically set to `/runpod-volume/runtimes/{endpoint_id}/.venv` when available
+
+#### Hugging Face Cache Configuration (Auto-configured when volume available)
+- `HF_HOME`: Set to `/runpod-volume/.hf-cache` for main HF cache directory
+- `TRANSFORMERS_CACHE`: Set to `/runpod-volume/.hf-cache/transformers` for model cache
+- `HF_DATASETS_CACHE`: Set to `/runpod-volume/.hf-cache/datasets` for dataset cache
+- `HUGGINGFACE_HUB_CACHE`: Set to `/runpod-volume/.hf-cache/hub` for hub cache
 
 ### Resource Configuration
 Configure GPU resources using `LiveServerless` objects:
@@ -163,6 +175,7 @@ python handler.py            # Test handler locally with test_input.json
 - **Differential Installation**: Only installs packages missing from persistent volume
 - **Shared Cache**: UV cache in `/runpod-volume/.uv-cache` optimizes package downloads
 - **Virtual Environment**: Persistent `.venv` in volume survives across function calls
+- **ML Model Cache**: Hugging Face models cached in `/runpod-volume/.hf-cache` prevent storage issues
 
 ### Error Handling
 - All remote execution wrapped in try/catch with full traceback capture

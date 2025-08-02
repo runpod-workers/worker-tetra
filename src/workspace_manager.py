@@ -10,6 +10,7 @@ from constants import (
     DEFAULT_WORKSPACE_PATH,
     VENV_DIR_NAME,
     UV_CACHE_DIR_NAME,
+    HF_CACHE_DIR_NAME,
     WORKSPACE_LOCK_FILE,
     RUNTIMES_DIR_NAME,
 )
@@ -20,6 +21,7 @@ class WorkspaceManager:
 
     venv_path: Optional[str]
     cache_path: Optional[str]
+    hf_cache_path: Optional[str]
 
     def __init__(self) -> None:
         self.has_runpod_volume = os.path.exists(RUNPOD_VOLUME_PATH)
@@ -32,22 +34,45 @@ class WorkspaceManager:
                 RUNPOD_VOLUME_PATH, RUNTIMES_DIR_NAME, self.endpoint_id
             )
             self.venv_path = os.path.join(self.workspace_path, VENV_DIR_NAME)
-            # Shared cache at volume root for all endpoints
+            # Shared caches at volume root for all endpoints
             self.cache_path = os.path.join(RUNPOD_VOLUME_PATH, UV_CACHE_DIR_NAME)
+            self.hf_cache_path = os.path.join(RUNPOD_VOLUME_PATH, HF_CACHE_DIR_NAME)
         else:
             # Fallback to container workspace
             self.workspace_path = DEFAULT_WORKSPACE_PATH
             self.venv_path = None
             self.cache_path = None
+            self.hf_cache_path = None
 
         if self.has_runpod_volume:
             self._configure_uv_cache()
+            self._configure_huggingface_cache()
             self._configure_volume_environment()
 
     def _configure_uv_cache(self):
         """Configure uv to use the shared volume cache."""
         if self.cache_path:
             os.environ["UV_CACHE_DIR"] = self.cache_path
+
+    def _configure_huggingface_cache(self):
+        """Configure Hugging Face to use the shared volume cache."""
+        if self.hf_cache_path:
+            # Ensure HF cache directory exists
+            os.makedirs(self.hf_cache_path, exist_ok=True)
+
+            # Set main HF cache directory
+            os.environ["HF_HOME"] = self.hf_cache_path
+
+            # Set specific cache paths for different HF components
+            os.environ["TRANSFORMERS_CACHE"] = os.path.join(
+                self.hf_cache_path, "transformers"
+            )
+            os.environ["HF_DATASETS_CACHE"] = os.path.join(
+                self.hf_cache_path, "datasets"
+            )
+            os.environ["HUGGINGFACE_HUB_CACHE"] = os.path.join(
+                self.hf_cache_path, "hub"
+            )
 
     def _configure_volume_environment(self):
         """Configure environment variables for volume usage."""

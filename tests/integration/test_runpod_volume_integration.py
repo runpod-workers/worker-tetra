@@ -14,13 +14,20 @@ from constants import RUNPOD_VOLUME_PATH, VENV_DIR_NAME, RUNTIMES_DIR_NAME
 class TestFullWorkflowWithVolume:
     """Test complete request workflows with volume integration."""
 
+    @patch("os.makedirs")
     @patch("workspace_manager.WorkspaceManager._validate_virtual_environment")
     @patch("os.path.exists")
     @patch("subprocess.Popen")
     @patch("os.chdir")
     @patch("glob.glob")
     async def test_full_workflow_with_volume(
-        self, mock_glob, mock_chdir, mock_popen, mock_exists, mock_validate
+        self,
+        mock_glob,
+        mock_chdir,
+        mock_popen,
+        mock_exists,
+        mock_validate,
+        mock_makedirs,
     ):
         """Test complete workflow from handler to execution with volume."""
         # Mock volume exists with endpoint-specific workspace
@@ -76,13 +83,20 @@ def numpy_test():
             install_command = mock_popen.call_args[0][0]
             assert "numpy==1.21.0" in " ".join(install_command)
 
+    @patch("os.makedirs")
     @patch("workspace_manager.WorkspaceManager._validate_virtual_environment")
     @patch("os.path.exists")
     @patch("subprocess.Popen")
     @patch("os.chdir")
     @patch("glob.glob")
     async def test_workflow_with_system_dependencies(
-        self, mock_glob, mock_chdir, mock_popen, mock_exists, mock_validate
+        self,
+        mock_glob,
+        mock_chdir,
+        mock_popen,
+        mock_exists,
+        mock_validate,
+        mock_makedirs,
     ):
         """Test workflow that includes both system and Python dependencies."""
         # Mock volume exists with endpoint-specific workspace
@@ -174,6 +188,7 @@ def system_test():
 class TestConcurrentRequests:
     """Test realistic concurrent access scenarios."""
 
+    @patch("os.makedirs")
     @patch("workspace_manager.WorkspaceManager._validate_virtual_environment")
     @patch("os.path.exists")
     @patch("subprocess.Popen")
@@ -181,7 +196,14 @@ class TestConcurrentRequests:
     @patch("os.chdir")
     @patch("glob.glob")
     async def test_multiple_concurrent_requests(
-        self, mock_glob, mock_chdir, mock_flock, mock_popen, mock_exists, mock_validate
+        self,
+        mock_glob,
+        mock_chdir,
+        mock_flock,
+        mock_popen,
+        mock_exists,
+        mock_validate,
+        mock_makedirs,
     ):
         """Test multiple concurrent requests to the same endpoint."""
         # Mock volume exists with endpoint-specific workspace
@@ -246,11 +268,12 @@ def concurrent_test():
             # Just verify that all requests succeeded
             assert len(results) == 5
 
+    @patch("os.makedirs")
     @patch("workspace_manager.WorkspaceManager._validate_virtual_environment")
     @patch("os.path.exists")
     @patch("subprocess.Popen")
     def test_concurrent_dependency_installation(
-        self, mock_popen, mock_exists, mock_validate
+        self, mock_popen, mock_exists, mock_validate, mock_makedirs
     ):
         """Test that concurrent dependency installations don't conflict."""
         # Mock volume exists with endpoint-specific workspace
@@ -308,11 +331,12 @@ def concurrent_test():
 class TestMixedExecution:
     """Test mixed volume and non-volume execution scenarios."""
 
+    @patch("os.makedirs")
     @patch("workspace_manager.WorkspaceManager._validate_virtual_environment")
     @patch("os.path.exists")
     @patch("os.chdir")
     async def test_mixed_volume_and_non_volume_execution(
-        self, mock_chdir, mock_exists, mock_validate
+        self, mock_chdir, mock_exists, mock_validate, mock_makedirs
     ):
         """Test that handlers work both with and without volumes."""
         # First request - no volume available
@@ -402,11 +426,12 @@ class TestMixedExecution:
 class TestErrorHandlingIntegration:
     """Test error handling in integrated volume scenarios."""
 
+    @patch("os.makedirs")
     @patch("workspace_manager.WorkspaceManager._validate_virtual_environment")
     @patch("os.path.exists")
     @patch("subprocess.Popen")
     async def test_dependency_installation_failure_with_volume(
-        self, mock_popen, mock_exists, mock_validate
+        self, mock_popen, mock_exists, mock_validate, mock_makedirs
     ):
         """Test proper error handling when dependency installation fails in volume."""
         # Mock volume exists with endpoint-specific workspace
@@ -444,11 +469,12 @@ class TestErrorHandlingIntegration:
         # Function should not have been executed
         assert "result" not in result or result["result"] is None
 
+    @patch("os.makedirs")
     @patch("workspace_manager.WorkspaceManager._validate_virtual_environment")
     @patch("os.path.exists")
     @patch("os.chdir")
     async def test_volume_permission_error_handling(
-        self, mock_chdir, mock_exists, mock_validate
+        self, mock_chdir, mock_exists, mock_validate, mock_makedirs
     ):
         """Test handling of permission errors when accessing volume."""
         mock_exists.return_value = True

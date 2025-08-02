@@ -11,6 +11,7 @@ from constants import (
     DEFAULT_WORKSPACE_PATH,
     VENV_DIR_NAME,
     UV_CACHE_DIR_NAME,
+    HF_CACHE_DIR_NAME,
     RUNTIMES_DIR_NAME,
 )
 
@@ -18,8 +19,11 @@ from constants import (
 class TestEndpointIsolation:
     """Test endpoint-specific workspace isolation."""
 
+    @patch("os.makedirs")
     @patch("os.path.exists")
-    def test_different_endpoints_get_different_workspaces(self, mock_exists):
+    def test_different_endpoints_get_different_workspaces(
+        self, mock_exists, mock_makedirs
+    ):
         """Test that different endpoint IDs create separate workspaces."""
         mock_exists.return_value = True
 
@@ -41,15 +45,21 @@ class TestEndpointIsolation:
         assert manager1.workspace_path != manager2.workspace_path
         assert manager1.venv_path != manager2.venv_path
 
-        # But cache should be shared
+        # But caches should be shared
         assert (
             manager1.cache_path
             == manager2.cache_path
             == f"{RUNPOD_VOLUME_PATH}/{UV_CACHE_DIR_NAME}"
         )
+        assert (
+            manager1.hf_cache_path
+            == manager2.hf_cache_path
+            == f"{RUNPOD_VOLUME_PATH}/{HF_CACHE_DIR_NAME}"
+        )
 
+    @patch("os.makedirs")
     @patch("os.path.exists")
-    def test_default_endpoint_id_when_not_set(self, mock_exists):
+    def test_default_endpoint_id_when_not_set(self, mock_exists, mock_makedirs):
         """Test that 'default' is used when RUNPOD_ENDPOINT_ID is not set."""
         mock_exists.return_value = True
 
@@ -63,8 +73,9 @@ class TestEndpointIsolation:
 class TestVolumeDetection:
     """Test detection of RunPod volume availability."""
 
+    @patch("os.makedirs")
     @patch("os.path.exists")
-    def test_detects_runpod_volume_exists(self, mock_exists):
+    def test_detects_runpod_volume_exists(self, mock_exists, mock_makedirs):
         """Test that manager detects when /runpod-volume exists."""
         mock_exists.return_value = True
 
@@ -75,8 +86,9 @@ class TestVolumeDetection:
         expected_workspace = f"{RUNPOD_VOLUME_PATH}/{RUNTIMES_DIR_NAME}/default"
         assert manager.workspace_path == expected_workspace
         assert manager.venv_path == f"{expected_workspace}/{VENV_DIR_NAME}"
-        # Cache is shared at volume root
+        # Caches are shared at volume root
         assert manager.cache_path == f"{RUNPOD_VOLUME_PATH}/{UV_CACHE_DIR_NAME}"
+        assert manager.hf_cache_path == f"{RUNPOD_VOLUME_PATH}/{HF_CACHE_DIR_NAME}"
         mock_exists.assert_called_with(RUNPOD_VOLUME_PATH)
 
     @patch("os.path.exists")
@@ -90,13 +102,15 @@ class TestVolumeDetection:
         assert manager.workspace_path == DEFAULT_WORKSPACE_PATH
         assert manager.venv_path is None
         assert manager.cache_path is None
+        assert manager.hf_cache_path is None
 
 
 class TestWorkspaceInitialization:
     """Test workspace initialization functionality."""
 
+    @patch("os.makedirs")
     @patch("os.path.exists")
-    def test_workspace_initialization_creates_venv(self, mock_exists):
+    def test_workspace_initialization_creates_venv(self, mock_exists, mock_makedirs):
         """Test that workspace initialization creates virtual environment."""
         mock_exists.side_effect = lambda path: path == RUNPOD_VOLUME_PATH
 
@@ -117,10 +131,11 @@ class TestWorkspaceInitialization:
             assert result.success is True
             mock_create.assert_called_once()
 
+    @patch("os.makedirs")
     @patch("workspace_manager.WorkspaceManager._validate_virtual_environment")
     @patch("os.path.exists")
     def test_workspace_already_initialized_skips_creation(
-        self, mock_exists, mock_validate
+        self, mock_exists, mock_validate, mock_makedirs
     ):
         """Test that existing workspace is not re-initialized."""
         expected_workspace = f"{RUNPOD_VOLUME_PATH}/{RUNTIMES_DIR_NAME}/default"
@@ -189,18 +204,35 @@ class TestConcurrencySafety:
 class TestEnvironmentConfiguration:
     """Test environment variable configuration."""
 
+    @patch("os.makedirs")
     @patch("os.path.exists")
-    def test_configure_volume_environment(self, mock_exists):
+    def test_configure_volume_environment(self, mock_exists, mock_makedirs):
         """Test environment variables are set for volume usage."""
         mock_exists.return_value = True
 
         with patch.dict("os.environ", {}, clear=True):
             WorkspaceManager()
 
-            # Cache is shared at volume root
+            # UV cache is shared at volume root
             assert (
                 os.environ.get("UV_CACHE_DIR")
                 == f"{RUNPOD_VOLUME_PATH}/{UV_CACHE_DIR_NAME}"
+            )
+            # HF cache is shared at volume root
+            assert (
+                os.environ.get("HF_HOME") == f"{RUNPOD_VOLUME_PATH}/{HF_CACHE_DIR_NAME}"
+            )
+            assert (
+                os.environ.get("TRANSFORMERS_CACHE")
+                == f"{RUNPOD_VOLUME_PATH}/{HF_CACHE_DIR_NAME}/transformers"
+            )
+            assert (
+                os.environ.get("HF_DATASETS_CACHE")
+                == f"{RUNPOD_VOLUME_PATH}/{HF_CACHE_DIR_NAME}/datasets"
+            )
+            assert (
+                os.environ.get("HUGGINGFACE_HUB_CACHE")
+                == f"{RUNPOD_VOLUME_PATH}/{HF_CACHE_DIR_NAME}/hub"
             )
             # Virtual environment is endpoint-specific
             expected_venv = (
@@ -218,16 +250,23 @@ class TestEnvironmentConfiguration:
             WorkspaceManager()
 
             assert "UV_CACHE_DIR" not in os.environ
+            assert "HF_HOME" not in os.environ
+            assert "TRANSFORMERS_CACHE" not in os.environ
+            assert "HF_DATASETS_CACHE" not in os.environ
+            assert "HUGGINGFACE_HUB_CACHE" not in os.environ
             assert "VIRTUAL_ENV" not in os.environ
 
 
 class TestWorkspaceOperations:
     """Test workspace directory operations."""
 
+    @patch("os.makedirs")
     @patch("os.path.exists")
     @patch("os.getcwd")
     @patch("os.chdir")
-    def test_change_to_workspace(self, mock_chdir, mock_getcwd, mock_exists):
+    def test_change_to_workspace(
+        self, mock_chdir, mock_getcwd, mock_exists, mock_makedirs
+    ):
         """Test changing to workspace directory."""
         mock_exists.return_value = True
         mock_getcwd.return_value = "/original"
@@ -250,10 +289,13 @@ class TestWorkspaceOperations:
 
         assert original_cwd is None
 
+    @patch("os.makedirs")
     @patch("workspace_manager.WorkspaceManager._validate_virtual_environment")
     @patch("os.path.exists")
     @patch("glob.glob")
-    def test_setup_python_path(self, mock_glob, mock_exists, mock_validate):
+    def test_setup_python_path(
+        self, mock_glob, mock_exists, mock_validate, mock_makedirs
+    ):
         """Test Python path setup with virtual environment."""
         expected_workspace = f"{RUNPOD_VOLUME_PATH}/{RUNTIMES_DIR_NAME}/default"
         expected_venv = f"{expected_workspace}/{VENV_DIR_NAME}"
