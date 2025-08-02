@@ -11,7 +11,53 @@ from constants import (
     DEFAULT_WORKSPACE_PATH,
     VENV_DIR_NAME,
     UV_CACHE_DIR_NAME,
+    RUNTIMES_DIR_NAME,
 )
+
+
+class TestEndpointIsolation:
+    """Test endpoint-specific workspace isolation."""
+
+    @patch("os.path.exists")
+    def test_different_endpoints_get_different_workspaces(self, mock_exists):
+        """Test that different endpoint IDs create separate workspaces."""
+        mock_exists.return_value = True
+
+        # Test with endpoint-1
+        with patch.dict("os.environ", {"RUNPOD_ENDPOINT_ID": "endpoint-1"}):
+            manager1 = WorkspaceManager()
+            expected_workspace1 = f"{RUNPOD_VOLUME_PATH}/{RUNTIMES_DIR_NAME}/endpoint-1"
+            assert manager1.workspace_path == expected_workspace1
+            assert manager1.venv_path == f"{expected_workspace1}/{VENV_DIR_NAME}"
+
+        # Test with endpoint-2
+        with patch.dict("os.environ", {"RUNPOD_ENDPOINT_ID": "endpoint-2"}):
+            manager2 = WorkspaceManager()
+            expected_workspace2 = f"{RUNPOD_VOLUME_PATH}/{RUNTIMES_DIR_NAME}/endpoint-2"
+            assert manager2.workspace_path == expected_workspace2
+            assert manager2.venv_path == f"{expected_workspace2}/{VENV_DIR_NAME}"
+
+        # Workspaces should be different
+        assert manager1.workspace_path != manager2.workspace_path
+        assert manager1.venv_path != manager2.venv_path
+
+        # But cache should be shared
+        assert (
+            manager1.cache_path
+            == manager2.cache_path
+            == f"{RUNPOD_VOLUME_PATH}/{UV_CACHE_DIR_NAME}"
+        )
+
+    @patch("os.path.exists")
+    def test_default_endpoint_id_when_not_set(self, mock_exists):
+        """Test that 'default' is used when RUNPOD_ENDPOINT_ID is not set."""
+        mock_exists.return_value = True
+
+        with patch.dict("os.environ", {}, clear=True):
+            manager = WorkspaceManager()
+            expected_workspace = f"{RUNPOD_VOLUME_PATH}/{RUNTIMES_DIR_NAME}/default"
+            assert manager.workspace_path == expected_workspace
+            assert manager.endpoint_id == "default"
 
 
 class TestVolumeDetection:
@@ -25,8 +71,11 @@ class TestVolumeDetection:
         manager = WorkspaceManager()
 
         assert manager.has_runpod_volume is True
-        assert manager.workspace_path == RUNPOD_VOLUME_PATH
-        assert manager.venv_path == f"{RUNPOD_VOLUME_PATH}/{VENV_DIR_NAME}"
+        # Workspace is now endpoint-specific (using 'default' when RUNPOD_ENDPOINT_ID not set)
+        expected_workspace = f"{RUNPOD_VOLUME_PATH}/{RUNTIMES_DIR_NAME}/default"
+        assert manager.workspace_path == expected_workspace
+        assert manager.venv_path == f"{expected_workspace}/{VENV_DIR_NAME}"
+        # Cache is shared at volume root
         assert manager.cache_path == f"{RUNPOD_VOLUME_PATH}/{UV_CACHE_DIR_NAME}"
         mock_exists.assert_called_with(RUNPOD_VOLUME_PATH)
 
@@ -68,20 +117,23 @@ class TestWorkspaceInitialization:
             assert result.success is True
             mock_create.assert_called_once()
 
+    @patch("workspace_manager.WorkspaceManager._validate_virtual_environment")
     @patch("os.path.exists")
-    def test_workspace_already_initialized_skips_creation(self, mock_exists):
+    def test_workspace_already_initialized_skips_creation(
+        self, mock_exists, mock_validate
+    ):
         """Test that existing workspace is not re-initialized."""
+        expected_workspace = f"{RUNPOD_VOLUME_PATH}/{RUNTIMES_DIR_NAME}/default"
         mock_exists.side_effect = lambda path: path in [
             RUNPOD_VOLUME_PATH,
-            f"{RUNPOD_VOLUME_PATH}/{VENV_DIR_NAME}",
+            expected_workspace,
+            f"{expected_workspace}/{VENV_DIR_NAME}",
         ]
+        mock_validate.return_value = FunctionResponse(success=True, stdout="Valid venv")
 
         manager = WorkspaceManager()
-        
-        # Mock the validation to return success for existing venv
-        with patch.object(manager, "_validate_virtual_environment") as mock_validate:
-            mock_validate.return_value = FunctionResponse(success=True, stdout="Valid venv")
-            result = manager.initialize_workspace()
+
+        result = manager.initialize_workspace()
 
         assert result.success is True
         assert "already initialized" in result.stdout
@@ -145,16 +197,17 @@ class TestEnvironmentConfiguration:
         with patch.dict("os.environ", {}, clear=True):
             WorkspaceManager()
 
+            # Cache is shared at volume root
             assert (
                 os.environ.get("UV_CACHE_DIR")
                 == f"{RUNPOD_VOLUME_PATH}/{UV_CACHE_DIR_NAME}"
             )
-            assert (
-                os.environ.get("VIRTUAL_ENV") == f"{RUNPOD_VOLUME_PATH}/{VENV_DIR_NAME}"
+            # Virtual environment is endpoint-specific
+            expected_venv = (
+                f"{RUNPOD_VOLUME_PATH}/{RUNTIMES_DIR_NAME}/default/{VENV_DIR_NAME}"
             )
-            assert f"{RUNPOD_VOLUME_PATH}/{VENV_DIR_NAME}/bin" in os.environ.get(
-                "PATH", ""
-            )
+            assert os.environ.get("VIRTUAL_ENV") == expected_venv
+            assert f"{expected_venv}/bin" in os.environ.get("PATH", "")
 
     @patch("os.path.exists")
     def test_no_environment_changes_without_volume(self, mock_exists):
@@ -183,7 +236,9 @@ class TestWorkspaceOperations:
         original_cwd = manager.change_to_workspace()
 
         assert original_cwd == "/original"
-        mock_chdir.assert_called_once_with(RUNPOD_VOLUME_PATH)
+        # Now changes to endpoint-specific workspace
+        expected_workspace = f"{RUNPOD_VOLUME_PATH}/{RUNTIMES_DIR_NAME}/default"
+        mock_chdir.assert_called_once_with(expected_workspace)
 
     @patch("os.path.exists")
     def test_change_to_workspace_no_volume(self, mock_exists):
@@ -195,17 +250,19 @@ class TestWorkspaceOperations:
 
         assert original_cwd is None
 
+    @patch("workspace_manager.WorkspaceManager._validate_virtual_environment")
     @patch("os.path.exists")
     @patch("glob.glob")
-    def test_setup_python_path(self, mock_glob, mock_exists):
+    def test_setup_python_path(self, mock_glob, mock_exists, mock_validate):
         """Test Python path setup with virtual environment."""
+        expected_workspace = f"{RUNPOD_VOLUME_PATH}/{RUNTIMES_DIR_NAME}/default"
+        expected_venv = f"{expected_workspace}/{VENV_DIR_NAME}"
         mock_exists.side_effect = lambda path: path in [
             RUNPOD_VOLUME_PATH,
-            f"{RUNPOD_VOLUME_PATH}/{VENV_DIR_NAME}",
+            expected_venv,
         ]
-        mock_glob.return_value = [
-            f"{RUNPOD_VOLUME_PATH}/{VENV_DIR_NAME}/lib/python3.12/site-packages"
-        ]
+        mock_glob.return_value = [f"{expected_venv}/lib/python3.12/site-packages"]
+        mock_validate.return_value = FunctionResponse(success=True, stdout="Valid venv")
 
         manager = WorkspaceManager()
 
@@ -213,13 +270,7 @@ class TestWorkspaceOperations:
 
         original_path = sys.path.copy()
         try:
-            # Mock the validation to return success
-            with patch.object(manager, "_validate_virtual_environment") as mock_validate:
-                mock_validate.return_value = FunctionResponse(success=True, stdout="Valid venv")
-                manager.setup_python_path()
-                assert (
-                    f"{RUNPOD_VOLUME_PATH}/{VENV_DIR_NAME}/lib/python3.12/site-packages"
-                    in sys.path
-                )
+            manager.setup_python_path()
+            assert f"{expected_venv}/lib/python3.12/site-packages" in sys.path
         finally:
             sys.path = original_path

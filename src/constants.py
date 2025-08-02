@@ -14,3 +14,6 @@ UV_CACHE_DIR_NAME = ".uv-cache"
 
 WORKSPACE_LOCK_FILE = ".initialization.lock"
 """Name of the workspace initialization lock file."""
+
+RUNTIMES_DIR_NAME = "runtimes"
+"""Name of the runtimes directory containing per-endpoint workspaces."""

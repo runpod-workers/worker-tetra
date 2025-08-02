@@ -7,28 +7,36 @@ import threading
 from unittest.mock import Mock, patch
 
 from handler import RemoteExecutor, handler
-from constants import RUNPOD_VOLUME_PATH, VENV_DIR_NAME
+from remote_execution import FunctionResponse
+from constants import RUNPOD_VOLUME_PATH, VENV_DIR_NAME, RUNTIMES_DIR_NAME
 
 
 class TestFullWorkflowWithVolume:
     """Test complete request workflows with volume integration."""
 
+    @patch("workspace_manager.WorkspaceManager._validate_virtual_environment")
     @patch("os.path.exists")
     @patch("subprocess.Popen")
     @patch("os.chdir")
     @patch("glob.glob")
     async def test_full_workflow_with_volume(
-        self, mock_glob, mock_chdir, mock_popen, mock_exists
+        self, mock_glob, mock_chdir, mock_popen, mock_exists, mock_validate
     ):
         """Test complete workflow from handler to execution with volume."""
-        # Mock volume exists
+        # Mock volume exists with endpoint-specific workspace
+        expected_workspace = f"{RUNPOD_VOLUME_PATH}/{RUNTIMES_DIR_NAME}/default"
+        expected_venv = f"{expected_workspace}/{VENV_DIR_NAME}"
         mock_exists.side_effect = lambda path: path in [
             RUNPOD_VOLUME_PATH,
-            f"{RUNPOD_VOLUME_PATH}/{VENV_DIR_NAME}",
+            expected_workspace,
+            expected_venv,
         ]
 
-        # Mock glob for site-packages
-        mock_glob.return_value = ["/runpod-volume/.venv/lib/python3.12/site-packages"]
+        # Mock glob for site-packages in endpoint-specific workspace
+        mock_glob.return_value = [f"{expected_venv}/lib/python3.12/site-packages"]
+
+        # Mock virtual environment validation
+        mock_validate.return_value = FunctionResponse(success=True, stdout="Valid venv")
 
         # Mock successful dependency installation
         mock_process = Mock()
@@ -59,30 +67,38 @@ def numpy_test():
             assert result["success"] is True
             assert "error" not in result or result["error"] is None
 
-            # Should have changed to volume directory
+            # Should have changed to endpoint-specific workspace directory
             chdir_calls = [call[0][0] for call in mock_chdir.call_args_list]
-            assert RUNPOD_VOLUME_PATH in chdir_calls
+            assert expected_workspace in chdir_calls
 
             # Should have installed dependencies
             assert mock_popen.called
             install_command = mock_popen.call_args[0][0]
             assert "numpy==1.21.0" in " ".join(install_command)
 
+    @patch("workspace_manager.WorkspaceManager._validate_virtual_environment")
     @patch("os.path.exists")
     @patch("subprocess.Popen")
     @patch("os.chdir")
     @patch("glob.glob")
     async def test_workflow_with_system_dependencies(
-        self, mock_glob, mock_chdir, mock_popen, mock_exists
+        self, mock_glob, mock_chdir, mock_popen, mock_exists, mock_validate
     ):
         """Test workflow that includes both system and Python dependencies."""
+        # Mock volume exists with endpoint-specific workspace
+        expected_workspace = f"{RUNPOD_VOLUME_PATH}/{RUNTIMES_DIR_NAME}/default"
+        expected_venv = f"{expected_workspace}/{VENV_DIR_NAME}"
         mock_exists.side_effect = lambda path: path in [
             RUNPOD_VOLUME_PATH,
-            f"{RUNPOD_VOLUME_PATH}/{VENV_DIR_NAME}",
+            expected_workspace,
+            expected_venv,
         ]
 
-        # Mock glob for site-packages
-        mock_glob.return_value = ["/runpod-volume/.venv/lib/python3.12/site-packages"]
+        # Mock glob for site-packages in endpoint-specific workspace
+        mock_glob.return_value = [f"{expected_venv}/lib/python3.12/site-packages"]
+
+        # Mock virtual environment validation
+        mock_validate.return_value = FunctionResponse(success=True, stdout="Valid venv")
 
         # Mock apt-get update and install
         apt_update_process = Mock()
@@ -158,22 +174,30 @@ def system_test():
 class TestConcurrentRequests:
     """Test realistic concurrent access scenarios."""
 
+    @patch("workspace_manager.WorkspaceManager._validate_virtual_environment")
     @patch("os.path.exists")
     @patch("subprocess.Popen")
     @patch("fcntl.flock")
     @patch("os.chdir")
     @patch("glob.glob")
     async def test_multiple_concurrent_requests(
-        self, mock_glob, mock_chdir, mock_flock, mock_popen, mock_exists
+        self, mock_glob, mock_chdir, mock_flock, mock_popen, mock_exists, mock_validate
     ):
         """Test multiple concurrent requests to the same endpoint."""
+        # Mock volume exists with endpoint-specific workspace
+        expected_workspace = f"{RUNPOD_VOLUME_PATH}/{RUNTIMES_DIR_NAME}/default"
+        expected_venv = f"{expected_workspace}/{VENV_DIR_NAME}"
         mock_exists.side_effect = lambda path: path in [
             RUNPOD_VOLUME_PATH,
-            f"{RUNPOD_VOLUME_PATH}/{VENV_DIR_NAME}",
+            expected_workspace,
+            expected_venv,
         ]
 
-        # Mock glob for site-packages
-        mock_glob.return_value = ["/runpod-volume/.venv/lib/python3.12/site-packages"]
+        # Mock glob for site-packages in endpoint-specific workspace
+        mock_glob.return_value = [f"{expected_venv}/lib/python3.12/site-packages"]
+
+        # Mock virtual environment validation
+        mock_validate.return_value = FunctionResponse(success=True, stdout="Valid venv")
 
         # Mock successful installations
         mock_process = Mock()
@@ -222,13 +246,20 @@ def concurrent_test():
             # Just verify that all requests succeeded
             assert len(results) == 5
 
+    @patch("workspace_manager.WorkspaceManager._validate_virtual_environment")
     @patch("os.path.exists")
     @patch("subprocess.Popen")
-    def test_concurrent_dependency_installation(self, mock_popen, mock_exists):
+    def test_concurrent_dependency_installation(
+        self, mock_popen, mock_exists, mock_validate
+    ):
         """Test that concurrent dependency installations don't conflict."""
+        # Mock volume exists with endpoint-specific workspace
+        expected_workspace = f"{RUNPOD_VOLUME_PATH}/{RUNTIMES_DIR_NAME}/default"
+        expected_venv = f"{expected_workspace}/{VENV_DIR_NAME}"
         mock_exists.side_effect = lambda path: path in [
             RUNPOD_VOLUME_PATH,
-            f"{RUNPOD_VOLUME_PATH}/{VENV_DIR_NAME}",
+            expected_workspace,
+            expected_venv,
         ]
 
         # Track installation calls
@@ -277,9 +308,12 @@ def concurrent_test():
 class TestMixedExecution:
     """Test mixed volume and non-volume execution scenarios."""
 
+    @patch("workspace_manager.WorkspaceManager._validate_virtual_environment")
     @patch("os.path.exists")
     @patch("os.chdir")
-    async def test_mixed_volume_and_non_volume_execution(self, mock_chdir, mock_exists):
+    async def test_mixed_volume_and_non_volume_execution(
+        self, mock_chdir, mock_exists, mock_validate
+    ):
         """Test that handlers work both with and without volumes."""
         # First request - no volume available
         mock_exists.return_value = False
@@ -297,9 +331,13 @@ class TestMixedExecution:
         assert result_no_volume["success"] is True
 
         # Second request - volume becomes available
+        # Mock volume exists with endpoint-specific workspace
+        expected_workspace = f"{RUNPOD_VOLUME_PATH}/{RUNTIMES_DIR_NAME}/default"
+        expected_venv = f"{expected_workspace}/{VENV_DIR_NAME}"
         mock_exists.side_effect = lambda path: path in [
             RUNPOD_VOLUME_PATH,
-            f"{RUNPOD_VOLUME_PATH}/{VENV_DIR_NAME}",
+            expected_workspace,
+            expected_venv,
         ]
 
         event_with_volume = {
@@ -315,14 +353,17 @@ class TestMixedExecution:
         result_with_volume = await handler(event_with_volume)
         assert result_with_volume["success"] is True
         chdir_calls = [call[0][0] for call in mock_chdir.call_args_list]
-        assert RUNPOD_VOLUME_PATH in chdir_calls
+        # Should change to endpoint-specific workspace, not just volume root
+        expected_workspace = f"{RUNPOD_VOLUME_PATH}/{RUNTIMES_DIR_NAME}/default"
+        assert expected_workspace in chdir_calls
 
+    @patch("workspace_manager.WorkspaceManager._validate_virtual_environment")
     @patch("os.path.exists")
     @patch("subprocess.Popen")
     @patch("os.makedirs")
     @patch("builtins.open")
     async def test_fallback_on_volume_initialization_failure(
-        self, mock_open, mock_makedirs, mock_popen, mock_exists
+        self, mock_open, mock_makedirs, mock_popen, mock_exists, mock_validate
     ):
         """Test graceful fallback when volume initialization fails."""
         mock_exists.side_effect = (
@@ -361,15 +402,20 @@ class TestMixedExecution:
 class TestErrorHandlingIntegration:
     """Test error handling in integrated volume scenarios."""
 
+    @patch("workspace_manager.WorkspaceManager._validate_virtual_environment")
     @patch("os.path.exists")
     @patch("subprocess.Popen")
     async def test_dependency_installation_failure_with_volume(
-        self, mock_popen, mock_exists
+        self, mock_popen, mock_exists, mock_validate
     ):
         """Test proper error handling when dependency installation fails in volume."""
+        # Mock volume exists with endpoint-specific workspace
+        expected_workspace = f"{RUNPOD_VOLUME_PATH}/{RUNTIMES_DIR_NAME}/default"
+        expected_venv = f"{expected_workspace}/{VENV_DIR_NAME}"
         mock_exists.side_effect = lambda path: path in [
             RUNPOD_VOLUME_PATH,
-            f"{RUNPOD_VOLUME_PATH}/{VENV_DIR_NAME}",
+            expected_workspace,
+            expected_venv,
         ]
 
         # Mock failed dependency installation
@@ -398,9 +444,12 @@ class TestErrorHandlingIntegration:
         # Function should not have been executed
         assert "result" not in result or result["result"] is None
 
+    @patch("workspace_manager.WorkspaceManager._validate_virtual_environment")
     @patch("os.path.exists")
     @patch("os.chdir")
-    async def test_volume_permission_error_handling(self, mock_chdir, mock_exists):
+    async def test_volume_permission_error_handling(
+        self, mock_chdir, mock_exists, mock_validate
+    ):
         """Test handling of permission errors when accessing volume."""
         mock_exists.return_value = True
         mock_chdir.side_effect = PermissionError("Permission denied")

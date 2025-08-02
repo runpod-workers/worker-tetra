@@ -32,7 +32,7 @@ upgrade: # Upgrade all dependencies
 setup: dev # Initialize project, sync deps, update submodules
 	git submodule init
 	git submodule update --remote --merge
-	cp tetra-rp/src/tetra_rp/protos/remote_execution.py .
+	cp tetra-rp/src/tetra_rp/protos/remote_execution.py src/
 
 build: setup # Build GPU Docker image (linux/amd64)
 	docker buildx build \

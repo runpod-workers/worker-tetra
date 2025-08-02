@@ -82,8 +82,9 @@ The handler automatically detects and utilizes `/runpod-volume` for persistent w
 
 ### Volume Features
 - **Automatic Detection**: Detects `/runpod-volume` presence on container startup
-- **Virtual Environment**: Creates and manages `.venv` in the volume for persistent package installation
-- **Shared Package Cache**: Uses `/runpod-volume/.uv-cache` for efficient package caching across workers
+- **Endpoint Isolation**: Each endpoint gets its own workspace at `/runpod-volume/runtimes/{endpoint_id}`
+- **Virtual Environment**: Creates and manages endpoint-specific `.venv` for persistent package installation
+- **Shared Package Cache**: Uses `/runpod-volume/.uv-cache` for efficient package caching across all endpoints
 - **Differential Installation**: Only installs missing packages, leveraging persistent storage
 - **Concurrency Safety**: File-based locking prevents race conditions during workspace initialization
 - **Graceful Fallback**: Works normally when no volume is present
@@ -91,28 +92,33 @@ The handler automatically detects and utilizes `/runpod-volume` for persistent w
 ### Volume Structure
 ```
 /runpod-volume/
-├── .venv/                    # Persistent virtual environment
-│   ├── bin/
-│   ├── lib/python3.12/
-│   └── site-packages/
-├── .uv-cache/               # Shared UV package cache
-├── .initialization.lock     # Temporary workspace lock file
-└── <function execution workspace>
+├── .uv-cache/               # Shared UV package cache (across all endpoints)
+├── runtimes/                # Per-endpoint runtime environments
+│   ├── endpoint-1/          # Workspace for endpoint-1
+│   │   ├── .venv/           # Endpoint-specific virtual environment
+│   │   ├── .initialization.lock  # Temporary workspace lock file
+│   │   └── <execution workspace>
+│   └── endpoint-2/          # Workspace for endpoint-2
+│       ├── .venv/           # Endpoint-specific virtual environment
+│       ├── .initialization.lock
+│       └── <execution workspace>
 ```
 
 ### Performance Benefits
 - **Faster Cold Starts**: Pre-installed packages reduce initialization time
 - **Reduced Network Usage**: Cached packages avoid redundant downloads
 - **Persistent State**: Function execution workspace survives across calls
-- **Optimized Resource Usage**: Shared cache across multiple workers
+- **Endpoint Isolation**: Each endpoint maintains independent dependencies and state
+- **Optimized Resource Usage**: Shared cache across multiple endpoints while maintaining isolation
 
 ## Configuration
 
 ### Environment Variables
 - `RUNPOD_API_KEY`: Required for RunPod Serverless integration
+- `RUNPOD_ENDPOINT_ID`: Used for workspace isolation (automatically set by RunPod)
 - `DEBIAN_FRONTEND=noninteractive`: Set during system package installation
 - `UV_CACHE_DIR`: Automatically set to `/runpod-volume/.uv-cache` when volume detected
-- `VIRTUAL_ENV`: Automatically set to `/runpod-volume/.venv` when available
+- `VIRTUAL_ENV`: Automatically set to `/runpod-volume/runtimes/{endpoint_id}/.venv` when available
 
 ### Resource Configuration
 Configure GPU resources using `LiveServerless` objects:
@@ -220,3 +226,7 @@ Configure these in GitHub repository settings:
 ## Branch Information
 - Main branch: `main`
 - Submodule tracking: Updates pulled from remote automatically during setup
+
+## Development Best Practices
+
+- Always run `make quality-check` before committing changes

@@ -64,7 +64,7 @@ disallow_incomplete_defs = false
 check_untyped_defs = true
 
 # Import discovery
-mypy_path = "."
+mypy_path = "src"
 namespace_packages = true
 
 # Error output

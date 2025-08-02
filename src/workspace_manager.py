@@ -11,27 +11,34 @@ from constants import (
     VENV_DIR_NAME,
     UV_CACHE_DIR_NAME,
     WORKSPACE_LOCK_FILE,
+    RUNTIMES_DIR_NAME,
 )
 
 
 class WorkspaceManager:
     """Manages RunPod volume workspace initialization and configuration."""
 
-    def __init__(self):
+    venv_path: Optional[str]
+    cache_path: Optional[str]
+
+    def __init__(self) -> None:
         self.has_runpod_volume = os.path.exists(RUNPOD_VOLUME_PATH)
-        self.workspace_path = (
-            RUNPOD_VOLUME_PATH if self.has_runpod_volume else DEFAULT_WORKSPACE_PATH
-        )
-        self.venv_path = (
-            os.path.join(self.workspace_path, VENV_DIR_NAME)
-            if self.has_runpod_volume
-            else None
-        )
-        self.cache_path = (
-            os.path.join(self.workspace_path, UV_CACHE_DIR_NAME)
-            if self.has_runpod_volume
-            else None
-        )
+        self.endpoint_id = os.environ.get("RUNPOD_ENDPOINT_ID", "default")
+
+        # Set up workspace paths
+        if self.has_runpod_volume:
+            # Endpoint-specific workspace: /runpod-volume/runtimes/{endpoint_id}
+            self.workspace_path = os.path.join(
+                RUNPOD_VOLUME_PATH, RUNTIMES_DIR_NAME, self.endpoint_id
+            )
+            self.venv_path = os.path.join(self.workspace_path, VENV_DIR_NAME)
+            # Shared cache at volume root for all endpoints
+            self.cache_path = os.path.join(RUNPOD_VOLUME_PATH, UV_CACHE_DIR_NAME)
+        else:
+            # Fallback to container workspace
+            self.workspace_path = DEFAULT_WORKSPACE_PATH
+            self.venv_path = None
+            self.cache_path = None
 
         if self.has_runpod_volume:
             self._configure_uv_cache()
@@ -171,9 +178,10 @@ class WorkspaceManager:
             # Validate venv before using it
             validation_result = self._validate_virtual_environment()
             if not validation_result.success:
-                print(f"Warning: Virtual environment is invalid: {validation_result.error}")
+                print(
+                    f"Warning: Virtual environment is invalid: {validation_result.error}"
+                )
                 return
-                
             import glob
             import sys
 
@@ -187,7 +195,7 @@ class WorkspaceManager:
     def _validate_virtual_environment(self) -> FunctionResponse:
         """
         Validate that the virtual environment is functional.
-        
+
         Returns:
             FunctionResponse indicating if the venv is valid
         """
@@ -195,15 +203,15 @@ class WorkspaceManager:
             return FunctionResponse(
                 success=False, error="Virtual environment does not exist"
             )
-        
+
         python_exe = os.path.join(self.venv_path, "bin", "python3")
-        
+
         # Check if Python executable exists and is not a broken symlink
         if not os.path.exists(python_exe):
             return FunctionResponse(
                 success=False, error=f"Python executable not found at {python_exe}"
             )
-        
+
         # Check if it's a broken symlink (need to resolve the full path)
         if os.path.islink(python_exe):
             try:
@@ -219,7 +227,7 @@ class WorkspaceManager:
                     success=False,
                     error=f"Error resolving symlink at {python_exe}: {str(e)}",
                 )
-        
+
         # Try to execute a simple Python command to verify functionality
         try:
             process = subprocess.Popen(
@@ -234,13 +242,13 @@ class WorkspaceManager:
                 return FunctionResponse(
                     success=False, error="Python interpreter validation timed out"
                 )
-            
+
             if process.returncode != 0:
                 return FunctionResponse(
                     success=False,
                     error=f"Python interpreter failed to execute: {stderr.decode()}",
                 )
-            
+
             return FunctionResponse(
                 success=True, stdout="Virtual environment is functional"
             )
