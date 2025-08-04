@@ -3,6 +3,7 @@
 import base64
 import cloudpickle
 from datetime import datetime
+from unittest.mock import MagicMock
 
 from class_executor import ClassExecutor
 from remote_execution import FunctionRequest
@@ -13,7 +14,8 @@ class TestClassExecution:
 
     def setup_method(self):
         """Setup for each test method."""
-        self.executor = ClassExecutor()
+        mock_workspace_manager = MagicMock()
+        self.executor = ClassExecutor(mock_workspace_manager)
 
     def encode_args(self, *args):
         """Helper to encode arguments."""
@@ -157,7 +159,8 @@ class TestInstanceManagement:
 
     def setup_method(self):
         """Setup for each test method."""
-        self.executor = ClassExecutor()
+        mock_workspace_manager = MagicMock()
+        self.executor = ClassExecutor(mock_workspace_manager)
 
     def encode_args(self, *args):
         """Helper to encode arguments."""

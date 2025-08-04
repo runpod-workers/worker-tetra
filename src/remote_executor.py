@@ -18,7 +18,7 @@ class RemoteExecutor(RemoteExecutorStub):
         self.workspace_manager = WorkspaceManager()
         self.dependency_installer = DependencyInstaller(self.workspace_manager)
         self.function_executor = FunctionExecutor(self.workspace_manager)
-        self.class_executor = ClassExecutor()
+        self.class_executor = ClassExecutor(self.workspace_manager)
 
     async def ExecuteFunction(self, request: FunctionRequest) -> FunctionResponse:
         """

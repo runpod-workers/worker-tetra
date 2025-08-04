@@ -4,15 +4,16 @@ import traceback
 from contextlib import redirect_stdout, redirect_stderr
 from typing import Dict, Any
 
+from base_executor import BaseExecutor
 from remote_execution import FunctionRequest, FunctionResponse
 from serialization_utils import SerializationUtils
 
 
-class FunctionExecutor:
+class FunctionExecutor(BaseExecutor):
     """Handles execution of individual functions with output capture."""
 
     def __init__(self, workspace_manager):
-        self.workspace_manager = workspace_manager
+        super().__init__(workspace_manager)
 
     def execute(self, request: FunctionRequest) -> FunctionResponse:
         """
@@ -30,8 +31,8 @@ class FunctionExecutor:
         log_io = io.StringIO()
 
         try:
-            # Setup Python path for volume environment
-            self.workspace_manager.setup_python_path()
+            # Setup execution environment including Python path
+            self._setup_execution_environment()
 
             # Capture all stdout, stderr, and logs
             with redirect_stdout(stdout_io), redirect_stderr(stderr_io):
