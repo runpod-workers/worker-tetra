@@ -92,10 +92,7 @@ The handler automatically detects and utilizes `/runpod-volume` for persistent w
 - **Shared Package Cache**: Uses `/runpod-volume/.uv-cache` for efficient package caching across all endpoints
 - **Hugging Face Cache**: Configures HF model cache at `/runpod-volume/.hf-cache` to prevent storage issues
 - **Differential Installation**: Only installs missing packages, leveraging persistent storage
-- **Enhanced Concurrency Safety**: Advanced file-based locking with proper file descriptor management prevents race conditions during workspace initialization
-- **Configurable Timeouts**: Workspace initialization timeout and polling intervals are configurable via constants
-- **Atomic Operations**: Workspace functionality checks are atomic to prevent race conditions
-- **Comprehensive Error Handling**: Robust error recovery and cleanup mechanisms for various failure scenarios
+- **Concurrency Safety**: File-based locking prevents race conditions during workspace initialization
 - **Graceful Fallback**: Works normally when no volume is present
 
 ### Volume Structure
@@ -124,32 +121,6 @@ The handler automatically detects and utilizes `/runpod-volume` for persistent w
 - **Endpoint Isolation**: Each endpoint maintains independent dependencies and state
 - **Optimized Resource Usage**: Shared caches across multiple endpoints while maintaining isolation
 - **ML Model Efficiency**: Large HF models cached on volume prevent "No space left on device" errors
-
-### Concurrency Safety Enhancements
-
-The workspace initialization system has been enhanced with advanced concurrency safety features:
-
-#### Lock Management
-- **File Descriptor-Based Locking**: Uses `os.open()` and `fcntl.flock()` for reliable cross-process locking
-- **Proper Resource Cleanup**: Ensures file descriptors are always closed, even on exceptions
-- **Lock Timeout Handling**: Configurable timeout with graceful fallback when locks cannot be acquired
-- **Atomic Lock Operations**: Lock acquisition and workspace validation are performed atomically
-
-#### Workspace Validation
-- **Directory Access Validation**: Verifies workspace directory is writable before attempting initialization
-- **Virtual Environment Validation**: Checks that virtual environments are functional, not just present
-- **Automatic Recovery**: Detects and recreates broken virtual environments
-- **Race Condition Prevention**: Workspace functionality checks are atomic and thread-safe
-
-#### Configuration Constants
-- `WORKSPACE_INIT_TIMEOUT`: Default timeout (30 seconds) for workspace initialization
-- `WORKSPACE_LOCK_POLL_INTERVAL`: Polling interval (0.5 seconds) during lock wait periods
-
-#### Error Handling
-- **Comprehensive Error Recovery**: Handles various failure scenarios with appropriate fallback behavior
-- **Descriptive Error Messages**: Provides clear error context for debugging
-- **Silent Cleanup**: Lock file cleanup failures are logged but don't fail the operation
-- **Performance Monitoring**: Tracks lock acquisition success rates and timeout scenarios
 
 ## Configuration
 
@@ -200,17 +171,9 @@ PYTHONPATH=src RUNPOD_TEST_INPUT="$(cat test_hf_input.json)" uv run python src/h
 - **pytest** with coverage reporting and async support
 - **Unit tests** (`tests/unit/`): Test individual components in isolation
 - **Integration tests** (`tests/integration/`): Test end-to-end workflows
-- **Concurrency tests**: Comprehensive testing of workspace initialization under concurrent access
-- **Coverage target**: 80% minimum, with HTML and XML reports (currently achieving 85%+)
+- **Coverage target**: 80% minimum, with HTML and XML reports
 - **Test fixtures**: Shared test data and mocks in `tests/conftest.py`
 - **CI Integration**: Tests run on all PRs and before releases/deployments
-
-#### Concurrency Test Coverage
-- **Lock timeout scenarios**: Validates proper timeout handling and error messages
-- **File descriptor cleanup**: Ensures resources are properly released on errors
-- **Race condition handling**: Tests concurrent workspace initialization attempts
-- **Directory validation**: Tests workspace access permission scenarios
-- **Edge case handling**: Validates behavior under various failure conditions
 
 ## Development Notes
 
@@ -240,17 +203,9 @@ PYTHONPATH=src RUNPOD_TEST_INPUT="$(cat test_hf_input.json)" uv run python src/h
 ## File Structure Highlights
 
 ```
-├── src/                    # Source code directory
-│   ├── handler.py          # Main serverless function handler entry point
-│   ├── remote_execution.py # Protocol definitions using Pydantic models
-│   ├── remote_executor.py  # Main execution orchestrator
-│   ├── workspace_manager.py # Enhanced workspace management with concurrency safety
-│   ├── function_executor.py # Function execution with output capture
-│   ├── class_executor.py   # Class instantiation and method execution
-│   ├── dependency_installer.py # System and Python dependency management
-│   ├── serialization_utils.py  # Argument and result serialization utilities
-│   └── constants.py        # Configuration constants including concurrency settings
-├── PLAN.md                # Implementation plan for stdout feedback enhancements
+├── handler.py              # Main serverless function handler with volume support
+├── remote_execution.py     # Protocol definitions
+├── PLAN.md                # TDD implementation plan for volume workspace
 ├── Dockerfile             # GPU container definition  
 ├── Dockerfile-cpu         # CPU container definition
 ├── test_input.json        # Basic function execution test
