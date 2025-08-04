@@ -316,3 +316,121 @@ class TestWorkspaceOperations:
             assert f"{expected_venv}/lib/python3.12/site-packages" in sys.path
         finally:
             sys.path = original_path
+
+
+class TestAppVenvSymlink:
+    """Tests for /app/.venv symlink functionality."""
+
+    @patch("os.makedirs")
+    @patch("os.path.exists")
+    @patch("os.symlink")
+    @patch("shutil.rmtree")
+    @patch("os.path.isdir")
+    @patch("os.path.islink")
+    def test_create_app_venv_symlink_removes_existing_dir(
+        self,
+        mock_islink,
+        mock_isdir,
+        mock_rmtree,
+        mock_symlink,
+        mock_exists,
+        mock_makedirs,
+    ):
+        """Test that existing /app/.venv directory is removed before creating symlink."""
+        mock_exists.side_effect = lambda path: path in [
+            RUNPOD_VOLUME_PATH,
+            "/app/.venv",
+        ]
+        mock_islink.return_value = False
+        mock_isdir.return_value = True
+
+        with patch.dict(os.environ, {"RUNPOD_ENDPOINT_ID": "test-endpoint"}):
+            manager = WorkspaceManager()
+            manager._create_app_venv_symlink()
+
+        expected_venv = (
+            f"{RUNPOD_VOLUME_PATH}/{RUNTIMES_DIR_NAME}/test-endpoint/{VENV_DIR_NAME}"
+        )
+        mock_rmtree.assert_called_once_with("/app/.venv")
+        mock_symlink.assert_called_once_with(expected_venv, "/app/.venv")
+
+    @patch("os.makedirs")
+    @patch("os.path.exists")
+    @patch("os.symlink")
+    @patch("os.remove")
+    @patch("os.path.islink")
+    def test_create_app_venv_symlink_removes_existing_symlink(
+        self, mock_islink, mock_remove, mock_symlink, mock_exists, mock_makedirs
+    ):
+        """Test that existing /app/.venv symlink is removed before creating new one."""
+        mock_exists.side_effect = lambda path: path in [
+            RUNPOD_VOLUME_PATH,
+            "/app/.venv",
+        ]
+        mock_islink.return_value = True
+
+        with patch.dict(os.environ, {"RUNPOD_ENDPOINT_ID": "test-endpoint"}):
+            manager = WorkspaceManager()
+            manager._create_app_venv_symlink()
+
+        expected_venv = (
+            f"{RUNPOD_VOLUME_PATH}/{RUNTIMES_DIR_NAME}/test-endpoint/{VENV_DIR_NAME}"
+        )
+        mock_remove.assert_called_once_with("/app/.venv")
+        mock_symlink.assert_called_once_with(expected_venv, "/app/.venv")
+
+    @patch("os.makedirs")
+    @patch("os.path.exists")
+    @patch("os.symlink")
+    def test_create_app_venv_symlink_creates_new_symlink(
+        self, mock_symlink, mock_exists, mock_makedirs
+    ):
+        """Test that symlink is created when /app/.venv doesn't exist."""
+        mock_exists.side_effect = lambda path: path == RUNPOD_VOLUME_PATH
+
+        with patch.dict(os.environ, {"RUNPOD_ENDPOINT_ID": "test-endpoint"}):
+            manager = WorkspaceManager()
+            manager._create_app_venv_symlink()
+
+        expected_venv = (
+            f"{RUNPOD_VOLUME_PATH}/{RUNTIMES_DIR_NAME}/test-endpoint/{VENV_DIR_NAME}"
+        )
+        mock_symlink.assert_called_once_with(expected_venv, "/app/.venv")
+
+    @patch("os.makedirs")
+    @patch("os.path.exists")
+    @patch("os.path.islink")
+    @patch("os.readlink")
+    @patch("os.remove")
+    def test_remove_app_venv_symlink_removes_matching_symlink(
+        self, mock_remove, mock_readlink, mock_islink, mock_exists, mock_makedirs
+    ):
+        """Test that /app/.venv symlink is removed when it points to our venv."""
+        mock_exists.return_value = True
+        mock_islink.return_value = True
+        expected_venv = (
+            f"{RUNPOD_VOLUME_PATH}/{RUNTIMES_DIR_NAME}/test-endpoint/{VENV_DIR_NAME}"
+        )
+        mock_readlink.return_value = expected_venv
+
+        with patch.dict(os.environ, {"RUNPOD_ENDPOINT_ID": "test-endpoint"}):
+            manager = WorkspaceManager()
+            manager._remove_app_venv_symlink()
+
+        mock_remove.assert_called_once_with("/app/.venv")
+
+    @patch("os.path.islink")
+    @patch("os.readlink")
+    @patch("os.remove")
+    def test_remove_app_venv_symlink_skips_different_target(
+        self, mock_remove, mock_readlink, mock_islink
+    ):
+        """Test that /app/.venv symlink is not removed when it points to a different venv."""
+        mock_islink.return_value = True
+        mock_readlink.return_value = "/different/venv/path"
+
+        with patch.dict(os.environ, {"RUNPOD_ENDPOINT_ID": "test-endpoint"}):
+            manager = WorkspaceManager()
+            manager._remove_app_venv_symlink()
+
+        mock_remove.assert_not_called()

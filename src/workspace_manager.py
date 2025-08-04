@@ -180,11 +180,61 @@ class WorkspaceManager:
                     stdout=stderr.decode(),
                 )
             else:
+                # Create symlink from /app/.venv to volume venv for libraries that hardcode /app/.venv
+                self._create_app_venv_symlink()
                 return FunctionResponse(success=True, stdout=stdout.decode())
         except Exception as e:
             return FunctionResponse(
                 success=False, error=f"Exception creating virtual environment: {str(e)}"
             )
+
+    def _create_app_venv_symlink(self):
+        """
+        Create symlink from /app/.venv to volume virtual environment.
+
+        This ensures libraries that hardcode /app/.venv (like vLLM) use the volume's venv
+        instead of the container's default venv.
+        """
+        if not self.venv_path:
+            return
+
+        app_venv_path = "/app/.venv"
+
+        try:
+            # Remove existing /app/.venv if it exists (file, dir, or broken symlink)
+            if os.path.exists(app_venv_path) or os.path.islink(app_venv_path):
+                if os.path.isdir(app_venv_path) and not os.path.islink(app_venv_path):
+                    # It's a real directory, remove recursively
+                    import shutil
+
+                    shutil.rmtree(app_venv_path)
+                else:
+                    # It's a file or symlink, remove it
+                    os.remove(app_venv_path)
+
+            # Create symlink to volume venv
+            os.symlink(self.venv_path, app_venv_path)
+            self.logger.info(f"Created symlink: {app_venv_path} -> {self.venv_path}")
+
+        except Exception as e:
+            # Log error but don't fail workspace initialization
+            self.logger.warning(f"Failed to create /app/.venv symlink: {str(e)}")
+
+    def _remove_app_venv_symlink(self):
+        """
+        Remove /app/.venv symlink if it points to our virtual environment.
+        """
+        app_venv_path = "/app/.venv"
+
+        try:
+            if os.path.islink(app_venv_path):
+                # Check if it points to our venv
+                link_target = os.readlink(app_venv_path)
+                if link_target == self.venv_path:
+                    os.remove(app_venv_path)
+                    self.logger.info(f"Removed symlink: {app_venv_path}")
+        except Exception as e:
+            self.logger.warning(f"Failed to remove /app/.venv symlink: {str(e)}")
 
     def change_to_workspace(self) -> Optional[str]:
         """
@@ -285,7 +335,7 @@ class WorkspaceManager:
             )
 
     def _remove_broken_virtual_environment(self):
-        """Remove broken virtual environment directory."""
+        """Remove broken virtual environment directory and associated symlink."""
         if self.venv_path and os.path.exists(self.venv_path):
             import shutil
 
@@ -294,6 +344,10 @@ class WorkspaceManager:
                 self.logger.info(
                     f"Removed broken virtual environment at {self.venv_path}"
                 )
+
+                # Also remove the /app/.venv symlink if it points to this venv
+                self._remove_app_venv_symlink()
+
             except Exception as e:
                 self.logger.error(
                     f"Error removing broken virtual environment: {str(e)}"
