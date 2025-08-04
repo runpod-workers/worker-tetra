@@ -2,6 +2,7 @@ import os
 import subprocess
 import fcntl
 import time
+import logging
 from typing import Optional
 
 from remote_execution import FunctionResponse
@@ -24,6 +25,7 @@ class WorkspaceManager:
     hf_cache_path: Optional[str]
 
     def __init__(self) -> None:
+        self.logger = logging.getLogger(__name__)
         self.has_runpod_volume = os.path.exists(RUNPOD_VOLUME_PATH)
         self.endpoint_id = os.environ.get("RUNPOD_ENDPOINT_ID", "default")
 
@@ -106,10 +108,10 @@ class WorkspaceManager:
                 )
             else:
                 # Virtual environment exists but is broken, recreate it
-                print(
+                self.logger.warning(
                     f"Virtual environment validation failed: {validation_result.error}"
                 )
-                print("Recreating virtual environment...")
+                self.logger.info("Recreating virtual environment...")
                 self._remove_broken_virtual_environment()
 
         # Use file-based locking for concurrent initialization
@@ -203,8 +205,8 @@ class WorkspaceManager:
             # Validate venv before using it
             validation_result = self._validate_virtual_environment()
             if not validation_result.success:
-                print(
-                    f"Warning: Virtual environment is invalid: {validation_result.error}"
+                self.logger.warning(
+                    f"Virtual environment is invalid: {validation_result.error}"
                 )
                 return
             import glob
@@ -289,6 +291,10 @@ class WorkspaceManager:
 
             try:
                 shutil.rmtree(self.venv_path)
-                print(f"Removed broken virtual environment at {self.venv_path}")
+                self.logger.info(
+                    f"Removed broken virtual environment at {self.venv_path}"
+                )
             except Exception as e:
-                print(f"Error removing broken virtual environment: {str(e)}")
+                self.logger.error(
+                    f"Error removing broken virtual environment: {str(e)}"
+                )

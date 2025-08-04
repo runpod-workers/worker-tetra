@@ -1,6 +1,7 @@
 import os
 import subprocess
 import importlib
+import logging
 from typing import List, Dict
 
 from remote_execution import FunctionResponse
@@ -11,6 +12,7 @@ class DependencyInstaller:
 
     def __init__(self, workspace_manager):
         self.workspace_manager = workspace_manager
+        self.logger = logging.getLogger(__name__)
 
     def install_system_dependencies(self, packages: List[str]) -> FunctionResponse:
         """
@@ -21,7 +23,7 @@ class DependencyInstaller:
                 success=True, stdout="No system packages to install"
             )
 
-        print(f"Installing system dependencies: {packages}")
+        self.logger.info(f"Installing system dependencies: {packages}")
 
         try:
             # Update package list first
@@ -59,7 +61,7 @@ class DependencyInstaller:
                     stdout=stderr.decode(),
                 )
             else:
-                print(f"Successfully installed system packages: {packages}")
+                self.logger.info(f"Successfully installed system packages: {packages}")
                 return FunctionResponse(
                     success=True,
                     stdout=stdout.decode(),
@@ -82,7 +84,7 @@ class DependencyInstaller:
         if not packages:
             return FunctionResponse(success=True, stdout="No packages to install")
 
-        print(f"Installing dependencies: {packages}")
+        self.logger.info(f"Installing dependencies: {packages}")
 
         # If using volume, check which packages are already installed
         if (
@@ -93,8 +95,10 @@ class DependencyInstaller:
             # Validate virtual environment before using it
             validation_result = self.workspace_manager._validate_virtual_environment()
             if not validation_result.success:
-                print(f"Virtual environment is invalid: {validation_result.error}")
-                print("Reinitializing workspace...")
+                self.logger.warning(
+                    f"Virtual environment is invalid: {validation_result.error}"
+                )
+                self.logger.info("Reinitializing workspace...")
                 init_result = self.workspace_manager.initialize_workspace()
                 if not init_result.success:
                     return FunctionResponse(
@@ -141,7 +145,7 @@ class DependencyInstaller:
                     stdout=stderr.decode(),
                 )
             else:
-                print(f"Successfully installed packages: {packages}")
+                self.logger.info(f"Successfully installed packages: {packages}")
                 return FunctionResponse(
                     success=True,
                     stdout=stdout.decode(),
