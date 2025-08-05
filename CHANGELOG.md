@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.4.0](https://github.com/runpod-workers/worker-tetra/compare/v0.3.1...v0.4.0) (2025-08-05)
+
+
+### Features
+
+* Workspace environment persisted in the network volume  ([#10](https://github.com/runpod-workers/worker-tetra/issues/10)) ([6675ec1](https://github.com/runpod-workers/worker-tetra/commit/6675ec1c52cc453be450684ce49ba4bea0d8ea2b))
+
 ## [0.3.1](https://github.com/runpod-workers/worker-tetra/compare/v0.3.0...v0.3.1) (2025-07-23)
 
 
