@@ -84,6 +84,25 @@ class WorkspaceManager:
             current_path = os.environ.get("PATH", "")
             os.environ["PATH"] = f"{venv_bin}:{current_path}"
 
+            # Additional environment variables that may help with subprocess execution
+            venv_lib_python = os.path.join(
+                self.venv_path, "lib", "python*", "site-packages"
+            )
+            import glob
+
+            site_packages_dirs = glob.glob(venv_lib_python)
+            if site_packages_dirs:
+                # Set PYTHONPATH to include volume site-packages
+                current_pythonpath = os.environ.get("PYTHONPATH", "")
+                new_pythonpath = ":".join(site_packages_dirs)
+                if current_pythonpath:
+                    os.environ["PYTHONPATH"] = f"{new_pythonpath}:{current_pythonpath}"
+                else:
+                    os.environ["PYTHONPATH"] = new_pythonpath
+                self.logger.info(
+                    f"Set PYTHONPATH to include volume packages: {new_pythonpath}"
+                )
+
     def initialize_workspace(self, timeout: int = 30) -> FunctionResponse:
         """
         Initialize the RunPod volume workspace with virtual environment.
