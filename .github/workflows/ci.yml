@@ -100,16 +100,12 @@ jobs:
 
       - name: Test local handler execution
         run: |
-          timeout 30s uv run python handler.py || exit_code=$?
+          timeout 30s make test-handler || exit_code=$?
           if [ ${exit_code:-0} -eq 124 ]; then
-            echo "Handler execution timed out as expected (running in serverless mode)"
-            exit 0
-          elif [ ${exit_code:-0} -eq 0 ]; then
-            echo "Handler executed successfully"
-            exit 0
+            echo "Handler testing timed out"
+            exit 1
           else
-            echo "Handler execution failed with exit code $exit_code"
-            exit $exit_code
+            exit ${exit_code:-0}
           fi
 
   release:

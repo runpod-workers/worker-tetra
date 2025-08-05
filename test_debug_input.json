@@ -1,0 +1,8 @@
+{
+  "input": {
+    "function_name": "debug_logging_test",
+    "function_code": "def debug_logging_test():\n    import logging\n    logger = logging.getLogger(__name__)\n    \n    # Test all log levels to verify DEBUG is shown\n    logger.debug(\"DEBUG: This should be visible when LOG_LEVEL=DEBUG\")\n    logger.info(\"INFO: This should always be visible\")\n    logger.warning(\"WARNING: This should always be visible\")\n    logger.error(\"ERROR: This should always be visible\")\n    \n    print(\"Standard output from function execution\")\n    \n    return {\n        \"message\": \"Debug logging test completed\",\n        \"current_log_level\": logging.getLogger().level,\n        \"level_name\": logging.getLevelName(logging.getLogger().level)\n    }\n",
+    "args": [],
+    "kwargs": {}
+  }  
+}
