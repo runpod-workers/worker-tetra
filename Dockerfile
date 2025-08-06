@@ -10,7 +10,7 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
  && chmod +x /usr/local/bin/uv
 
 # Copy app code and install dependencies
-COPY README.md src/* pyproject.toml uv.lock test_*.json ./
+COPY README.md src/* pyproject.toml uv.lock test_*.json test-handler.sh ./
 RUN uv sync
 
 

@@ -100,7 +100,7 @@ jobs:
 
       - name: Test local handler execution
         run: |
-          timeout 30s make test-handler || exit_code=$?
+          timeout 30s ./test-handler.sh || exit_code=$?
           if [ ${exit_code:-0} -eq 124 ]; then
             echo "Handler testing timed out"
             exit 1
@@ -180,6 +180,16 @@ jobs:
           cache-from: type=gha
           cache-to: type=gha,mode=max
           load: true
+
+      - name: Test GPU Docker image with handler test suite
+        run: |
+          echo "Testing GPU image with handler test suite..."
+          docker run --rm tetra-rp:pr-test ./test-handler.sh
+
+      - name: Test CPU Docker image with handler test suite
+        run: |
+          echo "Testing CPU image with handler test suite..."
+          docker run --rm tetra-rp-cpu:pr-test ./test-handler.sh
 
   docker-main:
     runs-on: ubuntu-latest

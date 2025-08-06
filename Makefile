@@ -66,28 +66,7 @@ test-fast: # Run tests with fast-fail mode
 	uv run pytest tests/ -v -x --tb=short
 
 test-handler: # Test handler locally with all test_*.json files
-	@echo "Testing handler with all test_*.json files..."
-	@failed_tests=""; \
-	for test_file in test_*.json; do \
-		if [ ! -f "$$test_file" ]; then \
-			echo "No test_*.json files found"; \
-			exit 1; \
-		fi; \
-		echo "Testing with $$test_file..."; \
-		if env PYTHONPATH=src RUNPOD_TEST_INPUT="$$(cat "$$test_file")" uv run python src/handler.py >/dev/null 2>&1; then \
-			echo "✓ $$test_file: PASSED"; \
-		else \
-			exit_code=$$?; \
-			echo "✗ $$test_file: FAILED (exit code: $$exit_code)"; \
-			failed_tests="$$failed_tests $$test_file"; \
-		fi; \
-	done; \
-	if [ -z "$$failed_tests" ]; then \
-		echo "All tests passed!"; \
-	else \
-		echo "Failed tests:$$failed_tests"; \
-		exit 1; \
-	fi
+	./test-handler.sh
 
 # Linting commands
 lint: # Check code with ruff
