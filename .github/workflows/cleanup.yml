@@ -13,14 +13,31 @@ jobs:
     runs-on: ubuntu-latest
     if: github.event.action == 'closed'
     steps:
-      - name: Install crane
-        run: |
-          curl -sL https://github.com/google/go-containerregistry/releases/latest/download/go-containerregistry_Linux_x86_64.tar.gz | tar -xzv crane
-          chmod +x crane
-
       - name: Delete PR Docker images
+        env:
+          DOCKER_USERNAME: ${{ secrets.DOCKERHUB_USERNAME }}
+          DOCKER_TOKEN: ${{ secrets.DOCKERHUB_TOKEN }}
+          PR_NUMBER: ${{ github.event.pull_request.number }}
         run: |
-          echo ${{ secrets.DOCKERHUB_TOKEN }} | ./crane auth login docker.io --username ${{ secrets.DOCKERHUB_USERNAME }} --password-stdin
-          ./crane delete docker.io/runpod/tetra-rp:pr-${{ github.event.pull_request.number }} || echo "GPU image not found or already deleted"
-          ./crane delete docker.io/runpod/tetra-rp-cpu:pr-${{ github.event.pull_request.number }} || echo "CPU image not found or already deleted"
-          echo "Cleanup completed for PR #${{ github.event.pull_request.number }}"
+          # Authenticate to Docker Hub and get JWT token
+          TOKEN=$(curl -s -H "Content-Type: application/json" -X POST \
+            -d '{"username": "'"${DOCKER_USERNAME}"'", "password": "'"${DOCKER_TOKEN}"'"}' \
+            https://hub.docker.com/v2/users/login/ | jq -r .token)
+
+          # Delete GPU image tag
+          echo "Deleting GPU image tag: pr-${PR_NUMBER}"
+          curl -s -X DELETE \
+            -H "Authorization: JWT ${TOKEN}" \
+            https://hub.docker.com/v2/repositories/runpod/tetra-rp/tags/pr-${PR_NUMBER}/ \
+            && echo "GPU image pr-${PR_NUMBER} deleted successfully" \
+            || echo "GPU image pr-${PR_NUMBER} not found or already deleted"
+
+          # Delete CPU image tag  
+          echo "Deleting CPU image tag: pr-${PR_NUMBER}"
+          curl -s -X DELETE \
+            -H "Authorization: JWT ${TOKEN}" \
+            https://hub.docker.com/v2/repositories/runpod/tetra-rp-cpu/tags/pr-${PR_NUMBER}/ \
+            && echo "CPU image pr-${PR_NUMBER} deleted successfully" \
+            || echo "CPU image pr-${PR_NUMBER} not found or already deleted"
+
+          echo "Cleanup completed for PR #${PR_NUMBER}"
