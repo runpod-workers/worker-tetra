@@ -1,5 +1,15 @@
 # Changelog
 
+## [0.4.1](https://github.com/runpod-workers/worker-tetra/compare/v0.4.0...v0.4.1) (2025-08-06)
+
+
+### Bug Fixes
+
+* CI-built docker images were broken ([317dc4e](https://github.com/runpod-workers/worker-tetra/commit/317dc4ec505f6e6cd59f61974342471a20b46467))
+* last cleanup pr tag from docker did not work ([#19](https://github.com/runpod-workers/worker-tetra/issues/19)) ([d317991](https://github.com/runpod-workers/worker-tetra/commit/d3179910dd9febba149afaae3362011b859ee206))
+* PR builds and tests input json files only ([#20](https://github.com/runpod-workers/worker-tetra/issues/20)) ([d6b61d7](https://github.com/runpod-workers/worker-tetra/commit/d6b61d7a0c5bd4da546f37757dec4166679fa631))
+* production Docker builds and GPU/CPU tag consistency ([#17](https://github.com/runpod-workers/worker-tetra/issues/17)) ([9d65fde](https://github.com/runpod-workers/worker-tetra/commit/9d65fdeb1d4e373cea009cfe09d7d69d60407497))
+
 ## [0.4.0](https://github.com/runpod-workers/worker-tetra/compare/v0.3.1...v0.4.0) (2025-08-05)
 
 
