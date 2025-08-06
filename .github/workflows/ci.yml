@@ -268,7 +268,7 @@ jobs:
   docker-prod:
     runs-on: ubuntu-latest
     needs: [release]
-    if: needs.release.outputs.release_created
+    if: needs.release.outputs.release_created || (github.ref == 'refs/heads/main' && needs.release.outputs.tag_name)
     steps:
       - name: Clear Space
         run: |
@@ -296,11 +296,24 @@ jobs:
           username: ${{ secrets.DOCKERHUB_USERNAME }}
           password: ${{ secrets.DOCKERHUB_TOKEN }}
 
-      - name: Extract metadata
-        id: meta
+      - name: Extract GPU metadata
+        id: meta-gpu
         uses: docker/metadata-action@v5
         with:
           images: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}
+          tags: |
+            type=ref,event=branch
+            type=ref,event=pr
+            type=semver,pattern={{version}}
+            type=semver,pattern={{major}}.{{minor}}
+            type=semver,pattern={{major}}
+            type=raw,value=latest,enable={{is_default_branch}}
+
+      - name: Extract CPU metadata
+        id: meta-cpu
+        uses: docker/metadata-action@v5
+        with:
+          images: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}-cpu
           tags: |
             type=ref,event=branch
             type=ref,event=pr
@@ -327,8 +340,8 @@ jobs:
           file: ./Dockerfile
           platforms: linux/amd64
           push: true
-          tags: ${{ steps.meta.outputs.tags }}
-          labels: ${{ steps.meta.outputs.labels }}
+          tags: ${{ steps.meta-gpu.outputs.tags }}
+          labels: ${{ steps.meta-gpu.outputs.labels }}
           cache-from: type=gha
           cache-to: type=gha,mode=max
 
@@ -339,9 +352,7 @@ jobs:
           file: ./Dockerfile-cpu
           platforms: linux/amd64
           push: true
-          tags: |
-            ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}-cpu:${{ needs.release.outputs.tag_name }}
-            ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}-cpu:latest
-          labels: ${{ steps.meta.outputs.labels }}
+          tags: ${{ steps.meta-cpu.outputs.tags }}
+          labels: ${{ steps.meta-cpu.outputs.labels }}
           cache-from: type=gha
           cache-to: type=gha,mode=max
