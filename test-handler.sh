@@ -15,12 +15,18 @@ for test_file in test_*.json; do
     test_count=$((test_count + 1))
     echo "Testing with $test_file..."
     
-    if env PYTHONPATH=src RUNPOD_TEST_INPUT="$(cat "$test_file")" uv run python src/handler.py >/dev/null 2>&1; then
+    # Run the test and capture output
+    output=$(env RUNPOD_TEST_INPUT="$(cat "$test_file")" uv run python handler.py 2>&1)
+    exit_code=$?
+    
+    if [ $exit_code -eq 0 ]; then
         echo "✓ $test_file: PASSED"
         passed_count=$((passed_count + 1))
     else
-        exit_code=$?
         echo "✗ $test_file: FAILED (exit code: $exit_code)"
+        echo "Error output:"
+        echo "$output" | head -10
+        echo "---"
         failed_tests="$failed_tests $test_file"
     fi
 done
