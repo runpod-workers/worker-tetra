@@ -34,16 +34,18 @@ setup: dev # Initialize project, sync deps, update submodules
 	git submodule update --remote --merge
 	cp tetra-rp/src/tetra_rp/protos/remote_execution.py src/
 
-build: setup # Build GPU Docker image (linux/amd64)
+build: # Build both GPU and CPU Docker images
+	make build-gpu
+	make build-cpu
+
+build-gpu: setup # Build GPU Docker image (linux/amd64)
 	docker buildx build \
-	--no-cache \
 	--platform linux/amd64 \
 	-t $(FULL_IMAGE) \
 	. --load
 
-build-cpu: setup # Build CPU-only Docker image
+build-cpu: setup # Build CPU-only Docker image (linux/amd64)
 	docker buildx build \
-	--no-cache \
 	--platform linux/amd64 \
 	-f Dockerfile-cpu \
 	-t $(FULL_IMAGE_CPU) \
