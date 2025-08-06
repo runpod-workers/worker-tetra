@@ -1,0 +1,26 @@
+name: Cleanup PR Docker Images
+
+on:
+  pull_request:
+    types: [closed]
+
+env:
+  REGISTRY: docker.io
+  IMAGE_NAME: runpod/tetra-rp
+
+jobs:
+  cleanup-pr-docker:
+    runs-on: ubuntu-latest
+    if: github.event.action == 'closed'
+    steps:
+      - name: Install crane
+        run: |
+          curl -sL https://github.com/google/go-containerregistry/releases/latest/download/go-containerregistry_Linux_x86_64.tar.gz | tar -xzv crane
+          chmod +x crane
+
+      - name: Delete PR Docker images
+        run: |
+          echo ${{ secrets.DOCKERHUB_TOKEN }} | ./crane auth login docker.io --username ${{ secrets.DOCKERHUB_USERNAME }} --password-stdin
+          ./crane delete docker.io/runpod/tetra-rp:pr-${{ github.event.pull_request.number }} || echo "GPU image not found or already deleted"
+          ./crane delete docker.io/runpod/tetra-rp-cpu:pr-${{ github.event.pull_request.number }} || echo "CPU image not found or already deleted"
+          echo "Cleanup completed for PR #${{ github.event.pull_request.number }}"
