@@ -162,7 +162,7 @@ jobs:
         run: |
           uv sync
           git submodule update --remote --merge
-          cp tetra-rp/src/tetra_rp/protos/remote_execution.py .
+          cp tetra-rp/src/tetra_rp/protos/remote_execution.py src/
 
       - name: Build and push GPU Docker image (dev)
         uses: docker/build-push-action@v6
@@ -239,7 +239,7 @@ jobs:
         run: |
           uv sync
           git submodule update --remote --merge
-          cp tetra-rp/src/tetra_rp/protos/remote_execution.py .
+          cp tetra-rp/src/tetra_rp/protos/remote_execution.py src/
 
       - name: Build and push GPU Docker image (prod)
         uses: docker/build-push-action@v6
