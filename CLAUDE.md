@@ -256,3 +256,8 @@ Configure these in GitHub repository settings:
 ## Development Best Practices
 
 - Always run `make quality-check` before committing changes
+
+## Project Memories
+
+### Docker Guidelines
+- Docker container should never refer to src/

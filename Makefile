@@ -70,6 +70,18 @@ test-fast: # Run tests with fast-fail mode
 test-handler: # Test handler locally with all test_*.json files
 	./test-handler.sh
 
+# Smoke Tests (local on Mac OS)
+
+smoketest-macos-build: setup # Build CPU-only Mac OS Docker image (macos/arm64)
+	docker buildx build \
+	--platform linux/arm64 \
+	-f Dockerfile-cpu \
+	-t $(FULL_IMAGE_CPU)-mac \
+	. --load
+
+smoketest-macos: smoketest-macos-build # Test CPU Docker image locally
+	docker run --rm $(FULL_IMAGE_CPU)-mac ./test-handler.sh
+
 # Linting commands
 lint: # Check code with ruff
 	uv run ruff check .
