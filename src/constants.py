@@ -20,3 +20,19 @@ WORKSPACE_LOCK_FILE = ".initialization.lock"
 
 RUNTIMES_DIR_NAME = "runtimes"
 """Name of the runtimes directory containing per-endpoint workspaces."""
+
+# Download Acceleration Settings
+DEFAULT_DOWNLOAD_CONNECTIONS = 8
+"""Default number of parallel connections for accelerated downloads."""
+
+MIN_SIZE_FOR_ACCELERATION_MB = 10
+"""Minimum file size in MB to trigger download acceleration."""
+
+MAX_DOWNLOAD_CONNECTIONS = 16
+"""Maximum number of parallel connections for downloads."""
+
+DOWNLOAD_TIMEOUT_SECONDS = 600
+"""Default timeout for download operations in seconds."""
+
+DOWNLOAD_PROGRESS_UPDATE_INTERVAL = 1.0
+"""Interval in seconds for download progress updates."""
