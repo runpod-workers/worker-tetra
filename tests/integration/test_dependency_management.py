@@ -128,14 +128,20 @@ def test_with_deps():
                 "obj", (object,), {"success": True, "stdout": "python deps installed"}
             )()
             mock_execute.return_value = type(
-                "obj", (object,), {"success": True, "result": "encoded_result"}
+                "obj",
+                (object,),
+                {
+                    "success": True,
+                    "result": "encoded_result",
+                    "stdout": "function executed",
+                },
             )()
 
             result = await executor.ExecuteFunction(request)
 
             # Verify all steps were called
             mock_sys_deps.assert_called_once_with(["curl"])
-            mock_py_deps.assert_called_once_with(["requests"])
+            mock_py_deps.assert_called_once_with(["requests"], True)
             mock_execute.assert_called_once_with(request)
 
             assert result.success is True

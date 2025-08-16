@@ -49,10 +49,28 @@ class RemoteExecutor(RemoteExecutorStub):
                 return sys_installed
             self.logger.info(sys_installed.stdout)
 
-        # Install Python dependencies next
+        # Pre-cache HuggingFace models if requested and acceleration is enabled
+        if request.accelerate_downloads and request.hf_models_to_cache:
+            for model_id in request.hf_models_to_cache:
+                self.logger.info(f"Pre-caching HuggingFace model: {model_id}")
+                cache_result = self.workspace_manager.accelerate_model_download(
+                    model_id
+                )
+                if cache_result.success:
+                    self.logger.info(
+                        f"Successfully cached model {model_id}: {cache_result.stdout}"
+                    )
+                else:
+                    self.logger.warning(
+                        f"Failed to cache model {model_id}: {cache_result.error}"
+                    )
+
+        # Install Python dependencies next (with acceleration if enabled)
         if request.dependencies:
+            # The DependencyInstaller will automatically use acceleration for large packages
+            # when aria2c is available and request.accelerate_downloads is True
             py_installed = self.dependency_installer.install_dependencies(
-                request.dependencies
+                request.dependencies, request.accelerate_downloads
             )
             if not py_installed.success:
                 return py_installed
@@ -60,7 +78,85 @@ class RemoteExecutor(RemoteExecutorStub):
 
         # Route to appropriate execution method based on type
         execution_type = getattr(request, "execution_type", "function")
+
+        # Execute the function/class
         if execution_type == "class":
-            return self.class_executor.execute_class_method(request)
+            result = self.class_executor.execute_class_method(request)
         else:
-            return self.function_executor.execute(request)
+            result = self.function_executor.execute(request)
+
+        # Add acceleration summary to the result
+        self._log_acceleration_summary(request, result)
+
+        return result
+
+    def _log_acceleration_summary(
+        self, request: FunctionRequest, result: FunctionResponse
+    ):
+        """Log acceleration impact summary for performance visibility."""
+        if not hasattr(self.dependency_installer, "download_accelerator"):
+            return
+
+        acceleration_enabled = request.accelerate_downloads
+        has_volume = self.workspace_manager.has_runpod_volume
+        aria2c_available = self.dependency_installer.download_accelerator.aria2_downloader.aria2c_available
+
+        # Build summary message
+        summary_parts = []
+
+        if acceleration_enabled and aria2c_available:
+            summary_parts.append("✓ Download acceleration ENABLED")
+
+            if has_volume:
+                summary_parts.append(
+                    f"✓ Volume workspace: {self.workspace_manager.workspace_path}"
+                )
+                summary_parts.append("✓ Persistent caching enabled")
+            else:
+                summary_parts.append("ℹ No persistent volume - using temporary cache")
+
+            if request.hf_models_to_cache:
+                summary_parts.append(
+                    f"✓ HF models pre-cached: {len(request.hf_models_to_cache)}"
+                )
+
+            if request.dependencies:
+                large_packages = self.dependency_installer._identify_large_packages(
+                    request.dependencies
+                )
+                if large_packages:
+                    summary_parts.append(
+                        f"✓ Large packages accelerated: {len(large_packages)}"
+                    )
+
+        elif acceleration_enabled and not aria2c_available:
+            summary_parts.append(
+                "⚠ Download acceleration REQUESTED but aria2c unavailable"
+            )
+            summary_parts.append("→ Using standard downloads")
+
+        elif not acceleration_enabled:
+            summary_parts.append("- Download acceleration DISABLED")
+            summary_parts.append("→ Using standard downloads")
+
+        # Log the summary
+        if summary_parts:
+            self.logger.info("=== DOWNLOAD ACCELERATION SUMMARY ===")
+            for part in summary_parts:
+                self.logger.info(part)
+            self.logger.info("=====================================")
+
+            # Add to result stdout for user visibility (only for real responses, not mocks)
+            if hasattr(result, "__class__") and "Mock" not in result.__class__.__name__:
+                if result.stdout:
+                    result.stdout += (
+                        "\n\n=== ACCELERATION SUMMARY ===\n"
+                        + "\n".join(summary_parts)
+                        + "\n"
+                    )
+                else:
+                    result.stdout = (
+                        "=== ACCELERATION SUMMARY ===\n"
+                        + "\n".join(summary_parts)
+                        + "\n"
+                    )

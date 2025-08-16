@@ -18,7 +18,7 @@ class ClassExecutor(BaseExecutor):
         super().__init__(workspace_manager)
         # Instance registry for persistent class instances
         self.class_instances: Dict[str, Any] = {}
-        self.instance_metadata: Dict[str, Dict] = {}
+        self.instance_metadata: Dict[str, Dict[str, Any]] = {}
 
     def execute(self, request: FunctionRequest) -> FunctionResponse:
         """Execute class method - required by BaseExecutor interface."""

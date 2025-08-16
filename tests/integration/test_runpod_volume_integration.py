@@ -4,15 +4,30 @@ import asyncio
 import base64
 import cloudpickle
 import threading
-from unittest.mock import Mock, patch
+from unittest.mock import Mock, patch, MagicMock
 
-from handler import RemoteExecutor, handler
-from remote_execution import FunctionResponse
-from constants import RUNPOD_VOLUME_PATH, VENV_DIR_NAME, RUNTIMES_DIR_NAME
+from src.handler import RemoteExecutor, handler
+from src.remote_execution import FunctionResponse
+from src.constants import RUNPOD_VOLUME_PATH, VENV_DIR_NAME, RUNTIMES_DIR_NAME
 
 
 class TestFullWorkflowWithVolume:
     """Test complete request workflows with volume integration."""
+
+    def setup_method(self):
+        # Patch subprocess.run globally for all tests in this class
+        class ContextManagerMock(MagicMock):
+            def __enter__(self):
+                return self
+
+            def __exit__(self, exc_type, exc_val, exc_tb):
+                pass
+
+        self.subprocess_run_patcher = patch("subprocess.run", new=ContextManagerMock())
+        self.subprocess_run_patcher.start()
+
+    def teardown_method(self):
+        self.subprocess_run_patcher.stop()
 
     @patch("os.makedirs")
     @patch("workspace_manager.WorkspaceManager._validate_virtual_environment")
@@ -177,16 +192,34 @@ def system_test():
                 assert result["success"] is True
 
                 # Should have called apt-get update and install
-                calls = [call[0][0] for call in mock_popen.call_args_list]
-        assert any("apt-get" in " ".join(call) and "update" in call for call in calls)
-        assert any("apt-get" in " ".join(call) and "curl" in call for call in calls)
-        assert any(
-            "uv" in call and "requests==2.25.1" in " ".join(call) for call in calls
-        )
+                popen_calls = [call[0][0] for call in mock_popen.call_args_list]
+                assert any(
+                    "apt-get" in " ".join(call) and "curl" in " ".join(call)
+                    for call in popen_calls
+                )
+                assert any(
+                    "uv" in " ".join(call) and "requests==2.25.1" in " ".join(call)
+                    for call in popen_calls
+                )
 
 
 class TestConcurrentRequests:
     """Test realistic concurrent access scenarios."""
+
+    def setup_method(self):
+        # Patch subprocess.run globally for all tests in this class
+        class ContextManagerMock(MagicMock):
+            def __enter__(self):
+                return self
+
+            def __exit__(self, exc_type, exc_val, exc_tb):
+                pass
+
+        self.subprocess_run_patcher = patch("subprocess.run", new=ContextManagerMock())
+        self.subprocess_run_patcher.start()
+
+    def teardown_method(self):
+        self.subprocess_run_patcher.stop()
 
     @patch("os.makedirs")
     @patch("workspace_manager.WorkspaceManager._validate_virtual_environment")
@@ -331,6 +364,21 @@ def concurrent_test():
 class TestMixedExecution:
     """Test mixed volume and non-volume execution scenarios."""
 
+    def setup_method(self):
+        # Patch subprocess.run globally for all tests in this class
+        class ContextManagerMock(MagicMock):
+            def __enter__(self):
+                return self
+
+            def __exit__(self, exc_type, exc_val, exc_tb):
+                pass
+
+        self.subprocess_run_patcher = patch("subprocess.run", new=ContextManagerMock())
+        self.subprocess_run_patcher.start()
+
+    def teardown_method(self):
+        self.subprocess_run_patcher.stop()
+
     @patch("os.makedirs")
     @patch("workspace_manager.WorkspaceManager._validate_virtual_environment")
     @patch("os.path.exists")
@@ -395,11 +443,10 @@ class TestMixedExecution:
         )  # Volume exists but venv doesn't exist
 
         # Mock file operations
-        mock_file = Mock()
+        mock_file = MagicMock()
         mock_file.fileno.return_value = 3
         mock_open.return_value.__enter__.return_value = mock_file
 
-        # Mock failed virtual environment creation
         mock_process = Mock()
         mock_process.returncode = 1
         mock_process.communicate.return_value = (b"", b"Failed to create venv")
@@ -425,6 +472,21 @@ class TestMixedExecution:
 
 class TestErrorHandlingIntegration:
     """Test error handling in integrated volume scenarios."""
+
+    def setup_method(self):
+        # Patch subprocess.run globally for all tests in this class
+        class ContextManagerMock(MagicMock):
+            def __enter__(self):
+                return self
+
+            def __exit__(self, exc_type, exc_val, exc_tb):
+                pass
+
+        self.subprocess_run_patcher = patch("subprocess.run", new=ContextManagerMock())
+        self.subprocess_run_patcher.start()
+
+    def teardown_method(self):
+        self.subprocess_run_patcher.stop()
 
     @patch("os.makedirs")
     @patch("workspace_manager.WorkspaceManager._validate_virtual_environment")

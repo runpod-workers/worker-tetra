@@ -1,6 +1,7 @@
 import runpod
 import logging
 import sys
+from typing import Dict, Any
 
 from remote_execution import FunctionRequest, FunctionResponse
 from remote_executor import RemoteExecutor
@@ -13,7 +14,7 @@ logging.basicConfig(
 )
 
 
-async def handler(event: dict) -> dict:
+async def handler(event: Dict[str, Any]) -> Dict[str, Any]:
     """
     RunPod serverless function handler with dependency installation.
     """
