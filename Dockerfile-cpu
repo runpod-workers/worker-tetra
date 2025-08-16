@@ -11,7 +11,7 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
  && chmod +x /usr/local/bin/uv
 
 # Copy app files and install deps
-COPY README.md src/* pyproject.toml uv.lock test_*.json test-handler.sh ./
+COPY README.md src/* pyproject.toml uv.lock ./
 RUN uv sync
 
 # Stage 2: Runtime stage

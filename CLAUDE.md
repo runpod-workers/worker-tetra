@@ -261,3 +261,6 @@ Configure these in GitHub repository settings:
 
 ### Docker Guidelines
 - Docker container should never refer to src/
+
+- Always run `make quality-check` before pronouncing you have finished your work
+- Always use `git mv` when moving existing files around
