@@ -135,7 +135,7 @@ class TestRemoteExecutor:
 
                         # Verify all components were called in correct order
                         mock_sys_deps.assert_called_once_with(["curl"])
-                        mock_py_deps.assert_called_once_with(["requests"])
+                        mock_py_deps.assert_called_once_with(["requests"], True)
                         mock_execute.assert_called_once_with(request)
 
     @pytest.mark.asyncio
@@ -211,8 +211,8 @@ class TestRemoteExecutor:
             self.executor.dependency_installer, "install_dependencies"
         ) as mock_install:
             mock_install.return_value = Mock(success=True)
-            self.executor.dependency_installer.install_dependencies(["test"])
-            mock_install.assert_called_once_with(["test"])
+            self.executor.dependency_installer.install_dependencies(["test"], True)
+            mock_install.assert_called_once_with(["test"], True)
 
         # Test workspace manager methods
         with patch.object(
