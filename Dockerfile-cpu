@@ -5,7 +5,7 @@ WORKDIR /app
 
 # Install minimal OS deps and uv
 RUN apt-get update && apt-get install -y --no-install-recommends \
-    curl ca-certificates git build-essential \
+    curl ca-certificates git build-essential aria2 \
  && curl -LsSf https://astral.sh/uv/install.sh | sh \
  && cp ~/.local/bin/uv /usr/local/bin/uv \
  && chmod +x /usr/local/bin/uv
@@ -21,7 +21,7 @@ WORKDIR /app
 
 # Install runtime dependencies
 RUN apt-get update && apt-get install -y --no-install-recommends \
-    curl ca-certificates \
+    curl ca-certificates aria2 \
  && apt-get clean \
  && rm -rf /var/lib/apt/lists/*
 
