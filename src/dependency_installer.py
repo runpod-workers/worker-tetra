@@ -6,6 +6,7 @@ from typing import List, Dict
 
 from remote_execution import FunctionResponse
 from download_accelerator import DownloadAccelerator
+from constants import LARGE_PACKAGE_PATTERNS
 
 
 class DependencyInstaller:
@@ -148,31 +149,10 @@ class DependencyInstaller:
         Returns:
             List of package names that are likely large
         """
-        # Known large packages that benefit from acceleration
-        large_package_patterns = [
-            "torch",
-            "pytorch",
-            "tensorflow",
-            "tf-nightly",
-            "transformers",
-            "diffusers",
-            "datasets",
-            "numpy",
-            "scipy",
-            "pandas",
-            "matplotlib",
-            "opencv",
-            "cv2",
-            "pillow",
-            "scikit-learn",
-            "huggingface-hub",
-            "safetensors",
-        ]
-
         large_packages = []
         for package in packages:
             package_name = package.split("==")[0].split(">=")[0].split("<=")[0].lower()
-            if any(pattern in package_name for pattern in large_package_patterns):
+            if any(pattern in package_name for pattern in LARGE_PACKAGE_PATTERNS):
                 large_packages.append(package)
 
         return large_packages

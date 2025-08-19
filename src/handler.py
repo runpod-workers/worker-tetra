@@ -5,12 +5,13 @@ from typing import Dict, Any
 
 from remote_execution import FunctionRequest, FunctionResponse
 from remote_executor import RemoteExecutor
+from constants import LOG_FORMAT
 
 
 logging.basicConfig(
     level=logging.DEBUG,  # or INFO for less verbose output
     stream=sys.stdout,  # send logs to stdout (so docker captures it)
-    format="%(asctime)s - %(levelname)s - %(name)s - %(message)s",
+    format=LOG_FORMAT,
 )
 
 

@@ -13,6 +13,7 @@ from pathlib import Path
 
 from remote_execution import FunctionResponse
 from download_accelerator import DownloadAccelerator
+from constants import LARGE_HF_MODEL_PATTERNS, BYTES_PER_MB, MB_SIZE_THRESHOLD
 
 
 class HuggingFaceAccelerator:
@@ -85,34 +86,8 @@ class HuggingFaceAccelerator:
         if not self.download_accelerator.aria2_downloader.aria2c_available:
             return False
 
-        # Always accelerate known model repositories
-        large_model_patterns = [
-            "gpt",
-            "bert",
-            "roberta",
-            "distilbert",
-            "albert",
-            "xlnet",
-            "xlm",
-            "t5",
-            "bart",
-            "pegasus",
-            "stable-diffusion",
-            "diffusion",
-            "vae",
-            "whisper",
-            "wav2vec",
-            "hubert",
-            "llama",
-            "mistral",
-            "falcon",
-            "mpt",
-            "codegen",
-            "santacoder",
-        ]
-
         model_lower = model_id.lower()
-        return any(pattern in model_lower for pattern in large_model_patterns)
+        return any(pattern in model_lower for pattern in LARGE_HF_MODEL_PATTERNS)
 
     def accelerate_model_download(
         self, model_id: str, revision: str = "main"
@@ -145,7 +120,7 @@ class HuggingFaceAccelerator:
             )
 
         # Filter for main model files (ignore small config files)
-        large_files = [f for f in files if f["size"] > 1024 * 1024]  # > 1MB
+        large_files = [f for f in files if f["size"] > MB_SIZE_THRESHOLD]
 
         if not large_files:
             return FunctionResponse(
@@ -174,7 +149,7 @@ class HuggingFaceAccelerator:
                 continue
 
             try:
-                file_size_mb = file_info["size"] / (1024 * 1024)
+                file_size_mb = file_info["size"] / BYTES_PER_MB
                 self.logger.info(
                     f"Downloading {file_info['path']} ({file_size_mb:.1f}MB)..."
                 )
@@ -204,7 +179,7 @@ class HuggingFaceAccelerator:
             return FunctionResponse(
                 success=True,
                 stdout=f"Successfully pre-downloaded {successful_downloads} files "
-                f"({total_size / (1024 * 1024):.1f}MB) for model {model_id}",
+                f"({total_size / BYTES_PER_MB:.1f}MB) for model {model_id}",
             )
         else:
             return FunctionResponse(
@@ -260,7 +235,7 @@ class HuggingFaceAccelerator:
 
         return {
             "cached": file_count > 0,
-            "cache_size_mb": total_size / (1024 * 1024),
+            "cache_size_mb": total_size / BYTES_PER_MB,
             "file_count": file_count,
             "cache_path": str(model_cache_dir),
         }

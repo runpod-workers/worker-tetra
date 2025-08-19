@@ -36,3 +36,63 @@ DOWNLOAD_TIMEOUT_SECONDS = 600
 
 DOWNLOAD_PROGRESS_UPDATE_INTERVAL = 1.0
 """Interval in seconds for download progress updates."""
+
+# Large Package Patterns
+LARGE_PACKAGE_PATTERNS = [
+    "cv2",
+    "datasets",
+    "diffusers",
+    "huggingface-hub",
+    "matplotlib",
+    "numpy",
+    "opencv",
+    "pandas",
+    "pillow",
+    "pytorch",
+    "safetensors",
+    "scikit-learn",
+    "scipy",
+    "tensorflow",
+    "tf-nightly",
+    "torch",
+    "transformers",
+]
+"""List of package patterns that benefit from download acceleration due to their large size."""
+
+# Size Conversion Constants
+BYTES_PER_MB = 1024 * 1024
+"""Number of bytes in a megabyte."""
+
+MB_SIZE_THRESHOLD = 1 * BYTES_PER_MB
+"""Minimum file size threshold for considering acceleration (1MB)."""
+
+# HuggingFace Model Patterns
+LARGE_HF_MODEL_PATTERNS = [
+    "albert",
+    "bart",
+    "bert",
+    "codegen",
+    "diffusion",
+    "distilbert",
+    "falcon",
+    "gpt",
+    "hubert",
+    "llama",
+    "mistral",
+    "mpt",
+    "pegasus",
+    "roberta",
+    "santacoder",
+    "stable-diffusion",
+    "t5",
+    "vae",
+    "wav2vec",
+    "whisper",
+    "xlm",
+    "xlnet",
+]
+"""List of HuggingFace model patterns that benefit from download acceleration."""
+
+# Logging Configuration
+LOG_FORMAT = "%(asctime)s - %(levelname)s - %(name)s - %(message)s"
+"""Standard log format string used across the application."""
