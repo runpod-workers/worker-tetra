@@ -1,13 +1,24 @@
 import runpod
 import logging
 import sys
+import os
 
 from remote_execution import FunctionRequest, FunctionResponse
 from remote_executor import RemoteExecutor
 
 
+# Respect LOG_LEVEL environment variable, default to DEBUG
+log_level = os.getenv("LOG_LEVEL", "DEBUG").upper()
+log_level_mapping = {
+    "DEBUG": logging.DEBUG,
+    "INFO": logging.INFO,
+    "WARNING": logging.WARNING,
+    "ERROR": logging.ERROR,
+    "CRITICAL": logging.CRITICAL,
+}
+
 logging.basicConfig(
-    level=logging.DEBUG,  # or INFO for less verbose output
+    level=log_level_mapping.get(log_level, logging.DEBUG),
     stream=sys.stdout,  # send logs to stdout (so docker captures it)
     format="%(asctime)s - %(levelname)s - %(name)s - %(message)s",
 )
