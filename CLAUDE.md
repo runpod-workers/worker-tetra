@@ -264,3 +264,5 @@ Configure these in GitHub repository settings:
 
 - Always run `make quality-check` before pronouncing you have finished your work
 - Always use `git mv` when moving existing files around
+
+- Run the command `make test-handler` to run checks on test files. Do not try to run it one by one like `Bash(env RUNPOD_TEST_INPUT="$(cat test_input.json)" PYTHONPATH=. uv run python handler.py)`
