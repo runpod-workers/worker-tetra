@@ -19,8 +19,8 @@ FROM pytorch/pytorch:2.2.0-cuda12.1-cudnn8-runtime
 
 WORKDIR /app
 
-# Install aria2 for download acceleration in runtime stage
-RUN apt-get update && apt-get install -y --no-install-recommends aria2 \
+# Install aria2 and nala for download acceleration in runtime stage
+RUN apt-get update && apt-get install -y --no-install-recommends aria2 nala \
  && rm -rf /var/lib/apt/lists/*
 
 # Copy app and uv binary from builder

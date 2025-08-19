@@ -93,6 +93,25 @@ LARGE_HF_MODEL_PATTERNS = [
 ]
 """List of HuggingFace model patterns that benefit from download acceleration."""
 
+# System Package Acceleration with Nala
+LARGE_SYSTEM_PACKAGES = [
+    "build-essential",
+    "cmake",
+    "cuda-toolkit",
+    "curl",
+    "g++",
+    "gcc",
+    "git",
+    "libssl-dev",
+    "nvidia-cuda-dev",
+    "python3-dev",
+    "wget",
+]
+"""List of system packages that benefit from nala's accelerated installation."""
+
+NALA_CHECK_CMD = ["which", "nala"]
+"""Command to check if nala is available."""
+
 # Logging Configuration
 LOG_FORMAT = "%(asctime)s - %(levelname)s - %(name)s - %(message)s"
 """Standard log format string used across the application."""

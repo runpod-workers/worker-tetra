@@ -134,7 +134,7 @@ class TestRemoteExecutor:
                         await self.executor.ExecuteFunction(request)
 
                         # Verify all components were called in correct order
-                        mock_sys_deps.assert_called_once_with(["curl"])
+                        mock_sys_deps.assert_called_once_with(["curl"], True)
                         mock_py_deps.assert_called_once_with(["requests"], True)
                         mock_execute.assert_called_once_with(request)
 

@@ -43,7 +43,7 @@ class RemoteExecutor(RemoteExecutorStub):
         # Install system dependencies first
         if request.system_dependencies:
             sys_installed = self.dependency_installer.install_system_dependencies(
-                request.system_dependencies
+                request.system_dependencies, request.accelerate_downloads
             )
             if not sys_installed.success:
                 return sys_installed
@@ -100,11 +100,12 @@ class RemoteExecutor(RemoteExecutorStub):
         acceleration_enabled = request.accelerate_downloads
         has_volume = self.workspace_manager.has_runpod_volume
         aria2c_available = self.dependency_installer.download_accelerator.aria2_downloader.aria2c_available
+        nala_available = self.dependency_installer._check_nala_available()
 
         # Build summary message
         summary_parts = []
 
-        if acceleration_enabled and aria2c_available:
+        if acceleration_enabled:
             summary_parts.append("✓ Download acceleration ENABLED")
 
             if has_volume:
@@ -115,23 +116,37 @@ class RemoteExecutor(RemoteExecutorStub):
             else:
                 summary_parts.append("ℹ No persistent volume - using temporary cache")
 
+            # System package acceleration status
+            if request.system_dependencies:
+                large_system_packages = (
+                    self.dependency_installer._identify_large_system_packages(
+                        request.system_dependencies
+                    )
+                )
+                if large_system_packages and nala_available:
+                    summary_parts.append(
+                        f"✓ System packages with nala: {len(large_system_packages)}"
+                    )
+                elif request.system_dependencies:
+                    summary_parts.append("→ System packages using standard apt-get")
+
             if request.hf_models_to_cache:
                 summary_parts.append(
                     f"✓ HF models pre-cached: {len(request.hf_models_to_cache)}"
                 )
 
-            if request.dependencies:
+            if request.dependencies and aria2c_available:
                 large_packages = self.dependency_installer._identify_large_packages(
                     request.dependencies
                 )
                 if large_packages:
                     summary_parts.append(
-                        f"✓ Large packages accelerated: {len(large_packages)}"
+                        f"✓ Python packages with aria2c: {len(large_packages)}"
                     )
 
-        elif acceleration_enabled and not aria2c_available:
+        elif acceleration_enabled and not (aria2c_available or nala_available):
             summary_parts.append(
-                "⚠ Download acceleration REQUESTED but aria2c unavailable"
+                "⚠ Download acceleration REQUESTED but no accelerators available"
             )
             summary_parts.append("→ Using standard downloads")
 
