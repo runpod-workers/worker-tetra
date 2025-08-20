@@ -37,28 +37,6 @@ DOWNLOAD_TIMEOUT_SECONDS = 600
 DOWNLOAD_PROGRESS_UPDATE_INTERVAL = 1.0
 """Interval in seconds for download progress updates."""
 
-# Large Package Patterns
-LARGE_PACKAGE_PATTERNS = [
-    "cv2",
-    "datasets",
-    "diffusers",
-    "huggingface-hub",
-    "matplotlib",
-    "numpy",
-    "opencv",
-    "pandas",
-    "pillow",
-    "pytorch",
-    "safetensors",
-    "scikit-learn",
-    "scipy",
-    "tensorflow",
-    "tf-nightly",
-    "torch",
-    "transformers",
-]
-"""List of package patterns that benefit from download acceleration due to their large size."""
-
 # Size Conversion Constants
 BYTES_PER_MB = 1024 * 1024
 """Number of bytes in a megabyte."""

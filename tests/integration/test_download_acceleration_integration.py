@@ -79,28 +79,6 @@ class TestDownloadAccelerationIntegration:
             is False
         )
 
-    def test_large_package_identification(self):
-        """Test identification of large packages that benefit from acceleration."""
-        installer = DependencyInstaller(self.mock_workspace_manager)
-
-        packages = [
-            "torch==2.0.0",
-            "transformers>=4.20.0",
-            "small-package==1.0.0",
-            "numpy",
-            "scipy==1.9.0",
-        ]
-
-        large_packages = installer._identify_large_packages(packages)
-
-        expected_large = [
-            "torch==2.0.0",
-            "transformers>=4.20.0",
-            "numpy",
-            "scipy==1.9.0",
-        ]
-        assert set(large_packages) == set(expected_large)
-
     @patch("src.huggingface_accelerator.requests.get")
     def test_hf_model_file_fetching(self, mock_requests):
         """Test fetching HuggingFace model file information."""
@@ -204,7 +182,7 @@ class TestDownloadAccelerationIntegration:
 
         # Verify dependencies were installed
         executor.dependency_installer.install_dependencies.assert_called_once_with(
-            ["torch", "transformers"], True
+            ["torch", "transformers"]
         )
 
     @patch.dict("os.environ", {"HF_TOKEN": "test_token"})
@@ -292,12 +270,8 @@ class TestDownloadAccelerationIntegration:
 
         # Get the installation call (second call)
         install_call = mock_popen.call_args_list[1]
-        args, kwargs = install_call
-
-        # Check that UV_CONCURRENT_DOWNLOADS was set in environment
-        env = kwargs.get("env", {})
-        assert "UV_CONCURRENT_DOWNLOADS" in env
-        assert env["UV_CONCURRENT_DOWNLOADS"] == "8"
+        args, _ = install_call
+        assert set(packages).issubset(args[0])
 
     def test_model_cache_management(self):
         """Test model cache information and management."""

@@ -6,7 +6,7 @@ from typing import List, Dict
 
 from remote_execution import FunctionResponse
 from download_accelerator import DownloadAccelerator
-from constants import LARGE_PACKAGE_PATTERNS, LARGE_SYSTEM_PACKAGES, NALA_CHECK_CMD
+from constants import LARGE_SYSTEM_PACKAGES, NALA_CHECK_CMD
 
 
 class DependencyInstaller:
@@ -49,16 +49,13 @@ class DependencyInstaller:
         else:
             return self._install_system_standard(packages)
 
-    def install_dependencies(
-        self, packages: List[str], accelerate_downloads: bool = True
-    ) -> FunctionResponse:
+    def install_dependencies(self, packages: List[str]) -> FunctionResponse:
         """
         Install Python packages using uv with differential installation support.
         Uses accelerated downloads for large packages when beneficial.
 
         Args:
             packages: List of package names or package specifications
-            accelerate_downloads: Whether to use accelerated downloads for large packages
         Returns:
             FunctionResponse: Object indicating success or failure with details
         """
@@ -98,104 +95,11 @@ class DependencyInstaller:
 
             packages = packages_to_install
 
-        # Check if we should use accelerated downloads for large packages
-        large_packages = self._identify_large_packages(packages)
+        return self._install_with_uv(packages)
 
-        if (
-            accelerate_downloads
-            and large_packages
-            and self.download_accelerator.aria2_downloader.aria2c_available
-        ):
-            self.logger.info(
-                f"Using accelerated downloads for large packages: {large_packages}"
-            )
-            return self._install_with_acceleration(packages, large_packages)
-        else:
-            return self._install_standard(packages)
-
-    def _identify_large_packages(self, packages: List[str]) -> List[str]:
+    def _install_with_uv(self, packages: List[str]) -> FunctionResponse:
         """
-        Identify packages that are likely to be large and benefit from acceleration.
-
-        Args:
-            packages: List of package specifications
-
-        Returns:
-            List of package names that are likely large
-        """
-        large_packages = []
-        for package in packages:
-            package_name = package.split("==")[0].split(">=")[0].split("<=")[0].lower()
-            if any(pattern in package_name for pattern in LARGE_PACKAGE_PATTERNS):
-                large_packages.append(package)
-
-        return large_packages
-
-    def _install_with_acceleration(
-        self, packages: List[str], large_packages: List[str]
-    ) -> FunctionResponse:
-        """
-        Install packages with acceleration for large ones.
-
-        Args:
-            packages: All packages to install
-            large_packages: Packages that should use acceleration
-
-        Returns:
-            FunctionResponse with installation result
-        """
-        try:
-            # Prepare environment for virtual environment usage
-            env = os.environ.copy()
-            if (
-                self.workspace_manager.has_runpod_volume
-                and self.workspace_manager.venv_path
-            ):
-                env["VIRTUAL_ENV"] = self.workspace_manager.venv_path
-
-            # For now, we'll enhance UV's download behavior by setting optimal configurations
-            # UV internally uses efficient downloaders, but we can optimize the environment
-
-            # Set aria2c as a potential downloader for UV if it supports it
-            env["UV_CONCURRENT_DOWNLOADS"] = "8"  # Increase concurrent downloads
-
-            self.logger.info("Installing with optimized concurrent downloads")
-
-            # Use uv pip to install the packages with optimizations
-            command = ["uv", "pip", "install", "--no-cache-dir"] + packages
-            process = subprocess.Popen(
-                command,
-                stdout=subprocess.PIPE,
-                stderr=subprocess.PIPE,
-                env=env,
-            )
-
-            stdout, stderr = process.communicate()
-            importlib.invalidate_caches()
-
-            if process.returncode != 0:
-                return FunctionResponse(
-                    success=False,
-                    error="Error installing packages with acceleration",
-                    stdout=stderr.decode(),
-                )
-            else:
-                self.logger.info(
-                    f"Successfully installed packages with acceleration: {packages}"
-                )
-                return FunctionResponse(
-                    success=True,
-                    stdout=f"Installed with acceleration: {stdout.decode()}",
-                )
-        except Exception as e:
-            self.logger.warning(
-                f"Accelerated installation failed, falling back to standard: {e}"
-            )
-            return self._install_standard(packages)
-
-    def _install_standard(self, packages: List[str]) -> FunctionResponse:
-        """
-        Install packages using standard UV method.
+        Install packages using UV package manager
 
         Args:
             packages: Packages to install
@@ -213,7 +117,7 @@ class DependencyInstaller:
                 env["VIRTUAL_ENV"] = self.workspace_manager.venv_path
 
             # Use uv pip to install the packages
-            command = ["uv", "pip", "install", "--no-cache-dir"] + packages
+            command = ["uv", "pip", "install"] + packages
             process = subprocess.Popen(
                 command,
                 stdout=subprocess.PIPE,

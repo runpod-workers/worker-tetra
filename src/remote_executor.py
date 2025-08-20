@@ -70,7 +70,7 @@ class RemoteExecutor(RemoteExecutorStub):
             # The DependencyInstaller will automatically use acceleration for large packages
             # when aria2c is available and request.accelerate_downloads is True
             py_installed = self.dependency_installer.install_dependencies(
-                request.dependencies, request.accelerate_downloads
+                request.dependencies
             )
             if not py_installed.success:
                 return py_installed
@@ -134,15 +134,6 @@ class RemoteExecutor(RemoteExecutorStub):
                 summary_parts.append(
                     f"✓ HF models pre-cached: {len(request.hf_models_to_cache)}"
                 )
-
-            if request.dependencies and aria2c_available:
-                large_packages = self.dependency_installer._identify_large_packages(
-                    request.dependencies
-                )
-                if large_packages:
-                    summary_parts.append(
-                        f"✓ Python packages with aria2c: {len(large_packages)}"
-                    )
 
         elif acceleration_enabled and not (aria2c_available or nala_available):
             summary_parts.append(

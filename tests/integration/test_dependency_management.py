@@ -36,7 +36,6 @@ class TestDependencyManagement:
                 "uv",
                 "pip",
                 "install",
-                "--no-cache-dir",
                 "requests",
                 "numpy",
             ]
@@ -141,7 +140,7 @@ def test_with_deps():
 
             # Verify all steps were called
             mock_sys_deps.assert_called_once_with(["curl"], True)
-            mock_py_deps.assert_called_once_with(["requests"], True)
+            mock_py_deps.assert_called_once_with(["requests"])
             mock_execute.assert_called_once_with(request)
 
             assert result.success is True
@@ -266,7 +265,6 @@ def test_with_deps():
                 "uv",
                 "pip",
                 "install",
-                "--no-cache-dir",
                 "package1",
                 "package2>=1.0.0",
             ]
