@@ -95,8 +95,15 @@ def numpy_test():
 
             # Should have installed dependencies
             assert mock_popen.called
-            install_command = mock_popen.call_args[0][0]
-            assert "numpy==1.21.0" in " ".join(install_command)
+            # Check that a uv pip install command was made with numpy
+            popen_calls = [call[0][0] for call in mock_popen.call_args_list]
+            install_calls = [
+                call
+                for call in popen_calls
+                if "uv" in call and "pip" in call and "install" in call
+            ]
+            assert len(install_calls) > 0
+            assert any("numpy==1.21.0" in " ".join(call) for call in install_calls)
 
     @patch("os.makedirs")
     @patch("workspace_manager.WorkspaceManager._validate_virtual_environment")
@@ -157,10 +164,21 @@ def numpy_test():
             b"",
         )
 
+        # Mock subprocess calls in order:
+        # 1. which nala (system package acceleration check)
+        # 2. apt-get update
+        # 3. apt-get install
+        # 4. uv pip list (get installed packages)
+        # 5. uv pip install
+        nala_check_process = Mock()
+        nala_check_process.returncode = 1  # nala not available
+        nala_check_process.communicate.return_value = (b"", b"which: nala: not found")
+
         mock_popen.side_effect = [
+            nala_check_process,
             apt_update_process,
             apt_install_process,
-            pip_list_process,  # Added missing call
+            pip_list_process,
             pip_install_process,
         ]
 
