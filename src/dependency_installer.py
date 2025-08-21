@@ -49,13 +49,15 @@ class DependencyInstaller:
         else:
             return self._install_system_standard(packages)
 
-    def install_dependencies(self, packages: List[str]) -> FunctionResponse:
+    def install_dependencies(
+        self, packages: List[str], accelerate_downloads: bool = True
+    ) -> FunctionResponse:
         """
-        Install Python packages using uv with differential installation support.
-        Uses accelerated downloads for large packages when beneficial.
+        Install Python packages using uv (accelerated) or pip (standard).
 
         Args:
             packages: List of package names or package specifications
+            accelerate_downloads: Whether to use uv for accelerated downloads
         Returns:
             FunctionResponse: Object indicating success or failure with details
         """
@@ -64,38 +66,45 @@ class DependencyInstaller:
 
         self.logger.info(f"Installing dependencies: {packages}")
 
-        # If using volume, check which packages are already installed
-        if (
-            self.workspace_manager.has_runpod_volume
-            and self.workspace_manager.venv_path
-            and os.path.exists(self.workspace_manager.venv_path)
-        ):
-            # Validate virtual environment before using it
-            validation_result = self.workspace_manager._validate_virtual_environment()
-            if not validation_result.success:
-                self.logger.warning(
-                    f"Virtual environment is invalid: {validation_result.error}"
+        # Choose installation method based on acceleration flag
+        if accelerate_downloads:
+            # Use UV with differential installation for acceleration
+            if (
+                self.workspace_manager.has_runpod_volume
+                and self.workspace_manager.venv_path
+                and os.path.exists(self.workspace_manager.venv_path)
+            ):
+                # Validate virtual environment before using it
+                validation_result = (
+                    self.workspace_manager._validate_virtual_environment()
                 )
-                self.logger.info("Reinitializing workspace...")
-                init_result = self.workspace_manager.initialize_workspace()
-                if not init_result.success:
-                    return FunctionResponse(
-                        success=False,
-                        error=f"Failed to reinitialize workspace: {init_result.error}",
+                if not validation_result.success:
+                    self.logger.warning(
+                        f"Virtual environment is invalid: {validation_result.error}"
                     )
-            installed_packages = self._get_installed_packages()
-            packages_to_install = self._filter_packages_to_install(
-                packages, installed_packages
-            )
-
-            if not packages_to_install:
-                return FunctionResponse(
-                    success=True, stdout="All packages already installed"
+                    self.logger.info("Reinitializing workspace...")
+                    init_result = self.workspace_manager.initialize_workspace()
+                    if not init_result.success:
+                        return FunctionResponse(
+                            success=False,
+                            error=f"Failed to reinitialize workspace: {init_result.error}",
+                        )
+                installed_packages = self._get_installed_packages()
+                packages_to_install = self._filter_packages_to_install(
+                    packages, installed_packages
                 )
 
-            packages = packages_to_install
+                if not packages_to_install:
+                    return FunctionResponse(
+                        success=True, stdout="All packages already installed"
+                    )
 
-        return self._install_with_uv(packages)
+                packages = packages_to_install
+
+            return self._install_with_uv(packages)
+        else:
+            # Use standard pip installation
+            return self._install_with_pip(packages)
 
     def _install_with_uv(self, packages: List[str]) -> FunctionResponse:
         """
@@ -144,6 +153,48 @@ class DependencyInstaller:
             return FunctionResponse(
                 success=False,
                 error=f"Exception during package installation: {e}",
+            )
+
+    def _install_with_pip(self, packages: List[str]) -> FunctionResponse:
+        """
+        Install packages using standard pip
+
+        Args:
+            packages: Packages to install
+
+        Returns:
+            FunctionResponse with installation result
+        """
+        try:
+            # Use pip to install the packages
+            command = ["pip", "install"] + packages
+            process = subprocess.Popen(
+                command,
+                stdout=subprocess.PIPE,
+                stderr=subprocess.PIPE,
+            )
+
+            stdout, stderr = process.communicate()
+            importlib.invalidate_caches()
+
+            if process.returncode != 0:
+                return FunctionResponse(
+                    success=False,
+                    error="Error installing packages with pip",
+                    stdout=stderr.decode(),
+                )
+            else:
+                self.logger.info(
+                    f"Successfully installed packages with pip: {packages}"
+                )
+                return FunctionResponse(
+                    success=True,
+                    stdout=stdout.decode(),
+                )
+        except Exception as e:
+            return FunctionResponse(
+                success=False,
+                error=f"Exception during pip package installation: {e}",
             )
 
     def _get_installed_packages(self) -> Dict[str, str]:
