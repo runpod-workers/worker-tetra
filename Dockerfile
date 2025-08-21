@@ -10,7 +10,7 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
  && chmod +x /usr/local/bin/uv
 
 # Copy app code and install dependencies
-COPY README.md src/* pyproject.toml uv.lock test_*.json test-handler.sh ./
+COPY README.md src/* pyproject.toml uv.lock ./
 RUN uv sync
 
 
@@ -19,11 +19,12 @@ FROM pytorch/pytorch:2.2.0-cuda12.1-cudnn8-runtime
 
 WORKDIR /app
 
+# Install nala for system package acceleration in runtime stage
+RUN apt-get update && apt-get install -y --no-install-recommends nala \
+ && rm -rf /var/lib/apt/lists/*
+
 # Copy app and uv binary from builder
 COPY --from=builder /app /app
 COPY --from=builder /usr/local/bin/uv /usr/local/bin/uv
-
-# Clean up any unnecessary system tools
-RUN rm -rf /var/lib/apt/lists/*
 
 CMD ["uv", "run", "handler.py"]

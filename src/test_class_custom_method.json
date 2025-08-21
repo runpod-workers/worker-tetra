@@ -1,0 +1,13 @@
+{
+  "input": {
+    "execution_type": "class",
+    "class_name": "Calculator",
+    "class_code": "class Calculator:\n    def __init__(self, initial_value=0):\n        self.value = initial_value\n        self.operation_history = []\n    \n    def add(self, operand):\n        old_value = self.value\n        self.value += operand\n        self.operation_history.append(f'{old_value} + {operand} = {self.value}')\n        return self.value\n    \n    def multiply(self, operand):\n        old_value = self.value\n        self.value *= operand\n        self.operation_history.append(f'{old_value} * {operand} = {self.value}')\n        return self.value\n    \n    def get_history(self):\n        return {\n            'current_value': self.value,\n            'operations': self.operation_history,\n            'operation_count': len(self.operation_history)\n        }\n    \n    def reset(self, new_value=0):\n        old_value = self.value\n        self.value = new_value\n        self.operation_history.append(f'Reset from {old_value} to {new_value}')\n        return self.value",
+    "method_name": "multiply",
+    "constructor_args": [\n      "gAWVCgAAAAAAAABHQCQAAAAAAAAu"\n    ],
+    "constructor_kwargs": {},
+    "args": [\n      "gAWVCgAAAAAAAABHQBQAAAAAAAAu"\n    ],
+    "kwargs": {},
+    "create_new_instance": true
+  }
+}

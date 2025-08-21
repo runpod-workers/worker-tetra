@@ -1,0 +1,9 @@
+{
+  "input": {
+    "function_name": "test_system_dependencies",
+    "function_code": "def test_system_dependencies():\n    import subprocess\n    import os\n    \n    # Test that system packages were installed successfully\n    # We'll test with curl which is commonly available or gets installed\n    \n    result = {}\n    \n    # Test if curl command is available\n    try:\n        curl_result = subprocess.run(['curl', '--version'], \n                                   capture_output=True, text=True, timeout=10)\n        if curl_result.returncode == 0:\n            result['curl_available'] = True\n            result['curl_version'] = curl_result.stdout.split('\\n')[0]\n        else:\n            result['curl_available'] = False\n            result['curl_error'] = curl_result.stderr\n    except Exception as e:\n        result['curl_available'] = False\n        result['curl_error'] = str(e)\n    \n    # Test if git command is available (should be pre-installed in most containers)\n    try:\n        git_result = subprocess.run(['git', '--version'],\n                                  capture_output=True, text=True, timeout=10)\n        if git_result.returncode == 0:\n            result['git_available'] = True\n            result['git_version'] = git_result.stdout.strip()\n        else:\n            result['git_available'] = False\n            result['git_error'] = git_result.stderr\n    except Exception as e:\n        result['git_available'] = False\n        result['git_error'] = str(e)\n    \n    # Check if we're running as root (needed for apt install)\n    result['running_as_root'] = os.getuid() == 0 if hasattr(os, 'getuid') else False\n    result['environment_check'] = 'system_deps_test_completed'\n    \n    return result\n",
+    "system_dependencies": ["curl"],
+    "args": [],
+    "kwargs": {}
+  }
+}

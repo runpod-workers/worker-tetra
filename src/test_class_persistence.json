@@ -1,0 +1,12 @@
+{
+  "input": {
+    "execution_type": "class",
+    "class_name": "PersistentCounter",
+    "class_code": "class PersistentCounter:\n    def __init__(self, initial_value=0):\n        self.value = initial_value\n        self.call_history = []\n    \n    def increment(self, amount=1):\n        self.value += amount\n        self.call_history.append(f'incremented by {amount}')\n        return self.value\n    \n    def get_state(self):\n        return {\n            'current_value': self.value,\n            'call_count': len(self.call_history),\n            'call_history': self.call_history\n        }",
+    "method_name": "get_state",
+    "constructor_args": [\n      "gAWVCQAAAAAAAACMATWULg=="\n    ],
+    "constructor_kwargs": {},
+    "args": [],
+    "kwargs": {},
+    "instance_id": "test_persistent_counter_001",
+    "create_new_instance": true\n  }\n}

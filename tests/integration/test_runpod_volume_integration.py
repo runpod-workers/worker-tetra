@@ -4,15 +4,30 @@ import asyncio
 import base64
 import cloudpickle
 import threading
-from unittest.mock import Mock, patch
+from unittest.mock import Mock, patch, MagicMock
 
-from handler import RemoteExecutor, handler
-from remote_execution import FunctionResponse
-from constants import RUNPOD_VOLUME_PATH, VENV_DIR_NAME, RUNTIMES_DIR_NAME
+from src.handler import RemoteExecutor, handler
+from src.remote_execution import FunctionResponse
+from src.constants import RUNPOD_VOLUME_PATH, VENV_DIR_NAME, RUNTIMES_DIR_NAME
 
 
 class TestFullWorkflowWithVolume:
     """Test complete request workflows with volume integration."""
+
+    def setup_method(self):
+        # Patch subprocess.run globally for all tests in this class
+        class ContextManagerMock(MagicMock):
+            def __enter__(self):
+                return self
+
+            def __exit__(self, exc_type, exc_val, exc_tb):
+                pass
+
+        self.subprocess_run_patcher = patch("subprocess.run", new=ContextManagerMock())
+        self.subprocess_run_patcher.start()
+
+    def teardown_method(self):
+        self.subprocess_run_patcher.stop()
 
     @patch("os.makedirs")
     @patch("workspace_manager.WorkspaceManager._validate_virtual_environment")
@@ -80,8 +95,15 @@ def numpy_test():
 
             # Should have installed dependencies
             assert mock_popen.called
-            install_command = mock_popen.call_args[0][0]
-            assert "numpy==1.21.0" in " ".join(install_command)
+            # Check that a uv pip install command was made with numpy
+            popen_calls = [call[0][0] for call in mock_popen.call_args_list]
+            install_calls = [
+                call
+                for call in popen_calls
+                if "uv" in call and "pip" in call and "install" in call
+            ]
+            assert len(install_calls) > 0
+            assert any("numpy==1.21.0" in " ".join(call) for call in install_calls)
 
     @patch("os.makedirs")
     @patch("workspace_manager.WorkspaceManager._validate_virtual_environment")
@@ -142,10 +164,21 @@ def numpy_test():
             b"",
         )
 
+        # Mock subprocess calls in order:
+        # 1. which nala (system package acceleration check)
+        # 2. apt-get update
+        # 3. apt-get install
+        # 4. uv pip list (get installed packages)
+        # 5. uv pip install
+        nala_check_process = Mock()
+        nala_check_process.returncode = 1  # nala not available
+        nala_check_process.communicate.return_value = (b"", b"which: nala: not found")
+
         mock_popen.side_effect = [
+            nala_check_process,
             apt_update_process,
             apt_install_process,
-            pip_list_process,  # Added missing call
+            pip_list_process,
             pip_install_process,
         ]
 
@@ -161,12 +194,12 @@ def numpy_test():
                         "function_code": """
 def system_test():
     import subprocess
-    result = subprocess.run(['which', 'curl'], capture_output=True, text=True)
+    result = subprocess.run(['which', 'wget'], capture_output=True, text=True)
     return result.stdout.strip()
 """,
                         "args": [],
                         "kwargs": {},
-                        "system_dependencies": ["curl"],
+                        "system_dependencies": ["wget"],
                         "dependencies": ["requests==2.25.1"],
                     }
                 }
@@ -177,16 +210,34 @@ def system_test():
                 assert result["success"] is True
 
                 # Should have called apt-get update and install
-                calls = [call[0][0] for call in mock_popen.call_args_list]
-        assert any("apt-get" in " ".join(call) and "update" in call for call in calls)
-        assert any("apt-get" in " ".join(call) and "curl" in call for call in calls)
-        assert any(
-            "uv" in call and "requests==2.25.1" in " ".join(call) for call in calls
-        )
+                popen_calls = [call[0][0] for call in mock_popen.call_args_list]
+                assert any(
+                    "apt-get" in " ".join(call) and "wget" in " ".join(call)
+                    for call in popen_calls
+                )
+                assert any(
+                    "uv" in " ".join(call) and "requests==2.25.1" in " ".join(call)
+                    for call in popen_calls
+                )
 
 
 class TestConcurrentRequests:
     """Test realistic concurrent access scenarios."""
+
+    def setup_method(self):
+        # Patch subprocess.run globally for all tests in this class
+        class ContextManagerMock(MagicMock):
+            def __enter__(self):
+                return self
+
+            def __exit__(self, exc_type, exc_val, exc_tb):
+                pass
+
+        self.subprocess_run_patcher = patch("subprocess.run", new=ContextManagerMock())
+        self.subprocess_run_patcher.start()
+
+    def teardown_method(self):
+        self.subprocess_run_patcher.stop()
 
     @patch("os.makedirs")
     @patch("workspace_manager.WorkspaceManager._validate_virtual_environment")
@@ -331,6 +382,21 @@ def concurrent_test():
 class TestMixedExecution:
     """Test mixed volume and non-volume execution scenarios."""
 
+    def setup_method(self):
+        # Patch subprocess.run globally for all tests in this class
+        class ContextManagerMock(MagicMock):
+            def __enter__(self):
+                return self
+
+            def __exit__(self, exc_type, exc_val, exc_tb):
+                pass
+
+        self.subprocess_run_patcher = patch("subprocess.run", new=ContextManagerMock())
+        self.subprocess_run_patcher.start()
+
+    def teardown_method(self):
+        self.subprocess_run_patcher.stop()
+
     @patch("os.makedirs")
     @patch("workspace_manager.WorkspaceManager._validate_virtual_environment")
     @patch("os.path.exists")
@@ -395,11 +461,10 @@ class TestMixedExecution:
         )  # Volume exists but venv doesn't exist
 
         # Mock file operations
-        mock_file = Mock()
+        mock_file = MagicMock()
         mock_file.fileno.return_value = 3
         mock_open.return_value.__enter__.return_value = mock_file
 
-        # Mock failed virtual environment creation
         mock_process = Mock()
         mock_process.returncode = 1
         mock_process.communicate.return_value = (b"", b"Failed to create venv")
@@ -425,6 +490,21 @@ class TestMixedExecution:
 
 class TestErrorHandlingIntegration:
     """Test error handling in integrated volume scenarios."""
+
+    def setup_method(self):
+        # Patch subprocess.run globally for all tests in this class
+        class ContextManagerMock(MagicMock):
+            def __enter__(self):
+                return self
+
+            def __exit__(self, exc_type, exc_val, exc_tb):
+                pass
+
+        self.subprocess_run_patcher = patch("subprocess.run", new=ContextManagerMock())
+        self.subprocess_run_patcher.start()
+
+    def teardown_method(self):
+        self.subprocess_run_patcher.stop()
 
     @patch("os.makedirs")
     @patch("workspace_manager.WorkspaceManager._validate_virtual_environment")

@@ -1,0 +1,11 @@
+{
+  "input": {
+    "function_name": "test_hf_acceleration_with_volume",
+    "function_code": "def test_hf_acceleration_with_volume():\n    import os\n    import time\n    from transformers import AutoTokenizer\n    \n    start_time = time.time()\n    \n    # Test HF model download with acceleration enabled\n    model_name = 'gpt2'\n    print(f'Testing accelerated HF model download: {model_name}')\n    \n    tokenizer = AutoTokenizer.from_pretrained(model_name)\n    \n    download_time = time.time() - start_time\n    \n    # Check cache paths\n    cache_info = {\n        'hf_home': os.environ.get('HF_HOME'),\n        'transformers_cache': os.environ.get('TRANSFORMERS_CACHE'),\n        'virtual_env': os.environ.get('VIRTUAL_ENV'),\n        'download_time': round(download_time, 2)\n    }\n    \n    print(f'Download completed in {download_time:.2f}s')\n    print(f'Cache paths: {cache_info}')\n    \n    return {\n        'model_name': model_name,\n        'vocab_size': tokenizer.vocab_size,\n        'cache_info': cache_info,\n        'acceleration_enabled': True,\n        'test_completed': True\n    }\n",
+    "dependencies": ["transformers", "torch"],
+    "accelerate_downloads": true,
+    "hf_models_to_cache": ["gpt2"],
+    "args": [],
+    "kwargs": {}
+  }
+}

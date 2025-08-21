@@ -218,22 +218,14 @@ class TestEnvironmentConfiguration:
                 os.environ.get("UV_CACHE_DIR")
                 == f"{RUNPOD_VOLUME_PATH}/{UV_CACHE_DIR_NAME}"
             )
-            # HF cache is shared at volume root
+            # HF cache is shared at volume root - HF manages subdirectories automatically
             assert (
                 os.environ.get("HF_HOME") == f"{RUNPOD_VOLUME_PATH}/{HF_CACHE_DIR_NAME}"
             )
-            assert (
-                os.environ.get("TRANSFORMERS_CACHE")
-                == f"{RUNPOD_VOLUME_PATH}/{HF_CACHE_DIR_NAME}/transformers"
-            )
-            assert (
-                os.environ.get("HF_DATASETS_CACHE")
-                == f"{RUNPOD_VOLUME_PATH}/{HF_CACHE_DIR_NAME}/datasets"
-            )
-            assert (
-                os.environ.get("HUGGINGFACE_HUB_CACHE")
-                == f"{RUNPOD_VOLUME_PATH}/{HF_CACHE_DIR_NAME}/hub"
-            )
+            # HF automatically creates and manages subdirectories, no need to set specific paths
+            assert "TRANSFORMERS_CACHE" not in os.environ
+            assert "HF_DATASETS_CACHE" not in os.environ
+            assert "HUGGINGFACE_HUB_CACHE" not in os.environ
             # Virtual environment is endpoint-specific
             expected_venv = (
                 f"{RUNPOD_VOLUME_PATH}/{RUNTIMES_DIR_NAME}/default/{VENV_DIR_NAME}"

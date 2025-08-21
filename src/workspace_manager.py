@@ -3,7 +3,11 @@ import subprocess
 import fcntl
 import time
 import logging
-from typing import Optional
+import asyncio
+from typing import Optional, TYPE_CHECKING, Any, Dict
+
+if TYPE_CHECKING:
+    from huggingface_accelerator import HuggingFaceAccelerator
 
 from remote_execution import FunctionResponse
 from constants import (
@@ -46,6 +50,9 @@ class WorkspaceManager:
             self.cache_path = None
             self.hf_cache_path = None
 
+        # Initialize HuggingFace accelerator after paths are set
+        self._hf_accelerator: Optional[HuggingFaceAccelerator] = None
+
         if self.has_runpod_volume:
             self._configure_uv_cache()
             self._configure_huggingface_cache()
@@ -62,19 +69,14 @@ class WorkspaceManager:
             # Ensure HF cache directory exists
             os.makedirs(self.hf_cache_path, exist_ok=True)
 
-            # Set main HF cache directory
+            # Set main HF cache directory - HF will automatically create subdirectories
             os.environ["HF_HOME"] = self.hf_cache_path
 
-            # Set specific cache paths for different HF components
-            os.environ["TRANSFORMERS_CACHE"] = os.path.join(
-                self.hf_cache_path, "transformers"
-            )
-            os.environ["HF_DATASETS_CACHE"] = os.path.join(
-                self.hf_cache_path, "datasets"
-            )
-            os.environ["HUGGINGFACE_HUB_CACHE"] = os.path.join(
-                self.hf_cache_path, "hub"
-            )
+            # HF automatically creates and manages these subdirectories:
+            # - hub/ (for model downloads and cache)
+            # - transformers/ (legacy, but still used by some components)
+            # - datasets/ (for HF datasets)
+            # Let HF handle the hierarchy instead of forcing specific paths
 
     def _configure_volume_environment(self):
         """Configure environment variables for volume usage."""
@@ -371,3 +373,69 @@ class WorkspaceManager:
                 self.logger.error(
                     f"Error removing broken virtual environment: {str(e)}"
                 )
+
+    @property
+    def hf_accelerator(self) -> "HuggingFaceAccelerator":
+        """Lazy-loaded HuggingFace accelerator."""
+        if self._hf_accelerator is None:
+            from huggingface_accelerator import HuggingFaceAccelerator
+
+            self._hf_accelerator = HuggingFaceAccelerator(self)
+        return self._hf_accelerator
+
+    def accelerate_model_download(
+        self, model_id: str, revision: str = "main"
+    ) -> FunctionResponse:
+        """
+        Pre-download HuggingFace model using acceleration if beneficial.
+
+        Args:
+            model_id: HuggingFace model identifier
+            revision: Model revision/branch
+
+        Returns:
+            FunctionResponse with download result
+        """
+        return self.hf_accelerator.accelerate_model_download(model_id, revision)
+
+    async def accelerate_model_download_async(
+        self, model_id: str, revision: str = "main"
+    ) -> FunctionResponse:
+        """
+        Async wrapper for HuggingFace model download acceleration.
+
+        Args:
+            model_id: HuggingFace model identifier
+            revision: Model revision/branch
+
+        Returns:
+            FunctionResponse with download result
+        """
+        return await asyncio.to_thread(
+            self.accelerate_model_download, model_id, revision
+        )
+
+    def is_model_cached(self, model_id: str, revision: str = "main") -> bool:
+        """
+        Check if a HuggingFace model is cached.
+
+        Args:
+            model_id: HuggingFace model identifier
+            revision: Model revision/branch
+
+        Returns:
+            True if model is cached
+        """
+        return self.hf_accelerator.is_model_cached(model_id, revision)
+
+    def get_model_cache_info(self, model_id: str) -> Dict[str, Any]:
+        """
+        Get cache information for a HuggingFace model.
+
+        Args:
+            model_id: HuggingFace model identifier
+
+        Returns:
+            Dictionary with cache information
+        """
+        return self.hf_accelerator.get_cache_info(model_id)

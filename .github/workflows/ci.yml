@@ -99,22 +99,7 @@ jobs:
         run: make setup
 
       - name: Test local handler execution
-        run: |
-          echo "Testing handler with all test_*.json files..."
-          passed=0
-          total=0
-          for test_file in test_*.json; do
-            total=$((total + 1))
-            echo "Testing with $test_file..."
-            if timeout 30s env PYTHONPATH=src RUNPOD_TEST_INPUT="$(cat "$test_file")" uv run python src/handler.py >/dev/null 2>&1; then
-              echo "✓ $test_file: PASSED"
-              passed=$((passed + 1))
-            else
-              echo "✗ $test_file: FAILED"
-              exit 1
-            fi
-          done
-          echo "All $passed/$total handler tests passed!"
+        run: make test-handler
 
   release:
     runs-on: ubuntu-latest
