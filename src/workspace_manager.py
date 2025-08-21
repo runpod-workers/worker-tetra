@@ -3,6 +3,7 @@ import subprocess
 import fcntl
 import time
 import logging
+import asyncio
 from typing import Optional, TYPE_CHECKING, Any, Dict
 
 if TYPE_CHECKING:
@@ -401,6 +402,23 @@ class WorkspaceManager:
             FunctionResponse with download result
         """
         return self.hf_accelerator.accelerate_model_download(model_id, revision)
+
+    async def accelerate_model_download_async(
+        self, model_id: str, revision: str = "main"
+    ) -> FunctionResponse:
+        """
+        Async wrapper for HuggingFace model download acceleration.
+
+        Args:
+            model_id: HuggingFace model identifier
+            revision: Model revision/branch
+
+        Returns:
+            FunctionResponse with download result
+        """
+        return await asyncio.to_thread(
+            self.accelerate_model_download, model_id, revision
+        )
 
     def is_model_cached(self, model_id: str, revision: str = "main") -> bool:
         """
