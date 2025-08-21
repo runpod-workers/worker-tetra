@@ -5,12 +5,11 @@ This module provides accelerated downloads for HuggingFace models and datasets,
 integrating with the existing volume workspace caching system.
 """
 
-import os
-import requests
 import logging
 from typing import Dict, List, Any
 from pathlib import Path
 
+from huggingface_hub import HfApi
 from remote_execution import FunctionResponse
 from download_accelerator import DownloadAccelerator
 from constants import LARGE_HF_MODEL_PATTERNS, BYTES_PER_MB, MB_SIZE_THRESHOLD
@@ -23,6 +22,7 @@ class HuggingFaceAccelerator:
         self.workspace_manager = workspace_manager
         self.logger = logging.getLogger(__name__)
         self.download_accelerator = DownloadAccelerator(workspace_manager)
+        self.api = HfApi()
 
         # Use workspace manager's HF cache if available
         if workspace_manager and workspace_manager.hf_cache_path:
@@ -36,7 +36,7 @@ class HuggingFaceAccelerator:
         self, model_id: str, revision: str = "main"
     ) -> List[Dict[str, Any]]:
         """
-        Get list of files for a HuggingFace model using the Hub API.
+        Get list of files for a HuggingFace model using the HF Hub API.
 
         Args:
             model_id: HuggingFace model identifier (e.g., 'gpt2', 'microsoft/DialoGPT-medium')
@@ -45,27 +45,21 @@ class HuggingFaceAccelerator:
         Returns:
             List of file information dictionaries
         """
-        api_url = f"https://huggingface.co/api/models/{model_id}/tree/{revision}"
-
-        headers = {}
-        hf_token = os.environ.get("HF_TOKEN")
-        if hf_token:
-            headers["Authorization"] = f"Bearer {hf_token}"
-
         try:
-            response = requests.get(api_url, headers=headers, timeout=30)
-            response.raise_for_status()
+            # Use HF Hub's native API instead of manual requests
+            repo_info = self.api.repo_info(model_id, revision=revision)
 
             files = []
-            for item in response.json():
-                if item["type"] == "file":
-                    files.append(
-                        {
-                            "path": item["path"],
-                            "size": item.get("size", 0),
-                            "url": f"https://huggingface.co/{model_id}/resolve/{revision}/{item['path']}",
-                        }
-                    )
+            if repo_info.siblings:
+                for sibling in repo_info.siblings:
+                    if sibling.rfilename:  # Only include actual files
+                        files.append(
+                            {
+                                "path": sibling.rfilename,
+                                "size": getattr(sibling, "size", 0) or 0,
+                                "url": f"https://huggingface.co/{model_id}/resolve/{revision}/{sibling.rfilename}",
+                            }
+                        )
 
             return files
 
@@ -83,7 +77,12 @@ class HuggingFaceAccelerator:
         Returns:
             True if acceleration should be used
         """
-        if not self.download_accelerator.aria2_downloader.aria2c_available:
+        # Check if hf_transfer is available
+        has_hf_transfer = (
+            self.download_accelerator.hf_transfer_downloader.hf_transfer_available
+        )
+
+        if not has_hf_transfer:
             return False
 
         model_lower = model_id.lower()
@@ -96,7 +95,7 @@ class HuggingFaceAccelerator:
         Pre-download HuggingFace model files using acceleration.
 
         This method downloads model files to the cache before transformers tries to access them,
-        using aria2c for faster parallel downloads.
+        using hf_transfer or xet for optimized downloads.
 
         Args:
             model_id: HuggingFace model identifier
