@@ -15,7 +15,7 @@ class DependencyInstaller:
 
     def __init__(self, workspace_manager):
         self.workspace_manager = workspace_manager
-        self.logger = logging.getLogger(__name__)
+        self.logger = logging.getLogger(f"worker_tetra.{__name__.split('.')[-1]}")
         self.download_accelerator = DownloadAccelerator(workspace_manager)
         self._nala_available = None  # Cache nala availability check
 
@@ -43,7 +43,7 @@ class DependencyInstaller:
         large_packages = self._identify_large_system_packages(packages)
 
         if accelerate_downloads and large_packages and self._check_nala_available():
-            self.logger.info(
+            self.logger.debug(
                 f"Using nala for accelerated installation of system packages: {large_packages}"
             )
             return self._install_system_with_nala(packages)
@@ -270,7 +270,7 @@ class DependencyInstaller:
         """
         try:
             # Update package list first with nala
-            self.logger.info("Updating package list with nala")
+            self.logger.debug("Updating package list with nala")
             update_process = subprocess.Popen(
                 ["nala", "update"],
                 stdout=subprocess.PIPE,
@@ -285,7 +285,6 @@ class DependencyInstaller:
                 return self._install_system_standard(packages)
 
             # Install packages with nala
-            self.logger.info("Installing packages with nala acceleration")
             process = subprocess.Popen(
                 ["nala", "install", "-y"] + packages,
                 stdout=subprocess.PIPE,
@@ -304,7 +303,7 @@ class DependencyInstaller:
                 )
                 return self._install_system_standard(packages)
             else:
-                self.logger.info(
+                self.logger.debug(
                     f"Successfully installed system packages with nala: {packages}"
                 )
                 return FunctionResponse(

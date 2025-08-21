@@ -1,18 +1,12 @@
 import runpod
-import logging
-import sys
 from typing import Dict, Any
 
 from remote_execution import FunctionRequest, FunctionResponse
 from remote_executor import RemoteExecutor
-from constants import LOG_FORMAT
+from logger import setup_logging
 
-
-logging.basicConfig(
-    level=logging.DEBUG,  # or INFO for less verbose output
-    stream=sys.stdout,  # send logs to stdout (so docker captures it)
-    format=LOG_FORMAT,
-)
+# Initialize logging configuration
+setup_logging()
 
 
 async def handler(event: Dict[str, Any]) -> Dict[str, Any]:

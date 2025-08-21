@@ -20,7 +20,7 @@ class HuggingFaceAccelerator:
 
     def __init__(self, workspace_manager):
         self.workspace_manager = workspace_manager
-        self.logger = logging.getLogger(__name__)
+        self.logger = logging.getLogger(f"worker_tetra.{__name__.split('.')[-1]}")
         self.api = HfApi()
 
         # Create the configured download strategy

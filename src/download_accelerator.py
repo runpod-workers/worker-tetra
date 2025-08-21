@@ -46,7 +46,7 @@ class HfTransferDownloader:
     """HuggingFace Transfer downloader for fresh downloads."""
 
     def __init__(self):
-        self.logger = logging.getLogger(__name__)
+        self.logger = logging.getLogger(f"worker_tetra.{__name__.split('.')[-1]}")
         self.hf_transfer_available = self._check_hf_transfer()
 
     def _check_hf_transfer(self) -> bool:
@@ -173,7 +173,7 @@ class DownloadAccelerator:
 
     def __init__(self, workspace_manager=None):
         self.workspace_manager = workspace_manager
-        self.logger = logging.getLogger(__name__)
+        self.logger = logging.getLogger(f"worker_tetra.{__name__.split('.')[-1]}")
         self.hf_transfer_downloader = HfTransferDownloader()
 
     def should_accelerate_download(

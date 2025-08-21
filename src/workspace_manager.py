@@ -29,7 +29,7 @@ class WorkspaceManager:
     hf_cache_path: Optional[str]
 
     def __init__(self) -> None:
-        self.logger = logging.getLogger(__name__)
+        self.logger = logging.getLogger(f"worker_tetra.{__name__.split('.')[-1]}")
         self.has_runpod_volume = os.path.exists(RUNPOD_VOLUME_PATH)
         self.endpoint_id = os.environ.get("RUNPOD_ENDPOINT_ID", "default")
 
