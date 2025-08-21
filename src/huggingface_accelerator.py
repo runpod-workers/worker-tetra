@@ -7,12 +7,10 @@ integrating with the existing volume workspace caching system.
 
 import logging
 from typing import Dict, List, Any
-from pathlib import Path
 
-from huggingface_hub import HfApi
+from huggingface_hub import HfApi, snapshot_download
 from remote_execution import FunctionResponse
-from download_accelerator import DownloadAccelerator
-from constants import LARGE_HF_MODEL_PATTERNS, BYTES_PER_MB, MB_SIZE_THRESHOLD
+from constants import LARGE_HF_MODEL_PATTERNS, BYTES_PER_MB
 
 
 class HuggingFaceAccelerator:
@@ -21,16 +19,10 @@ class HuggingFaceAccelerator:
     def __init__(self, workspace_manager):
         self.workspace_manager = workspace_manager
         self.logger = logging.getLogger(__name__)
-        self.download_accelerator = DownloadAccelerator(workspace_manager)
         self.api = HfApi()
 
-        # Use workspace manager's HF cache if available
-        if workspace_manager and workspace_manager.hf_cache_path:
-            self.cache_dir = Path(workspace_manager.hf_cache_path)
-        else:
-            self.cache_dir = Path.home() / ".cache" / "huggingface"
-
-        self.cache_dir.mkdir(parents=True, exist_ok=True)
+        # HF will automatically use HF_HOME environment variable set by workspace_manager
+        # No need to manually manage cache directories
 
     def get_model_files(
         self, model_id: str, revision: str = "main"
@@ -69,22 +61,15 @@ class HuggingFaceAccelerator:
 
     def should_accelerate_model(self, model_id: str) -> bool:
         """
-        Determine if model downloads should be accelerated.
+        Determine if model should be pre-cached.
+        HF Hub automatically uses hf_transfer when available.
 
         Args:
             model_id: HuggingFace model identifier
 
         Returns:
-            True if acceleration should be used
+            True if model should be pre-cached
         """
-        # Check if hf_transfer is available
-        has_hf_transfer = (
-            self.download_accelerator.hf_transfer_downloader.hf_transfer_available
-        )
-
-        if not has_hf_transfer:
-            return False
-
         model_lower = model_id.lower()
         return any(pattern in model_lower for pattern in LARGE_HF_MODEL_PATTERNS)
 
@@ -92,10 +77,10 @@ class HuggingFaceAccelerator:
         self, model_id: str, revision: str = "main"
     ) -> FunctionResponse:
         """
-        Pre-download HuggingFace model files using acceleration.
+        Pre-download HuggingFace model using HF Hub's native caching.
 
-        This method downloads model files to the cache before transformers tries to access them,
-        using hf_transfer or xet for optimized downloads.
+        This method downloads the complete model snapshot to HF's standard cache
+        location, leveraging hf_transfer when available.
 
         Args:
             model_id: HuggingFace model identifier
@@ -106,90 +91,34 @@ class HuggingFaceAccelerator:
         """
         if not self.should_accelerate_model(model_id):
             return FunctionResponse(
-                success=True, stdout=f"Model {model_id} does not require acceleration"
+                success=True, stdout=f"Model {model_id} does not require pre-caching"
             )
 
-        self.logger.info(f"Accelerating model download: {model_id}")
+        self.logger.info(f"Pre-caching model: {model_id}")
 
-        # Get model file list
-        files = self.get_model_files(model_id, revision)
-        if not files:
-            return FunctionResponse(
-                success=False, error=f"Could not get file list for model {model_id}"
+        try:
+            # Use HF Hub's native snapshot download with acceleration
+            snapshot_path = snapshot_download(
+                repo_id=model_id,
+                revision=revision,
+                # HF automatically uses HF_HOME/HF_HUB_CACHE from environment
+                # and applies hf_transfer acceleration when available
             )
 
-        # Filter for main model files (ignore small config files)
-        large_files = [f for f in files if f["size"] > MB_SIZE_THRESHOLD]
-
-        if not large_files:
-            return FunctionResponse(
-                success=True, stdout=f"No large files found for model {model_id}"
-            )
-
-        self.logger.info(
-            f"Found {len(large_files)} large files to download for {model_id}"
-        )
-
-        # Create model-specific cache directory
-        model_cache_dir = self.cache_dir / "transformers" / model_id.replace("/", "--")
-        model_cache_dir.mkdir(parents=True, exist_ok=True)
-
-        successful_downloads = 0
-        total_size = sum(f["size"] for f in large_files)
-
-        for file_info in large_files:
-            file_path = model_cache_dir / file_info["path"]
-            file_path.parent.mkdir(parents=True, exist_ok=True)
-
-            # Skip if file already exists and is correct size
-            if file_path.exists() and file_path.stat().st_size == file_info["size"]:
-                self.logger.info(f"✓ {file_info['path']} (cached)")
-                successful_downloads += 1
-                continue
-
-            try:
-                file_size_mb = file_info["size"] / BYTES_PER_MB
-                self.logger.info(
-                    f"Downloading {file_info['path']} ({file_size_mb:.1f}MB)..."
-                )
-
-                # Use download accelerator
-                result = self.download_accelerator.download_with_fallback(
-                    file_info["url"],
-                    str(file_path),
-                    estimated_size_mb=file_size_mb,
-                    show_progress=True,
-                )
-
-                if result.success:
-                    successful_downloads += 1
-                    self.logger.info(f"✓ {file_info['path']} downloaded successfully")
-                else:
-                    self.logger.error(f"✗ {file_info['path']} failed: {result.error}")
-
-            except Exception as e:
-                self.logger.error(
-                    f"✗ {file_info['path']} failed with exception: {str(e)}"
-                )
-
-        success = successful_downloads == len(large_files)
-
-        if success:
             return FunctionResponse(
                 success=True,
-                stdout=f"Successfully pre-downloaded {successful_downloads} files "
-                f"({total_size / BYTES_PER_MB:.1f}MB) for model {model_id}",
+                stdout=f"Successfully pre-cached model {model_id} to {snapshot_path}",
             )
-        else:
+
+        except Exception as e:
             return FunctionResponse(
                 success=False,
-                error=f"Failed to download {len(large_files) - successful_downloads} files for {model_id}",
-                stdout=f"Downloaded {successful_downloads}/{len(large_files)} files",
+                error=f"Failed to pre-cache model {model_id}: {str(e)}",
             )
 
     def is_model_cached(self, model_id: str, revision: str = "main") -> bool:
         """
-        Check if model is already cached.
+        Check if model is already cached using HF Hub's cache utilities.
 
         Args:
             model_id: HuggingFace model identifier
@@ -198,20 +127,26 @@ class HuggingFaceAccelerator:
         Returns:
             True if model appears to be cached
         """
-        model_cache_dir = self.cache_dir / "transformers" / model_id.replace("/", "--")
+        try:
+            from huggingface_hub import try_to_load_from_cache
 
-        if not model_cache_dir.exists():
+            # Check for common model files that indicate a cached model
+            key_files = ["config.json", "pytorch_model.bin", "model.safetensors"]
+
+            for filename in key_files:
+                cached_path = try_to_load_from_cache(
+                    repo_id=model_id, filename=filename, revision=revision
+                )
+                if cached_path is not None:  # Found cached file
+                    return True
+
             return False
-
-        # Check if there are any model files
-        model_files = list(model_cache_dir.glob("**/*.bin")) + list(
-            model_cache_dir.glob("**/*.safetensors")
-        )
-        return len(model_files) > 0
+        except Exception:
+            return False
 
     def get_cache_info(self, model_id: str) -> Dict[str, Any]:
         """
-        Get cache information for a model.
+        Get cache information for a model using HF Hub utilities.
 
         Args:
             model_id: HuggingFace model identifier
@@ -219,29 +154,31 @@ class HuggingFaceAccelerator:
         Returns:
             Dictionary with cache information
         """
-        model_cache_dir = self.cache_dir / "transformers" / model_id.replace("/", "--")
+        try:
+            from huggingface_hub import scan_cache_dir
 
-        if not model_cache_dir.exists():
+            cache_info = scan_cache_dir()
+
+            # Find our specific model in the cache
+            for repo in cache_info.repos:
+                if repo.repo_id == model_id:
+                    return {
+                        "cached": True,
+                        "cache_size_mb": repo.size_on_disk / BYTES_PER_MB,
+                        "file_count": len(list(repo.revisions)[0].files)
+                        if repo.revisions
+                        else 0,
+                        "cache_path": str(repo.repo_path),
+                    }
+
             return {"cached": False, "cache_size_mb": 0, "file_count": 0}
 
-        total_size = 0
-        file_count = 0
-
-        for file_path in model_cache_dir.rglob("*"):
-            if file_path.is_file():
-                total_size += file_path.stat().st_size
-                file_count += 1
-
-        return {
-            "cached": file_count > 0,
-            "cache_size_mb": total_size / BYTES_PER_MB,
-            "file_count": file_count,
-            "cache_path": str(model_cache_dir),
-        }
+        except Exception:
+            return {"cached": False, "cache_size_mb": 0, "file_count": 0}
 
     def clear_model_cache(self, model_id: str) -> FunctionResponse:
         """
-        Clear cache for a specific model.
+        Clear cache for a specific model using HF Hub utilities.
 
         Args:
             model_id: HuggingFace model identifier
@@ -249,21 +186,25 @@ class HuggingFaceAccelerator:
         Returns:
             FunctionResponse with clearing result
         """
-        model_cache_dir = self.cache_dir / "transformers" / model_id.replace("/", "--")
+        try:
+            from huggingface_hub import scan_cache_dir
 
-        if not model_cache_dir.exists():
+            cache_info = scan_cache_dir()
+
+            # Find and delete our specific model
+            for repo in cache_info.repos:
+                if repo.repo_id == model_id:
+                    delete_strategy = cache_info.delete_revisions(repo.repo_id)
+                    delete_strategy.execute()
+
+                    return FunctionResponse(
+                        success=True, stdout=f"Cleared cache for model {model_id}"
+                    )
+
             return FunctionResponse(
                 success=True, stdout=f"No cache found for model {model_id}"
             )
 
-        try:
-            import shutil
-
-            shutil.rmtree(model_cache_dir)
-
-            return FunctionResponse(
-                success=True, stdout=f"Cleared cache for model {model_id}"
-            )
         except Exception as e:
             return FunctionResponse(
                 success=False, error=f"Failed to clear cache for {model_id}: {str(e)}"

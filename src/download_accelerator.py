@@ -1,9 +1,9 @@
 """
-Download acceleration using hf_transfer and xet for optimal HuggingFace model downloads.
+Download acceleration using hf_transfer for optimal HuggingFace model downloads.
 
 This module provides accelerated download capabilities optimized for HuggingFace models:
-- hf_transfer for fresh downloads (fastest for new content)
-- xet for subsequent/incremental downloads (fastest for cached content)
+- hf_transfer for accelerated downloads when available
+- hf_xet acceleration is automatically handled by HuggingFace Hub (huggingface_hub>=0.32.0)
 - Standard HF hub as reliable fallback
 """
 
@@ -163,136 +163,18 @@ class HfTransferDownloader:
             )
 
 
-class HfXetDownloader:
-    """HuggingFace Xet downloader for subsequent/incremental downloads."""
-
-    def __init__(self):
-        self.logger = logging.getLogger(__name__)
-        self.hf_xet_available = self._check_hf_xet()
-
-    def _check_hf_xet(self) -> bool:
-        """Check if hf_xet is available."""
-        import importlib.util
-
-        if importlib.util.find_spec("hf_xet") is not None:
-            self.logger.debug("hf_xet is available for incremental downloads")
-            return True
-        else:
-            self.logger.debug("hf_xet not available")
-            return False
-
-    def download(
-        self,
-        url: str,
-        output_path: str,
-        show_progress: bool = False,
-    ) -> DownloadMetrics:
-        """
-        Download file using hf_xet for incremental updates.
-
-        Args:
-            url: URL to download
-            output_path: Local file path to save to
-            show_progress: Whether to show real-time progress
-
-        Returns:
-            DownloadMetrics with performance data
-        """
-        if not self.hf_xet_available:
-            raise RuntimeError("hf_xet not available")
-
-        start_time = time.time()
-
-        try:
-            # Use hf_xet via huggingface_hub - it's automatically used when available
-            from huggingface_hub import hf_hub_download
-
-            # Extract model_id and filename from URL
-            # URL format: https://huggingface.co/{model_id}/resolve/{revision}/{filename}
-            if "huggingface.co" in url and "/resolve/" in url:
-                parts = url.replace("https://huggingface.co/", "").split("/resolve/")
-                model_id = parts[0]
-                revision_and_filename = parts[1].split("/", 1)
-                revision = revision_and_filename[0]
-                filename = revision_and_filename[1]
-
-                # Create output directory
-                os.makedirs(os.path.dirname(output_path), exist_ok=True)
-
-                # Download using hf_hub_download - hf_xet will be used automatically
-                # when the repository supports it and hf_xet is installed
-                downloaded_path = hf_hub_download(
-                    repo_id=model_id,
-                    filename=filename,
-                    revision=revision,
-                    cache_dir=os.path.dirname(output_path),
-                    local_dir=os.path.dirname(output_path),
-                    local_dir_use_symlinks=False,
-                    resume_download=True,  # Important for incremental downloads
-                )
-
-                # Move to expected location if needed
-                if downloaded_path != output_path:
-                    import shutil
-
-                    shutil.move(downloaded_path, output_path)
-
-            else:
-                # Fallback to direct download for non-HF URLs
-                raise ValueError("hf_xet only supports HuggingFace URLs")
-
-            end_time = time.time()
-            file_size = (
-                os.path.getsize(output_path) if os.path.exists(output_path) else 0
-            )
-            total_time = end_time - start_time
-
-            if total_time > 0 and file_size > 0:
-                bits_per_second = (file_size * 8) / total_time
-                avg_speed = bits_per_second / (1024 * 1024)
-            else:
-                avg_speed = 0
-
-            self.logger.info(
-                f"Downloaded {file_size / (1024 * 1024):.1f}MB in {total_time:.1f}s "
-                f"({avg_speed / 8:.1f} MB/s) using hf_xet"
-            )
-
-            return DownloadMetrics(
-                method="hf_xet",
-                file_size_bytes=file_size,
-                total_time_seconds=total_time,
-                average_speed_mbps=avg_speed,
-                success=True,
-            )
-
-        except Exception as e:
-            self.logger.error(f"hf_xet download failed: {str(e)}")
-            return DownloadMetrics(
-                method="hf_xet",
-                file_size_bytes=0,
-                total_time_seconds=time.time() - start_time,
-                average_speed_mbps=0,
-                success=False,
-                error_message=str(e),
-            )
-
-
 class DownloadAccelerator:
     """
-    Main download acceleration coordinator using hf_transfer and hf_xet.
+    Main download acceleration coordinator using hf_transfer.
 
-    Strategy selection:
-    - Fresh downloads: hf_transfer > standard hf hub
-    - Subsequent downloads (if file exists): hf_xet > hf_transfer > standard hf hub
-    - Fallback: standard download
+    Note: hf_xet acceleration is now automatically handled by HuggingFace Hub
+    when using hf_hub_download() or snapshot_download() functions.
     """
 
     def __init__(self, workspace_manager=None):
         self.workspace_manager = workspace_manager
         self.logger = logging.getLogger(__name__)
         self.hf_transfer_downloader = HfTransferDownloader()
-        self.hf_xet_downloader = HfXetDownloader()
 
     def should_accelerate_download(
         self, url: str, estimated_size_mb: float = 0
@@ -353,37 +235,10 @@ class DownloadAccelerator:
                 error="No acceleration available - defer to HF native handling",
             )
 
-        # Check if file already exists (for subsequent download strategy)
-        file_exists = self.is_file_cached(output_path)
-
-        # Strategy 1: Try hf_xet for subsequent downloads if file exists and xet is available
-        if file_exists and self.hf_xet_downloader.hf_xet_available:
-            try:
-                self.logger.info(f"Using hf_xet for incremental download: {url}")
-                metrics = self.hf_xet_downloader.download(
-                    url, output_path, show_progress=show_progress
-                )
-
-                if metrics.success:
-                    return FunctionResponse(
-                        success=True,
-                        stdout=f"Downloaded {metrics.file_size_mb:.1f}MB in {metrics.total_time_seconds:.1f}s "
-                        f"({metrics.speed_mb_per_sec:.1f} MB/s) using hf_xet",
-                    )
-                else:
-                    self.logger.warning(
-                        f"hf_xet download failed: {metrics.error_message}"
-                    )
-            except Exception as e:
-                self.logger.warning(f"hf_xet download failed: {e}")
-
-        # Strategy 2: Try hf_transfer for fresh downloads or fallback from hf_xet
+        # Strategy 1: Try hf_transfer (hf_xet is automatically used by HF Hub when available)
         if self.hf_transfer_downloader.hf_transfer_available:
             try:
-                download_type = "incremental" if file_exists else "fresh"
-                self.logger.info(
-                    f"Using hf_transfer for {download_type} download: {url}"
-                )
+                self.logger.info(f"Using hf_transfer for download: {url}")
                 metrics = self.hf_transfer_downloader.download(
                     url, output_path, show_progress=show_progress
                 )

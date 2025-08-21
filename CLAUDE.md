@@ -122,6 +122,14 @@ The handler automatically detects and utilizes `/runpod-volume` for persistent w
 - **Optimized Resource Usage**: Shared caches across multiple endpoints while maintaining isolation
 - **ML Model Efficiency**: Large HF models cached on volume prevent "No space left on device" errors
 
+### HuggingFace Model Acceleration
+The system automatically leverages HuggingFace's native acceleration features:
+- **hf_transfer**: Accelerated downloads for large model files when available
+- **hf_xet**: Automatic chunk-level deduplication and incremental downloads (huggingface_hub>=0.32.0)
+- **Native Integration**: Uses HF Hub's `snapshot_download()` for optimal caching and acceleration
+- **Transparent Operation**: No code changes needed - acceleration is automatic when repositories support it
+- **Token Support**: Configured via `HF_TOKEN` environment variable for private repositories
+
 ## Configuration
 
 ### Environment Variables

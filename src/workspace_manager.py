@@ -69,19 +69,14 @@ class WorkspaceManager:
             # Ensure HF cache directory exists
             os.makedirs(self.hf_cache_path, exist_ok=True)
 
-            # Set main HF cache directory
+            # Set main HF cache directory - HF will automatically create subdirectories
             os.environ["HF_HOME"] = self.hf_cache_path
 
-            # Set specific cache paths for different HF components
-            os.environ["TRANSFORMERS_CACHE"] = os.path.join(
-                self.hf_cache_path, "transformers"
-            )
-            os.environ["HF_DATASETS_CACHE"] = os.path.join(
-                self.hf_cache_path, "datasets"
-            )
-            os.environ["HUGGINGFACE_HUB_CACHE"] = os.path.join(
-                self.hf_cache_path, "hub"
-            )
+            # HF automatically creates and manages these subdirectories:
+            # - hub/ (for model downloads and cache)
+            # - transformers/ (legacy, but still used by some components)
+            # - datasets/ (for HF datasets)
+            # Let HF handle the hierarchy instead of forcing specific paths
 
     def _configure_volume_environment(self):
         """Configure environment variables for volume usage."""
