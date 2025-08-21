@@ -43,7 +43,7 @@ class DependencyInstaller:
         large_packages = self._identify_large_system_packages(packages)
 
         if accelerate_downloads and large_packages and self._check_nala_available():
-            self.logger.info(
+            self.logger.debug(
                 f"Using nala for accelerated installation of system packages: {large_packages}"
             )
             return self._install_system_with_nala(packages)
@@ -66,12 +66,6 @@ class DependencyInstaller:
             return FunctionResponse(success=True, stdout="No packages to install")
 
         self.logger.info(f"Installing dependencies: {packages}")
-        self.logger.debug(
-            f"Dependencies installation - accelerate_downloads: {accelerate_downloads}"
-        )
-        self.logger.debug(
-            f"Workspace manager has_runpod_volume: {self.workspace_manager.has_runpod_volume}"
-        )
 
         # Always use UV for Python package installation (more reliable than pip)
         # When acceleration is enabled, use differential installation
@@ -276,7 +270,7 @@ class DependencyInstaller:
         """
         try:
             # Update package list first with nala
-            self.logger.info("Updating package list with nala")
+            self.logger.debug("Updating package list with nala")
             update_process = subprocess.Popen(
                 ["nala", "update"],
                 stdout=subprocess.PIPE,
@@ -291,7 +285,6 @@ class DependencyInstaller:
                 return self._install_system_standard(packages)
 
             # Install packages with nala
-            self.logger.info("Installing packages with nala acceleration")
             process = subprocess.Popen(
                 ["nala", "install", "-y"] + packages,
                 stdout=subprocess.PIPE,
@@ -310,7 +303,7 @@ class DependencyInstaller:
                 )
                 return self._install_system_standard(packages)
             else:
-                self.logger.info(
+                self.logger.debug(
                     f"Successfully installed system packages with nala: {packages}"
                 )
                 return FunctionResponse(

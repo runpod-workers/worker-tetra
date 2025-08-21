@@ -126,7 +126,7 @@ class TetraHFDownloader(HFDownloadStrategy):
                 success=True, stdout=f"No large files found for model {model_id}"
             )
 
-        self.logger.info(
+        self.logger.debug(
             f"Found {len(large_files)} large files to download for {model_id}"
         )
 
@@ -143,13 +143,13 @@ class TetraHFDownloader(HFDownloadStrategy):
 
             # Skip if file already exists and is correct size
             if file_path.exists() and file_path.stat().st_size == file_info["size"]:
-                self.logger.info(f"✓ {file_info['path']} (cached)")
+                self.logger.debug(f"✓ {file_info['path']} (cached)")
                 successful_downloads += 1
                 continue
 
             try:
                 file_size_mb = file_info["size"] / BYTES_PER_MB
-                self.logger.info(
+                self.logger.debug(
                     f"Downloading {file_info['path']} ({file_size_mb:.1f}MB)..."
                 )
 
@@ -163,7 +163,7 @@ class TetraHFDownloader(HFDownloadStrategy):
 
                 if result.success:
                     successful_downloads += 1
-                    self.logger.info(f"✓ {file_info['path']} downloaded successfully")
+                    self.logger.info(f"Successfully downloaded: {file_info['path']}")
                 else:
                     self.logger.error(f"✗ {file_info['path']} failed: {result.error}")
 

@@ -220,7 +220,7 @@ class RemoteExecutor(RemoteExecutorStub):
         if not tasks:
             return FunctionResponse(success=True, stdout="No dependencies to install")
 
-        self.logger.info(
+        self.logger.debug(
             f"Starting parallel installation of {len(tasks)} tasks: {task_names}"
         )
 
@@ -309,7 +309,7 @@ class RemoteExecutor(RemoteExecutorStub):
                 if result.success:
                     success_count += 1
                     stdout_parts.append(f"✓ {task_name}: {result.stdout}")
-                    self.logger.info(f"✓ {task_name} completed successfully")
+                    self.logger.debug(f"✓ {task_name} completed successfully")
                 else:
                     error_msg = f"{task_name}: {result.error}"
                     failures.append(error_msg)
