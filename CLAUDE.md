@@ -160,11 +160,6 @@ make test-integration        # Run integration tests only
 make test-coverage           # Run tests with coverage report
 make test-fast               # Run tests with fail-fast mode
 make test-handler            # Test handler locally with all test_*.json files (same as CI)
-
-# Test handler locally with specific test files
-PYTHONPATH=src RUNPOD_TEST_INPUT="$(cat test_input.json)" uv run python src/handler.py
-PYTHONPATH=src RUNPOD_TEST_INPUT="$(cat test_class_input.json)" uv run python src/handler.py
-PYTHONPATH=src RUNPOD_TEST_INPUT="$(cat test_hf_input.json)" uv run python src/handler.py
 ```
 
 ### Testing Framework
