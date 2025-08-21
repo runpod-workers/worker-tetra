@@ -125,25 +125,10 @@ class RemoteExecutor(RemoteExecutorStub):
 
         # Log the summary
         if summary_parts:
-            self.logger.info("=== DOWNLOAD ACCELERATION SUMMARY ===")
+            self.logger.debug("=== DOWNLOAD ACCELERATION SUMMARY ===")
             for part in summary_parts:
-                self.logger.info(part)
-            self.logger.info("=====================================")
-
-            # Add to result stdout for user visibility (only for real responses, not mocks)
-            if hasattr(result, "__class__") and "Mock" not in result.__class__.__name__:
-                if result.stdout:
-                    result.stdout += (
-                        "\n\n=== ACCELERATION SUMMARY ===\n"
-                        + "\n".join(summary_parts)
-                        + "\n"
-                    )
-                else:
-                    result.stdout = (
-                        "=== ACCELERATION SUMMARY ===\n"
-                        + "\n".join(summary_parts)
-                        + "\n"
-                    )
+                self.logger.debug(part)
+            self.logger.debug("=====================================")
 
     async def _install_dependencies_parallel(
         self, request: FunctionRequest

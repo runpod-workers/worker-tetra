@@ -42,12 +42,14 @@ MB_SIZE_THRESHOLD = 1 * BYTES_PER_MB
 
 # HuggingFace Model Patterns
 LARGE_HF_MODEL_PATTERNS = [
-    "albert",
-    "bart",
-    "bert",
+    "albert-large",
+    "albert-xlarge",
+    "bart-large",
+    "bert-large",
+    "bert-base",
     "codegen",
     "diffusion",
-    "distilbert",
+    "distilbert-base",
     "falcon",
     "gpt",
     "hubert",
@@ -55,14 +57,15 @@ LARGE_HF_MODEL_PATTERNS = [
     "mistral",
     "mpt",
     "pegasus",
-    "roberta",
+    "roberta-large",
+    "roberta-base",
     "santacoder",
     "stable-diffusion",
     "t5",
     "vae",
-    "wav2vec",
+    "wav2vec2",
     "whisper",
-    "xlm",
+    "xlm-roberta",
     "xlnet",
 ]
 """List of HuggingFace model patterns that benefit from download acceleration."""

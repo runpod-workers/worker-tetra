@@ -249,17 +249,10 @@ class TestDownloadAccelerationIntegration:
         args, _ = mock_popen.call_args
         assert set(packages).issubset(args[0])
 
-    @patch("huggingface_hub.scan_cache_dir")
-    def test_model_cache_management(self, mock_scan_cache):
-        """Test model cache information and management using HF Hub utilities."""
+    @patch("src.hf_downloader_tetra.DownloadAccelerator")
+    def test_model_cache_management(self, mock_download_accelerator):
+        """Test model cache information and management using tetra strategy."""
         accelerator = HuggingFaceAccelerator(self.mock_workspace_manager)
-
-        # Mock cache scan for empty cache
-        from unittest.mock import Mock
-
-        empty_cache = Mock()
-        empty_cache.repos = []
-        mock_scan_cache.return_value = empty_cache
 
         # Test cache info for non-existent model
         cache_info = accelerator.get_cache_info("non-existent-model")
@@ -267,36 +260,29 @@ class TestDownloadAccelerationIntegration:
         assert cache_info["cache_size_mb"] == 0
         assert cache_info["file_count"] == 0
 
-        # Mock cache scan for existing model
-        mock_repo = Mock()
-        mock_repo.repo_id = "gpt2"
-        mock_repo.size_on_disk = 150 * 1024 * 1024  # 150MB
-        mock_repo.repo_path = "/cache/models--gpt2"
+        # Create mock cache files for existing model
+        model_cache_dir = self.temp_dir / ".hf-cache" / "transformers" / "gpt2"
+        model_cache_dir.mkdir(parents=True, exist_ok=True)
 
-        mock_revision = Mock()
-        mock_revision.files = ["config.json", "pytorch_model.bin"]
-        mock_repo.revisions = [mock_revision]
+        # Create mock model files
+        config_file = model_cache_dir / "config.json"
+        model_file = model_cache_dir / "pytorch_model.bin"
 
-        cached_repo = Mock()
-        cached_repo.repos = [mock_repo]
-        mock_scan_cache.return_value = cached_repo
+        config_file.write_text('{"model_type": "gpt2"}')  # ~25 bytes
+        model_file.write_bytes(b"0" * (150 * 1024 * 1024))  # 150MB of zeros
 
         # Test cache info for cached model
         cache_info = accelerator.get_cache_info("gpt2")
         assert cache_info["cached"] is True
-        assert cache_info["cache_size_mb"] == 150.0
+        assert (
+            abs(cache_info["cache_size_mb"] - 150.0) < 0.1
+        )  # Allow for small differences
         assert cache_info["file_count"] == 2
 
-        # Test cache clearing (would use HF Hub's delete functionality)
-        with patch("huggingface_hub.scan_cache_dir") as mock_clear_scan:
-            mock_clear_scan.return_value = cached_repo
-            mock_delete_strategy = Mock()
-            cached_repo.delete_revisions = Mock(return_value=mock_delete_strategy)
-
-            result = accelerator.clear_model_cache("gpt2")
-            assert result.success is True
-            cached_repo.delete_revisions.assert_called_once_with("gpt2")
-            mock_delete_strategy.execute.assert_called_once()
+        # Test cache clearing
+        result = accelerator.clear_model_cache("gpt2")
+        assert result.success is True
+        assert not model_cache_dir.exists()
 
 
 class TestDownloadAccelerationErrorHandling:
@@ -349,7 +335,7 @@ class TestDownloadAccelerationErrorHandling:
         result = accelerator.accelerate_model_download("")
         assert result.success is True
         assert result.stdout is not None
-        assert "does not require pre-caching" in result.stdout
+        assert "does not require acceleration" in result.stdout
 
     def test_non_hf_url_handling(self):
         """Test handling of non-HuggingFace URLs."""
