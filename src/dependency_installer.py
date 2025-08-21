@@ -2,6 +2,7 @@ import os
 import subprocess
 import importlib
 import logging
+import asyncio
 from typing import List, Dict
 
 from remote_execution import FunctionResponse
@@ -66,9 +67,9 @@ class DependencyInstaller:
 
         self.logger.info(f"Installing dependencies: {packages}")
 
-        # Choose installation method based on acceleration flag
+        # Always use UV for Python package installation (more reliable than pip)
+        # When acceleration is enabled, use differential installation
         if accelerate_downloads:
-            # Use UV with differential installation for acceleration
             if (
                 self.workspace_manager.has_runpod_volume
                 and self.workspace_manager.venv_path
@@ -101,10 +102,8 @@ class DependencyInstaller:
 
                 packages = packages_to_install
 
-            return self._install_with_uv(packages)
-        else:
-            # Use standard pip installation
-            return self._install_with_pip(packages)
+        # Always use UV (works reliably with virtual environments)
+        return self._install_with_uv(packages)
 
     def _install_with_uv(self, packages: List[str]) -> FunctionResponse:
         """
@@ -153,48 +152,6 @@ class DependencyInstaller:
             return FunctionResponse(
                 success=False,
                 error=f"Exception during package installation: {e}",
-            )
-
-    def _install_with_pip(self, packages: List[str]) -> FunctionResponse:
-        """
-        Install packages using standard pip
-
-        Args:
-            packages: Packages to install
-
-        Returns:
-            FunctionResponse with installation result
-        """
-        try:
-            # Use pip to install the packages
-            command = ["pip", "install"] + packages
-            process = subprocess.Popen(
-                command,
-                stdout=subprocess.PIPE,
-                stderr=subprocess.PIPE,
-            )
-
-            stdout, stderr = process.communicate()
-            importlib.invalidate_caches()
-
-            if process.returncode != 0:
-                return FunctionResponse(
-                    success=False,
-                    error="Error installing packages with pip",
-                    stdout=stderr.decode(),
-                )
-            else:
-                self.logger.info(
-                    f"Successfully installed packages with pip: {packages}"
-                )
-                return FunctionResponse(
-                    success=True,
-                    stdout=stdout.decode(),
-                )
-        except Exception as e:
-            return FunctionResponse(
-                success=False,
-                error=f"Exception during pip package installation: {e}",
             )
 
     def _get_installed_packages(self) -> Dict[str, str]:
@@ -416,3 +373,37 @@ class DependencyInstaller:
                 success=False,
                 error=f"Exception during system package installation: {e}",
             )
+
+    async def install_system_dependencies_async(
+        self, packages: List[str], accelerate_downloads: bool = True
+    ) -> FunctionResponse:
+        """
+        Async wrapper for system dependency installation.
+
+        Args:
+            packages: List of system package names
+            accelerate_downloads: Whether to use nala for accelerated downloads
+
+        Returns:
+            FunctionResponse: Object indicating success or failure with details
+        """
+        return await asyncio.to_thread(
+            self.install_system_dependencies, packages, accelerate_downloads
+        )
+
+    async def install_dependencies_async(
+        self, packages: List[str], accelerate_downloads: bool = True
+    ) -> FunctionResponse:
+        """
+        Async wrapper for Python dependency installation.
+
+        Args:
+            packages: List of package names or package specifications
+            accelerate_downloads: Whether to use uv for accelerated downloads
+
+        Returns:
+            FunctionResponse: Object indicating success or failure with details
+        """
+        return await asyncio.to_thread(
+            self.install_dependencies, packages, accelerate_downloads
+        )
