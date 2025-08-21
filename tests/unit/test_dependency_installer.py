@@ -137,10 +137,10 @@ class TestPythonDependencies:
     def test_install_dependencies_with_acceleration_disabled(
         self, mock_invalidate, mock_popen
     ):
-        """Test Python dependency installation with acceleration disabled (uses pip)."""
+        """Test Python dependency installation with acceleration disabled (uses UV)."""
         process = Mock()
         process.returncode = 0
-        process.communicate.return_value = (b"Successfully installed with pip", b"")
+        process.communicate.return_value = (b"Successfully installed with UV", b"")
         mock_popen.return_value = process
 
         result = self.installer.install_dependencies(
@@ -148,17 +148,18 @@ class TestPythonDependencies:
         )
 
         assert result.success is True
-        assert "Successfully installed with pip" in result.stdout
-        # Verify pip was used
+        assert "Successfully installed with UV" in result.stdout
+        # Verify UV was used
         mock_popen.assert_called_once()
         args = mock_popen.call_args[0][0]
-        assert args[0] == "pip"
-        assert args[1] == "install"
+        assert args[0] == "uv"
+        assert args[1] == "pip"
+        assert args[2] == "install"
         mock_invalidate.assert_called_once()
 
     @patch("subprocess.Popen")
-    def test_install_dependencies_pip_failure(self, mock_popen):
-        """Test Python dependency installation failure using pip."""
+    def test_install_dependencies_uv_failure(self, mock_popen):
+        """Test Python dependency installation failure using UV."""
         process = Mock()
         process.returncode = 1
         process.communicate.return_value = (b"", b"Package not found")
@@ -169,10 +170,11 @@ class TestPythonDependencies:
         )
 
         assert result.success is False
-        assert "Error installing packages with pip" in result.error
-        # Verify pip was used
+        assert "Error installing packages" in result.error
+        # Verify UV was used
         args = mock_popen.call_args[0][0]
-        assert args[0] == "pip"
+        assert args[0] == "uv"
+        assert args[1] == "pip"
 
 
 class TestDifferentialInstallation:
