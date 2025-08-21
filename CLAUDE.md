@@ -68,12 +68,8 @@ make build-cpu               # Build CPU-only Docker image
 
 ### Local Testing  
 ```bash
-# Test handler locally with test_input.json
-PYTHONPATH=src RUNPOD_TEST_INPUT="$(cat test_input.json)" uv run python src/handler.py
-
-# Test with other test files
-PYTHONPATH=src RUNPOD_TEST_INPUT="$(cat test_class_input.json)" uv run python src/handler.py
-PYTHONPATH=src RUNPOD_TEST_INPUT="$(cat test_hf_input.json)" uv run python src/handler.py
+# Test handler locally with test*.json
+make test-handler
 ```
 
 ### Submodule Management
