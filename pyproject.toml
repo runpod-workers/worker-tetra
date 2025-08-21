@@ -9,6 +9,8 @@ dependencies = [
     "pydantic>=2.11.4",
     "requests>=2.25.0",
     "runpod",
+    "hf_transfer>=0.1.0",
+    "huggingface_hub>=0.20.0",
 ]
 
 [dependency-groups]
@@ -74,6 +76,8 @@ module = [
     "cloudpickle",
     "runpod",
     "transformers",
+    "hf_transfer",
+    "huggingface_hub",
 ]
 ignore_missing_imports = true
 

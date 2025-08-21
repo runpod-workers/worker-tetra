@@ -4,7 +4,7 @@ WORKDIR /app
 
 # Install build tools and uv (only in builder stage)
 RUN apt-get update && apt-get install -y --no-install-recommends \
-    git curl build-essential ca-certificates aria2 \
+    git curl build-essential ca-certificates \
  && curl -LsSf https://astral.sh/uv/install.sh | sh \
  && cp ~/.local/bin/uv /usr/local/bin/uv \
  && chmod +x /usr/local/bin/uv
@@ -19,8 +19,8 @@ FROM pytorch/pytorch:2.2.0-cuda12.1-cudnn8-runtime
 
 WORKDIR /app
 
-# Install aria2 and nala for download acceleration in runtime stage
-RUN apt-get update && apt-get install -y --no-install-recommends aria2 nala \
+# Install nala for system package acceleration in runtime stage
+RUN apt-get update && apt-get install -y --no-install-recommends nala \
  && rm -rf /var/lib/apt/lists/*
 
 # Copy app and uv binary from builder
