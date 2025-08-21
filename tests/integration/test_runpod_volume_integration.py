@@ -194,12 +194,12 @@ def numpy_test():
                         "function_code": """
 def system_test():
     import subprocess
-    result = subprocess.run(['which', 'curl'], capture_output=True, text=True)
+    result = subprocess.run(['which', 'wget'], capture_output=True, text=True)
     return result.stdout.strip()
 """,
                         "args": [],
                         "kwargs": {},
-                        "system_dependencies": ["curl"],
+                        "system_dependencies": ["wget"],
                         "dependencies": ["requests==2.25.1"],
                     }
                 }
@@ -212,7 +212,7 @@ def system_test():
                 # Should have called apt-get update and install
                 popen_calls = [call[0][0] for call in mock_popen.call_args_list]
                 assert any(
-                    "apt-get" in " ".join(call) and "curl" in " ".join(call)
+                    "apt-get" in " ".join(call) and "wget" in " ".join(call)
                     for call in popen_calls
                 )
                 assert any(
