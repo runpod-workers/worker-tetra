@@ -1,5 +1,5 @@
 import pytest
-from unittest.mock import patch, MagicMock
+from unittest.mock import patch, MagicMock, AsyncMock
 from remote_executor import RemoteExecutor
 from remote_execution import FunctionRequest
 
@@ -112,20 +112,26 @@ def test_with_deps():
 
         with (
             patch.object(
-                executor.dependency_installer, "install_dependencies"
+                executor.dependency_installer,
+                "install_dependencies_async",
+                new_callable=AsyncMock,
             ) as mock_py_deps,
             patch.object(
-                executor.dependency_installer, "install_system_dependencies"
+                executor.dependency_installer,
+                "install_system_dependencies_async",
+                new_callable=AsyncMock,
             ) as mock_sys_deps,
             patch.object(executor.function_executor, "execute") as mock_execute,
         ):
             # Mock successful dependency installations
-            mock_sys_deps.return_value = type(
-                "obj", (object,), {"success": True, "stdout": "system deps installed"}
-            )()
-            mock_py_deps.return_value = type(
-                "obj", (object,), {"success": True, "stdout": "python deps installed"}
-            )()
+            from remote_execution import FunctionResponse
+
+            mock_sys_deps.return_value = FunctionResponse(
+                success=True, stdout="system deps installed"
+            )
+            mock_py_deps.return_value = FunctionResponse(
+                success=True, stdout="python deps installed"
+            )
             mock_execute.return_value = type(
                 "obj",
                 (object,),
@@ -205,20 +211,20 @@ def test_with_deps():
 
         with (
             patch.object(
-                executor.dependency_installer, "install_dependencies"
+                executor.dependency_installer,
+                "install_dependencies_async",
+                new_callable=AsyncMock,
             ) as mock_deps,
             patch.object(executor.function_executor, "execute") as mock_execute,
         ):
             # Mock failed dependency installation
-            mock_deps.return_value = type(
-                "obj",
-                (object,),
-                {
-                    "success": False,
-                    "error": "Error installing packages",
-                    "stdout": "error details",
-                },
-            )()
+            from remote_execution import FunctionResponse
+
+            mock_deps.return_value = FunctionResponse(
+                success=False,
+                error="Error installing packages",
+                stdout="error details",
+            )
 
             result = await executor.ExecuteFunction(request)
 
@@ -227,7 +233,7 @@ def test_with_deps():
 
             # Verify failure response
             assert result.success is False
-            assert result.error == "Error installing packages"
+            assert "Error installing packages" in result.error
 
     @pytest.mark.integration
     def test_empty_dependency_lists(self):

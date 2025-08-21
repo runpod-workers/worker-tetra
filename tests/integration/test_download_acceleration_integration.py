@@ -6,7 +6,7 @@ import pytest
 import tempfile
 import shutil
 from pathlib import Path
-from unittest.mock import Mock, patch
+from unittest.mock import Mock, patch, AsyncMock
 
 from src.download_accelerator import (
     DownloadAccelerator,
@@ -139,8 +139,11 @@ class TestDownloadAccelerationIntegration:
         executor.dependency_installer.install_system_dependencies = Mock(
             return_value=Mock(success=True, stdout="System deps installed")
         )
-        executor.dependency_installer.install_dependencies = Mock(
+        executor.dependency_installer.install_dependencies_async = AsyncMock(
             return_value=Mock(success=True, stdout="Python deps installed")
+        )
+        executor.workspace_manager.accelerate_model_download_async = AsyncMock(
+            return_value=Mock(success=True, stdout="Model cached")
         )
         executor.dependency_installer._identify_large_packages = Mock(
             return_value=["torch", "transformers"]
@@ -171,15 +174,19 @@ class TestDownloadAccelerationIntegration:
 
         asyncio.run(executor.ExecuteFunction(request))
 
-        # Verify model caching was attempted
-        assert executor.workspace_manager.accelerate_model_download.call_count == 2
-        executor.workspace_manager.accelerate_model_download.assert_any_call("gpt2")
-        executor.workspace_manager.accelerate_model_download.assert_any_call(
+        # Verify model caching was attempted (async method is called)
+        assert (
+            executor.workspace_manager.accelerate_model_download_async.call_count == 2
+        )
+        executor.workspace_manager.accelerate_model_download_async.assert_any_call(
+            "gpt2"
+        )
+        executor.workspace_manager.accelerate_model_download_async.assert_any_call(
             "bert-base-uncased"
         )
 
-        # Verify dependencies were installed with acceleration enabled
-        executor.dependency_installer.install_dependencies.assert_called_once_with(
+        # Verify dependencies were installed with acceleration enabled (async method)
+        executor.dependency_installer.install_dependencies_async.assert_called_once_with(
             ["torch", "transformers"], True
         )
 
