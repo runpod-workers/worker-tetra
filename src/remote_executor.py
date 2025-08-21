@@ -65,12 +65,10 @@ class RemoteExecutor(RemoteExecutorStub):
                         f"Failed to cache model {model_id}: {cache_result.error}"
                     )
 
-        # Install Python dependencies next (with acceleration if enabled)
+        # Install Python dependencies next
         if request.dependencies:
-            # The DependencyInstaller will automatically use acceleration for large packages
-            # when aria2c is available and request.accelerate_downloads is True
             py_installed = self.dependency_installer.install_dependencies(
-                request.dependencies
+                request.dependencies, request.accelerate_downloads
             )
             if not py_installed.success:
                 return py_installed
@@ -99,7 +97,7 @@ class RemoteExecutor(RemoteExecutorStub):
 
         acceleration_enabled = request.accelerate_downloads
         has_volume = self.workspace_manager.has_runpod_volume
-        aria2c_available = self.dependency_installer.download_accelerator.aria2_downloader.aria2c_available
+        hf_transfer_available = self.dependency_installer.download_accelerator.hf_transfer_downloader.hf_transfer_available
         nala_available = self.dependency_installer._check_nala_available()
 
         # Build summary message
@@ -135,7 +133,7 @@ class RemoteExecutor(RemoteExecutorStub):
                     f"✓ HF models pre-cached: {len(request.hf_models_to_cache)}"
                 )
 
-        elif acceleration_enabled and not (aria2c_available or nala_available):
+        elif acceleration_enabled and not (hf_transfer_available or nala_available):
             summary_parts.append(
                 "⚠ Download acceleration REQUESTED but no accelerators available"
             )
