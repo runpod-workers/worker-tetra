@@ -15,7 +15,7 @@ class DependencyInstaller:
 
     def __init__(self, workspace_manager):
         self.workspace_manager = workspace_manager
-        self.logger = logging.getLogger(__name__)
+        self.logger = logging.getLogger(f"worker_tetra.{__name__.split('.')[-1]}")
         self.download_accelerator = DownloadAccelerator(workspace_manager)
         self._nala_available = None  # Cache nala availability check
 
@@ -66,6 +66,12 @@ class DependencyInstaller:
             return FunctionResponse(success=True, stdout="No packages to install")
 
         self.logger.info(f"Installing dependencies: {packages}")
+        self.logger.debug(
+            f"Dependencies installation - accelerate_downloads: {accelerate_downloads}"
+        )
+        self.logger.debug(
+            f"Workspace manager has_runpod_volume: {self.workspace_manager.has_runpod_volume}"
+        )
 
         # Always use UV for Python package installation (more reliable than pip)
         # When acceleration is enabled, use differential installation
