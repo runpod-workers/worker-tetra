@@ -1,5 +1,5 @@
 IMAGE = runpod/tetra-rp
-TAG = local
+TAG = $(or $(TETRA_IMAGE_TAG),local)
 FULL_IMAGE = $(IMAGE):$(TAG)
 FULL_IMAGE_CPU = $(IMAGE)-cpu:$(TAG)
 
