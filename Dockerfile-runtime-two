@@ -1,0 +1,45 @@
+# Runtime Two Dockerfile - Dual-capability serverless runtime
+# Supports both remote execution and HTTP endpoints
+
+# Use Python 3.11 base image with CUDA support
+FROM pytorch/pytorch:2.2.0-cuda12.1-cudnn8-runtime AS builder
+
+# Set working directory
+WORKDIR /app
+
+# Install system dependencies
+RUN apt-get update && apt-get install -y \
+    curl \
+    wget \
+    git \
+    build-essential \
+    && rm -rf /var/lib/apt/lists/*
+
+# Install uv for fast Python package management
+COPY --from=ghcr.io/astral-sh/uv:latest /uv /uvx /bin/
+
+# Copy Python project files
+COPY pyproject.toml uv.lock ./
+COPY src/ ./src/
+
+# Install Python dependencies
+RUN uv sync --frozen
+
+# Set Python path
+ENV PYTHONPATH="/app/src:$PYTHONPATH"
+
+# Environment variables for Runtime Two
+ENV RUNTIME_MODE="dual"
+ENV ENABLE_HTTP_SERVER="true"
+ENV ENABLE_REMOTE_EXECUTION="true"
+ENV PORT="8000"
+
+# Expose port for HTTP endpoints
+EXPOSE 8000
+
+# Health check
+HEALTHCHECK --interval=30s --timeout=10s --start-period=5s --retries=3 \
+    CMD curl -f http://localhost:8000/health || exit 1
+
+# Default command - can run in both serverless and HTTP modes
+CMD ["uv", "run", "python", "src/runtime_two_handler.py"]
