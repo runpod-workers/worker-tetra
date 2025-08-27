@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.5.0](https://github.com/runpod-workers/worker-tetra/compare/v0.4.1...v0.5.0) (2025-08-27)
+
+
+### Features
+
+* Add download acceleration for dependencies & hugging face ([#22](https://github.com/runpod-workers/worker-tetra/issues/22)) ([f17e013](https://github.com/runpod-workers/worker-tetra/commit/f17e013263605758f17360abe684fa3de8c2f89e))
+
 ## [0.4.1](https://github.com/runpod-workers/worker-tetra/compare/v0.4.0...v0.4.1) (2025-08-06)
 
 
