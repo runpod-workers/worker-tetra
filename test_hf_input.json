@@ -1,9 +1,0 @@
-{
-  "input": {
-    "function_name": "test_hf_model_download",
-    "function_code": "def test_hf_model_download():\n    import os\n    from transformers import AutoTokenizer\n    \n    # Test downloading a small model\n    model_name = 'gpt2'\n    tokenizer = AutoTokenizer.from_pretrained(model_name)\n    \n    # Verify cache environment variables are set\n    hf_home = os.environ.get('HF_HOME')\n    transformers_cache = os.environ.get('TRANSFORMERS_CACHE')\n    \n    result = {\n        'model_loaded': True,\n        'vocab_size': tokenizer.vocab_size,\n        'hf_home': hf_home,\n        'transformers_cache': transformers_cache,\n        'cache_configured': hf_home is not None and transformers_cache is not None\n    }\n    \n    return result\n",
-    "dependencies": ["transformers", "torch"],
-    "args": [],
-    "kwargs": {}
-  }  
-}

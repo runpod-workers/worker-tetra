@@ -1,19 +1,21 @@
 import runpod
 import logging
 import sys
+from typing import Dict, Any
 
 from remote_execution import FunctionRequest, FunctionResponse
 from remote_executor import RemoteExecutor
+from constants import LOG_FORMAT
 
 
 logging.basicConfig(
     level=logging.DEBUG,  # or INFO for less verbose output
     stream=sys.stdout,  # send logs to stdout (so docker captures it)
-    format="%(asctime)s - %(levelname)s - %(name)s - %(message)s",
+    format=LOG_FORMAT,
 )
 
 
-async def handler(event: dict) -> dict:
+async def handler(event: Dict[str, Any]) -> Dict[str, Any]:
     """
     RunPod serverless function handler with dependency installation.
     """

@@ -68,12 +68,8 @@ make build-cpu               # Build CPU-only Docker image
 
 ### Local Testing  
 ```bash
-# Test handler locally with test_input.json
-PYTHONPATH=src RUNPOD_TEST_INPUT="$(cat test_input.json)" uv run python src/handler.py
-
-# Test with other test files
-PYTHONPATH=src RUNPOD_TEST_INPUT="$(cat test_class_input.json)" uv run python src/handler.py
-PYTHONPATH=src RUNPOD_TEST_INPUT="$(cat test_hf_input.json)" uv run python src/handler.py
+# Test handler locally with test*.json
+make test-handler
 ```
 
 ### Submodule Management
@@ -122,6 +118,14 @@ The handler automatically detects and utilizes `/runpod-volume` for persistent w
 - **Optimized Resource Usage**: Shared caches across multiple endpoints while maintaining isolation
 - **ML Model Efficiency**: Large HF models cached on volume prevent "No space left on device" errors
 
+### HuggingFace Model Acceleration
+The system automatically leverages HuggingFace's native acceleration features:
+- **hf_transfer**: Accelerated downloads for large model files when available
+- **hf_xet**: Automatic chunk-level deduplication and incremental downloads (huggingface_hub>=0.32.0)
+- **Native Integration**: Uses HF Hub's `snapshot_download()` for optimal caching and acceleration
+- **Transparent Operation**: No code changes needed - acceleration is automatic when repositories support it
+- **Token Support**: Configured via `HF_TOKEN` environment variable for private repositories
+
 ## Configuration
 
 ### Environment Variables
@@ -160,11 +164,6 @@ make test-integration        # Run integration tests only
 make test-coverage           # Run tests with coverage report
 make test-fast               # Run tests with fail-fast mode
 make test-handler            # Test handler locally with all test_*.json files (same as CI)
-
-# Test handler locally with specific test files
-PYTHONPATH=src RUNPOD_TEST_INPUT="$(cat test_input.json)" uv run python src/handler.py
-PYTHONPATH=src RUNPOD_TEST_INPUT="$(cat test_class_input.json)" uv run python src/handler.py
-PYTHONPATH=src RUNPOD_TEST_INPUT="$(cat test_hf_input.json)" uv run python src/handler.py
 ```
 
 ### Testing Framework
@@ -261,3 +260,8 @@ Configure these in GitHub repository settings:
 
 ### Docker Guidelines
 - Docker container should never refer to src/
+
+- Always run `make quality-check` before pronouncing you have finished your work
+- Always use `git mv` when moving existing files around
+
+- Run the command `make test-handler` to run checks on test files. Do not try to run it one by one like `Bash(env RUNPOD_TEST_INPUT="$(cat test_input.json)" PYTHONPATH=. uv run python handler.py)`
