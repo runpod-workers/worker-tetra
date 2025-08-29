@@ -70,7 +70,7 @@ class HFStrategyFactory:
             strategy = cls.get_configured_strategy()
 
         logger = logging.getLogger(__name__)
-        logger.debug(f"Creating HF download strategy: {strategy}")
+        logger.info(f"Creating HF download strategy: {strategy}")
 
         if strategy == cls.TETRA_STRATEGY:
             return TetraHFDownloader(workspace_manager)
