@@ -51,9 +51,6 @@ class DependencyInstaller:
         large_packages = self._identify_large_system_packages(packages)
 
         if accelerate_downloads and large_packages and self._check_nala_available():
-            self.logger.debug(
-                f"Using nala for accelerated installation of system packages: {large_packages}"
-            )
             return self._install_system_with_nala(packages)
         else:
             return self._install_system_standard(packages)
@@ -264,18 +261,8 @@ class DependencyInstaller:
                 process.communicate()
                 self._nala_available = process.returncode == 0
 
-                if self._nala_available:
-                    self.logger.debug(
-                        "nala is available for accelerated system package installation"
-                    )
-                else:
-                    self.logger.debug("nala is not available, falling back to apt-get")
-
             except Exception:
                 self._nala_available = False
-                self.logger.debug(
-                    "nala availability check failed, falling back to apt-get"
-                )
 
         return self._nala_available
 
@@ -307,7 +294,6 @@ class DependencyInstaller:
         """
         try:
             # Update package list first with nala
-            self.logger.debug("Updating package list with nala")
             update_process = subprocess.Popen(
                 ["nala", "update"],
                 stdout=subprocess.PIPE,
@@ -340,12 +326,12 @@ class DependencyInstaller:
                 )
                 return self._install_system_standard(packages)
             else:
-                self.logger.debug(
+                self.logger.info(
                     f"Successfully installed system packages with nala: {packages}"
                 )
                 return FunctionResponse(
                     success=True,
-                    stdout=f"Installed with nala acceleration: {stdout.decode()}",
+                    stdout=f"Installed with nala: {stdout.decode()}",
                 )
         except Exception as e:
             self.logger.warning(
