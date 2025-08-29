@@ -3,12 +3,9 @@ import subprocess
 import importlib
 import logging
 import asyncio
-import asyncio
 from typing import List, Dict
 
 from remote_execution import FunctionResponse
-from download_accelerator import DownloadAccelerator
-from constants import LARGE_SYSTEM_PACKAGES, NALA_CHECK_CMD
 from download_accelerator import DownloadAccelerator
 from constants import LARGE_SYSTEM_PACKAGES, NALA_CHECK_CMD
 
@@ -22,9 +19,6 @@ class DependencyInstaller:
         self.download_accelerator = DownloadAccelerator(workspace_manager)
         self._nala_available = None  # Cache nala availability check
 
-    def install_system_dependencies(
-        self, packages: List[str], accelerate_downloads: bool = True
-    ) -> FunctionResponse:
     def install_system_dependencies(
         self, packages: List[str], accelerate_downloads: bool = True
     ) -> FunctionResponse:
