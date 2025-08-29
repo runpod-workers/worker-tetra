@@ -168,6 +168,7 @@ class TestRemoteExecutor:
                     workspace_failure = Mock()
                     workspace_failure.success = False
                     workspace_failure.error = "Workspace init failed"
+                    workspace_failure.stdout = None  # Must be string-like, not Mock
                     mock_init.return_value = workspace_failure
 
                     response = await self.executor.ExecuteFunction(request)

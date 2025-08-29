@@ -6,6 +6,7 @@ from workspace_manager import WorkspaceManager
 from dependency_installer import DependencyInstaller
 from function_executor import FunctionExecutor
 from class_executor import ClassExecutor
+from log_streamer import start_log_streaming, stop_log_streaming, get_streamed_logs
 
 
 class RemoteExecutor(RemoteExecutorStub):
@@ -16,7 +17,7 @@ class RemoteExecutor(RemoteExecutorStub):
 
     def __init__(self):
         super().__init__()
-        self.logger = logging.getLogger(__name__)
+        self.logger = logging.getLogger(f"worker_tetra.{__name__.split('.')[-1]}")
 
         # Initialize components using composition
         self.workspace_manager = WorkspaceManager()
@@ -34,39 +35,87 @@ class RemoteExecutor(RemoteExecutorStub):
         Returns:
             FunctionResponse object with execution result
         """
-        # Initialize workspace if using volume
-        if self.workspace_manager.has_runpod_volume:
-            workspace_init = self.workspace_manager.initialize_workspace()
-            if not workspace_init.success:
-                return workspace_init
-            if workspace_init.stdout:
-                self.logger.info(workspace_init.stdout)
+        # Start log streaming to capture all system logs
+        # Use the requested log level, not the root logger level
+        from logger import get_log_level
 
-        # Install dependencies and cache models
-        if request.accelerate_downloads:
-            # Run installations in parallel when acceleration is enabled
-            dep_result = await self._install_dependencies_parallel(request)
-            if not dep_result.success:
-                return dep_result
-        else:
-            # Sequential installation when acceleration is disabled
-            dep_result = await self._install_dependencies_sequential(request)
-            if not dep_result.success:
-                return dep_result
+        requested_level = get_log_level()
+        start_log_streaming(level=requested_level)
 
-        # Route to appropriate execution method based on type
-        execution_type = getattr(request, "execution_type", "function")
+        self.logger.debug(
+            f"Started log streaming at level: {logging.getLevelName(requested_level)}"
+        )
+        self.logger.debug(
+            f"Executing {request.execution_type} request: {request.function_name or request.class_name}"
+        )
 
-        # Execute the function/class
-        if execution_type == "class":
-            result = self.class_executor.execute_class_method(request)
-        else:
-            result = self.function_executor.execute(request)
+        try:
+            # Initialize workspace if using volume
+            if self.workspace_manager.has_runpod_volume:
+                workspace_init = self.workspace_manager.initialize_workspace()
+                if not workspace_init.success:
+                    # Add any buffered logs to the failed response
+                    logs = get_streamed_logs(clear_buffer=True)
+                    if logs:
+                        if workspace_init.stdout:
+                            workspace_init.stdout += "\n" + logs
+                        else:
+                            workspace_init.stdout = logs
+                    return workspace_init
+                if workspace_init.stdout:
+                    self.logger.info(workspace_init.stdout)
 
-        # Add acceleration summary to the result
-        self._log_acceleration_summary(request, result)
+            # Install dependencies and cache models
+            if request.accelerate_downloads:
+                # Run installations in parallel when acceleration is enabled
+                dep_result = await self._install_dependencies_parallel(request)
+                if not dep_result.success:
+                    # Add any buffered logs to the failed response
+                    logs = get_streamed_logs(clear_buffer=True)
+                    if logs:
+                        if dep_result.stdout:
+                            dep_result.stdout += "\n" + logs
+                        else:
+                            dep_result.stdout = logs
+                    return dep_result
+            else:
+                # Sequential installation when acceleration is disabled
+                dep_result = await self._install_dependencies_sequential(request)
+                if not dep_result.success:
+                    # Add any buffered logs to the failed response
+                    logs = get_streamed_logs(clear_buffer=True)
+                    if logs:
+                        if dep_result.stdout:
+                            dep_result.stdout += "\n" + logs
+                        else:
+                            dep_result.stdout = logs
+                    return dep_result
 
-        return result
+            # Route to appropriate execution method based on type
+            execution_type = getattr(request, "execution_type", "function")
+
+            # Execute the function/class
+            if execution_type == "class":
+                result = self.class_executor.execute_class_method(request)
+            else:
+                result = self.function_executor.execute(request)
+
+            # Add acceleration summary to the result
+            self._log_acceleration_summary(request, result)
+
+            # Add all captured system logs to the result
+            system_logs = get_streamed_logs(clear_buffer=True)
+            if system_logs:
+                if result.stdout:
+                    result.stdout = f"{system_logs}\n\n{result.stdout}"
+                else:
+                    result.stdout = system_logs
+
+            return result
+
+        finally:
+            # Always stop log streaming to clean up
+            stop_log_streaming()
 
     def _log_acceleration_summary(
         self, request: FunctionRequest, result: FunctionResponse
@@ -171,7 +220,7 @@ class RemoteExecutor(RemoteExecutorStub):
         if not tasks:
             return FunctionResponse(success=True, stdout="No dependencies to install")
 
-        self.logger.info(
+        self.logger.debug(
             f"Starting parallel installation of {len(tasks)} tasks: {task_names}"
         )
 
@@ -260,7 +309,7 @@ class RemoteExecutor(RemoteExecutorStub):
                 if result.success:
                     success_count += 1
                     stdout_parts.append(f"✓ {task_name}: {result.stdout}")
-                    self.logger.info(f"✓ {task_name} completed successfully")
+                    self.logger.debug(f"✓ {task_name} completed successfully")
                 else:
                     error_msg = f"{task_name}: {result.error}"
                     failures.append(error_msg)
@@ -282,6 +331,12 @@ class RemoteExecutor(RemoteExecutorStub):
                 + "\n".join(stdout_parts),
             )
         else:
+            # All tasks succeeded
+            return FunctionResponse(
+                success=True,
+                stdout=f"Parallel installation: {success_count}/{len(results)} tasks completed successfully\n"
+                + "\n".join(stdout_parts),
+            )
             # All tasks succeeded
             return FunctionResponse(
                 success=True,

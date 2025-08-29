@@ -15,7 +15,7 @@ class DependencyInstaller:
 
     def __init__(self, workspace_manager):
         self.workspace_manager = workspace_manager
-        self.logger = logging.getLogger(__name__)
+        self.logger = logging.getLogger(f"worker_tetra.{__name__.split('.')[-1]}")
         self.download_accelerator = DownloadAccelerator(workspace_manager)
         self._nala_available = None  # Cache nala availability check
 
@@ -23,6 +23,14 @@ class DependencyInstaller:
         self, packages: List[str], accelerate_downloads: bool = True
     ) -> FunctionResponse:
         """
+        Install system packages using nala (accelerated) or apt-get (standard).
+
+        Args:
+            packages: List of system package names
+            accelerate_downloads: Whether to use nala for accelerated downloads
+
+        Returns:
+            FunctionResponse: Object indicating success or failure with details
         Install system packages using nala (accelerated) or apt-get (standard).
 
         Args:
@@ -43,9 +51,6 @@ class DependencyInstaller:
         large_packages = self._identify_large_system_packages(packages)
 
         if accelerate_downloads and large_packages and self._check_nala_available():
-            self.logger.info(
-                f"Using nala for accelerated installation of system packages: {large_packages}"
-            )
             return self._install_system_with_nala(packages)
         else:
             return self._install_system_standard(packages)
@@ -55,9 +60,11 @@ class DependencyInstaller:
     ) -> FunctionResponse:
         """
         Install Python packages using uv (accelerated) or pip (standard).
+        Install Python packages using uv (accelerated) or pip (standard).
 
         Args:
             packages: List of package names or package specifications
+            accelerate_downloads: Whether to use uv for accelerated downloads
             accelerate_downloads: Whether to use uv for accelerated downloads
         Returns:
             FunctionResponse: Object indicating success or failure with details
@@ -67,6 +74,33 @@ class DependencyInstaller:
 
         self.logger.info(f"Installing dependencies: {packages}")
 
+        # Always use UV for Python package installation (more reliable than pip)
+        # When acceleration is enabled, use differential installation
+        if accelerate_downloads:
+            if (
+                self.workspace_manager.has_runpod_volume
+                and self.workspace_manager.venv_path
+                and os.path.exists(self.workspace_manager.venv_path)
+            ):
+                # Validate virtual environment before using it
+                validation_result = (
+                    self.workspace_manager._validate_virtual_environment()
+                )
+                if not validation_result.success:
+                    self.logger.warning(
+                        f"Virtual environment is invalid: {validation_result.error}"
+                    )
+                    self.logger.info("Reinitializing workspace...")
+                    init_result = self.workspace_manager.initialize_workspace()
+                    if not init_result.success:
+                        return FunctionResponse(
+                            success=False,
+                            error=f"Failed to reinitialize workspace: {init_result.error}",
+                        )
+                installed_packages = self._get_installed_packages()
+                packages_to_install = self._filter_packages_to_install(
+                    packages, installed_packages
+                )
         # Always use UV for Python package installation (more reliable than pip)
         # When acceleration is enabled, use differential installation
         if accelerate_downloads:
@@ -227,18 +261,8 @@ class DependencyInstaller:
                 process.communicate()
                 self._nala_available = process.returncode == 0
 
-                if self._nala_available:
-                    self.logger.debug(
-                        "nala is available for accelerated system package installation"
-                    )
-                else:
-                    self.logger.debug("nala is not available, falling back to apt-get")
-
             except Exception:
                 self._nala_available = False
-                self.logger.debug(
-                    "nala availability check failed, falling back to apt-get"
-                )
 
         return self._nala_available
 
@@ -270,7 +294,6 @@ class DependencyInstaller:
         """
         try:
             # Update package list first with nala
-            self.logger.info("Updating package list with nala")
             update_process = subprocess.Popen(
                 ["nala", "update"],
                 stdout=subprocess.PIPE,
@@ -285,7 +308,6 @@ class DependencyInstaller:
                 return self._install_system_standard(packages)
 
             # Install packages with nala
-            self.logger.info("Installing packages with nala acceleration")
             process = subprocess.Popen(
                 ["nala", "install", "-y"] + packages,
                 stdout=subprocess.PIPE,
@@ -309,7 +331,7 @@ class DependencyInstaller:
                 )
                 return FunctionResponse(
                     success=True,
-                    stdout=f"Installed with nala acceleration: {stdout.decode()}",
+                    stdout=f"Installed with nala: {stdout.decode()}",
                 )
         except Exception as e:
             self.logger.warning(

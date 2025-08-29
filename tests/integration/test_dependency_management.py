@@ -362,7 +362,7 @@ def test_with_deps():
             )
 
             assert result.success is True
-            assert "Installed with nala acceleration" in result.stdout
+            assert "Installed with nala" in result.stdout
 
             # Verify nala commands were used
             calls = mock_popen.call_args_list
@@ -411,7 +411,7 @@ def test_with_deps():
             )
 
             assert result.success is True
-            assert "Installed with nala acceleration" not in result.stdout
+            assert "Installed with nala" not in result.stdout
 
             # Verify fallback to apt-get was used
             calls = mock_popen.call_args_list
@@ -452,7 +452,7 @@ def test_with_deps():
             )
 
             assert result.success is True
-            assert "Installed with nala acceleration" not in result.stdout
+            assert "Installed with nala" not in result.stdout
 
             # Verify standard apt-get was used
             calls = mock_popen.call_args_list
@@ -488,7 +488,7 @@ def test_with_deps():
             )
 
             assert result.success is True
-            assert "Installed with nala acceleration" not in result.stdout
+            assert "Installed with nala" not in result.stdout
 
             # Should use apt-get because these are not large packages
             calls = mock_popen.call_args_list

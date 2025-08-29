@@ -110,7 +110,7 @@ class ClassExecutor(BaseExecutor):
             return self.class_instances[instance_id], instance_id
 
         # Create new instance
-        logging.info(f"Creating new instance of class: {request.class_name}")
+        logging.debug(f"Creating new instance of class: {request.class_name}")
 
         # Execute class code
         namespace: Dict[str, Any] = {}
@@ -154,7 +154,7 @@ class ClassExecutor(BaseExecutor):
             "last_used": datetime.now().isoformat(),
         }
 
-        logging.info(f"Created instance with ID: {instance_id}")
+        logging.debug(f"Created instance with ID: {instance_id}")
         return instance, instance_id
 
     def _update_instance_metadata(self, instance_id: str):

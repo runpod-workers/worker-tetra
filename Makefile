@@ -20,14 +20,15 @@ help: # Show this help menu
 dev: # Install development dependencies
 	uv sync --all-groups
 
+update: # Upgrade all dependencies
+	uv sync --upgrade --all-groups
+	uv lock --upgrade
+
 clean: # Remove build artifacts and cache files
 	rm -rf dist build *.egg-info
 	find . -type d -name __pycache__ -exec rm -rf {} +
 	find . -type f -name "*.pyc" -delete
 	find . -type f -name "*.pkl" -delete
-
-upgrade: # Upgrade all dependencies
-	uv sync --upgrade
 
 setup: dev # Initialize project, sync deps, update submodules
 	git submodule init
