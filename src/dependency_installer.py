@@ -31,14 +31,6 @@ class DependencyInstaller:
 
         Returns:
             FunctionResponse: Object indicating success or failure with details
-        Install system packages using nala (accelerated) or apt-get (standard).
-
-        Args:
-            packages: List of system package names
-            accelerate_downloads: Whether to use nala for accelerated downloads
-
-        Returns:
-            FunctionResponse: Object indicating success or failure with details
         """
         if not packages:
             return FunctionResponse(
@@ -60,11 +52,9 @@ class DependencyInstaller:
     ) -> FunctionResponse:
         """
         Install Python packages using uv (accelerated) or pip (standard).
-        Install Python packages using uv (accelerated) or pip (standard).
 
         Args:
             packages: List of package names or package specifications
-            accelerate_downloads: Whether to use uv for accelerated downloads
             accelerate_downloads: Whether to use uv for accelerated downloads
         Returns:
             FunctionResponse: Object indicating success or failure with details
@@ -74,33 +64,6 @@ class DependencyInstaller:
 
         self.logger.info(f"Installing dependencies: {packages}")
 
-        # Always use UV for Python package installation (more reliable than pip)
-        # When acceleration is enabled, use differential installation
-        if accelerate_downloads:
-            if (
-                self.workspace_manager.has_runpod_volume
-                and self.workspace_manager.venv_path
-                and os.path.exists(self.workspace_manager.venv_path)
-            ):
-                # Validate virtual environment before using it
-                validation_result = (
-                    self.workspace_manager._validate_virtual_environment()
-                )
-                if not validation_result.success:
-                    self.logger.warning(
-                        f"Virtual environment is invalid: {validation_result.error}"
-                    )
-                    self.logger.info("Reinitializing workspace...")
-                    init_result = self.workspace_manager.initialize_workspace()
-                    if not init_result.success:
-                        return FunctionResponse(
-                            success=False,
-                            error=f"Failed to reinitialize workspace: {init_result.error}",
-                        )
-                installed_packages = self._get_installed_packages()
-                packages_to_install = self._filter_packages_to_install(
-                    packages, installed_packages
-                )
         # Always use UV for Python package installation (more reliable than pip)
         # When acceleration is enabled, use differential installation
         if accelerate_downloads:
