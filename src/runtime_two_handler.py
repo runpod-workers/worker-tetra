@@ -67,15 +67,23 @@ class RuntimeTwoServer:
                 event = await request.json()
                 input_data = FunctionRequest(**event.get("input", {}))
                 
-                # Route through ClassRegistry for unified class management
+                # Use RemoteExecutor for ALL executions to ensure dependency installation
+                log.debug(f"Remote execution: {getattr(input_data, 'class_name', input_data.function_name)}")
+                
+                # For class executions, install dependencies first, then use ClassRegistry
                 if input_data.execution_type == "class":
-                    log.debug(f"Remote class execution: {input_data.class_name}.{input_data.method_name}")
+                    # Install dependencies before class registration (the missing piece!)
+                    dependency_result = await self._install_dependencies(input_data)
+                    if not dependency_result.success:
+                        return dependency_result.model_dump()
                     
-                    # Check if class needs registration and HTTP endpoint creation
+                    # Now use ClassRegistry for class registration + endpoint creation + execution
+                    # (This was the original working approach, just needed dependencies first)
                     if input_data.class_name not in self.class_registry.deployed_classes:
                         class_info = await self.class_registry.register_class(input_data)
                         # Create HTTP endpoints for @endpoint decorated methods
                         await self._create_http_routes(class_info)
+                        log.info(f"Registered class {input_data.class_name} with {len(class_info['endpoints'])} HTTP endpoints")
                     
                     # Execute method via ClassRegistry
                     result = await self.class_registry.execute_class_method(input_data)
@@ -89,7 +97,6 @@ class RuntimeTwoServer:
                     
                 else:
                     # Function execution (non-class) - use RemoteExecutor
-                    log.debug(f"Remote function execution: {input_data.function_name}")
                     response = await self.remote_executor.ExecuteFunction(input_data)
                 
                 return response.model_dump()
@@ -178,6 +185,47 @@ class RuntimeTwoServer:
                 )
         
         return route_handler
+    
+    async def _install_dependencies(self, request: FunctionRequest) -> FunctionResponse:
+        """
+        Install system and Python dependencies before class registration.
+        
+        Uses the same dependency installation logic as RemoteExecutor but without execution.
+        """
+        from workspace_manager import WorkspaceManager
+        from dependency_installer import DependencyInstaller
+        
+        # Initialize workspace and dependency installer
+        workspace_manager = WorkspaceManager()
+        dependency_installer = DependencyInstaller(workspace_manager)
+        
+        # Initialize workspace if using volume
+        if workspace_manager.has_runpod_volume:
+            workspace_init = workspace_manager.initialize_workspace()
+            if not workspace_init.success:
+                return workspace_init
+            if workspace_init.stdout:
+                log.info(workspace_init.stdout)
+
+        # Install system dependencies first
+        if request.system_dependencies:
+            sys_installed = dependency_installer.install_system_dependencies(
+                request.system_dependencies
+            )
+            if not sys_installed.success:
+                return sys_installed
+            log.info(sys_installed.stdout)
+
+        # Install Python dependencies next
+        if request.dependencies:
+            py_installed = dependency_installer.install_dependencies(
+                request.dependencies
+            )
+            if not py_installed.success:
+                return py_installed
+            log.info(py_installed.stdout)
+        
+        return FunctionResponse(success=True, stdout="Dependencies installed successfully")
     
     async def start_server(self):
         """Start the Runtime Two server."""
