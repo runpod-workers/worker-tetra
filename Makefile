@@ -28,6 +28,7 @@ clean: # Remove build artifacts and cache files
 
 upgrade: # Upgrade all dependencies
 	uv sync --upgrade
+	uv sync --all-groups
 
 setup: dev # Initialize project, sync deps, update submodules
 	git submodule init
