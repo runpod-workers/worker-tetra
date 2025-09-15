@@ -16,7 +16,7 @@ for test_file in test_*.json; do
     echo "Testing with $test_file..."
     
     # Run the test and capture output
-    output=$(env RUNPOD_TEST_INPUT="$(cat "$test_file")" uv run python handler.py 2>&1)
+    output=$(uv run python handler.py --test_input "$(cat "$test_file")" 2>&1)
     exit_code=$?
     
     if [ $exit_code -eq 0 ]; then

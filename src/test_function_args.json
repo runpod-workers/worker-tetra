@@ -2,5 +2,10 @@
   "input": {
     "function_name": "test_function_with_arguments",
     "function_code": "def test_function_with_arguments(number, text, data_list=None, multiplier=2):\n    import json\n    \n    # Validate the arguments were passed correctly\n    result = {\n        'received_args': {\n            'number': number,\n            'text': text,\n            'data_list': data_list,\n            'multiplier': multiplier\n        },\n        'processed_results': {\n            'number_times_multiplier': number * multiplier,\n            'text_upper': text.upper(),\n            'list_sum': sum(data_list) if data_list else 0,\n            'list_length': len(data_list) if data_list else 0\n        },\n        'argument_types': {\n            'number_type': str(type(number)),\n            'text_type': str(type(text)),\n            'data_list_type': str(type(data_list)),\n            'multiplier_type': str(type(multiplier))\n        }\n    }\n    \n    return result\n",
-    "args": [\n      "gAVLKi4=",\n      "gAWVDwAAAAAAAACMC2hlbGxvIHdvcmxklC4="\n    ],
-    "kwargs": {\n      "data_list": "gAWVDwAAAAAAAABdlChLAUsCSwNLBEsFZS4=",\n      "multiplier": "gAVLAy4="\n    }\n  }\n}
+    "args": ["gAVLKi4=", "gAWVDwAAAAAAAACMC2hlbGxvIHdvcmxklC4="],
+    "kwargs": {
+      "data_list": "gAWVDwAAAAAAAABdlChLAUsCSwNLBEsFZS4=",
+      "multiplier": "gAVLAy4="
+    }
+  }
+}
