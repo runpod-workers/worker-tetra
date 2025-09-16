@@ -1,4 +1,4 @@
-# Runtime Two Dockerfile - Dual-capability serverless runtime
+# Load Balancer SLS Dockerfile - Dual-capability serverless runtime
 # Supports both remote execution and HTTP endpoints
 
 # Use Python 3.11 base image with CUDA support
@@ -28,7 +28,7 @@ RUN uv sync --frozen
 # Set Python path
 ENV PYTHONPATH="/app/src:$PYTHONPATH"
 
-# Environment variables for Runtime Two
+# Environment variables for Load Balancer SLS
 ENV RUNTIME_MODE="dual"
 ENV ENABLE_HTTP_SERVER="true"
 ENV ENABLE_REMOTE_EXECUTION="true"
@@ -42,4 +42,4 @@ HEALTHCHECK --interval=30s --timeout=10s --start-period=5s --retries=3 \
     CMD curl -f http://localhost:8000/health || exit 1
 
 # Default command - can run in both serverless and HTTP modes
-CMD ["uv", "run", "python", "src/runtime_two_handler.py"]
+CMD ["uv", "run", "python", "src/load_balancer_sls_handler.py"]

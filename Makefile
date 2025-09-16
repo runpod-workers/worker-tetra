@@ -1,9 +1,9 @@
 IMAGE = runpod/tetra-rp
-RUNTIME_TWO_IMAGE = mwiki/worker-tetra-runtime-two
+LOAD_BALANCER_SLS_IMAGE = mwiki/worker-tetra-load-balancer-sls
 TAG = local
 FULL_IMAGE = $(IMAGE):$(TAG)
 FULL_IMAGE_CPU = $(IMAGE)-cpu:$(TAG)
-FULL_IMAGE_RUNTIME_TWO = $(RUNTIME_TWO_IMAGE):$(TAG)
+FULL_IMAGE_LOAD_BALANCER_SLS = $(LOAD_BALANCER_SLS_IMAGE):$(TAG)
 
 .PHONY: setup help
 
@@ -36,10 +36,10 @@ setup: dev # Initialize project, sync deps, update submodules
 	git submodule update --remote --merge
 	cp tetra-rp/src/tetra_rp/protos/remote_execution.py src/
 
-build: # Build all Docker images (GPU, CPU, Runtime Two)
+build: # Build all Docker images (GPU, CPU, Load Balancer SLS)
 	make build-gpu
 	make build-cpu
-	make build-runtime-two
+	make build-load-balancer-sls
 
 build-gpu: setup # Build GPU Docker image (linux/amd64)
 	docker buildx build \
@@ -54,11 +54,11 @@ build-cpu: setup # Build CPU-only Docker image (linux/amd64)
 	-t $(FULL_IMAGE_CPU) \
 	. --load
 
-build-runtime-two: setup # Build Runtime Two dual-capability image (linux/amd64)
+build-load-balancer-sls: setup # Build Load Balancer SLS dual-capability image (linux/amd64)
 	docker buildx build \
 	--platform linux/amd64 \
-	-f Dockerfile-runtime-two \
-	-t $(FULL_IMAGE_RUNTIME_TWO) \
+	-f Dockerfile-load-balancer-sls \
+	-t $(FULL_IMAGE_LOAD_BALANCER_SLS) \
 	. --load
 
 # Test commands
@@ -80,8 +80,8 @@ test-fast: # Run tests with fast-fail mode
 test-handler: # Test handler locally with all test_*.json files
 	cd src && ./test-handler.sh
 
-test-runtime-two: build-runtime-two # Test Runtime Two container locally
-	docker run --rm -p 8000:8000 $(FULL_IMAGE_RUNTIME_TWO)
+test-load-balancer-sls: build-load-balancer-sls # Test Load Balancer SLS container locally
+	docker run --rm -p 8000:8000 $(FULL_IMAGE_LOAD_BALANCER_SLS)
 
 # Smoke Tests (local on Mac OS)
 

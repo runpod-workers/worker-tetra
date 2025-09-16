@@ -1,7 +1,7 @@
 """
-Runtime Two Handler - Dual-capability serverless runtime
+Load Balancer SLS Handler - Dual-capability serverless runtime
 
-This module implements the main server for Runtime Two that supports both:
+This module implements the main server for Load Balancer SLS that supports both:
 1. Traditional remote execution (via RemoteExecutor)
 2. HTTP endpoint exposure (via FastAPI)
 """
@@ -23,9 +23,9 @@ from serialization_utils import SerializationUtils
 log = logging.getLogger(__name__)
 
 
-class RuntimeTwoServer:
+class LoadBalancerSlsServer:
     """
-    Runtime Two server that provides dual execution capabilities:
+    Load Balancer SLS server that provides dual execution capabilities:
     - Remote execution for programmatic calls
     - HTTP endpoints for decorated methods
     """
@@ -33,13 +33,13 @@ class RuntimeTwoServer:
     def __init__(self):
         self.remote_executor = RemoteExecutor()
         self.class_registry = ClassRegistry()
-        self.app = FastAPI(title="Runtime Two Server", version="1.0.0")
+        self.app = FastAPI(title="Load Balancer SLS Server", version="1.0.0")
         self.port = int(os.environ.get("PORT", 8000))
 
         # Setup routes
         self._setup_routes()
 
-        log.info("Runtime Two server initialized")
+        log.info("Load Balancer SLS server initialized")
 
     def _setup_routes(self):
         """Setup FastAPI routes for HTTP endpoints."""
@@ -49,7 +49,7 @@ class RuntimeTwoServer:
         async def health_check():
             return {
                 "status": "healthy",
-                "runtime": "two",
+                "runtime": "load_balancer_sls",
                 "capabilities": ["remote_execution", "http_endpoints"],
             }
 
@@ -113,7 +113,8 @@ class RuntimeTwoServer:
             except Exception as e:
                 log.error(f"Remote execution error: {e}")
                 error_response = FunctionResponse(
-                    success=False, error=f"Runtime Two remote execution error: {str(e)}"
+                    success=False,
+                    error=f"Load Balancer SLS remote execution error: {str(e)}",
                 )
                 return error_response.model_dump()
 
@@ -241,8 +242,8 @@ class RuntimeTwoServer:
         )
 
     async def start_server(self):
-        """Start the Runtime Two server."""
-        log.info(f"Starting Runtime Two server on port {self.port}")
+        """Start the Load Balancer SLS server."""
+        log.info(f"Starting Load Balancer SLS server on port {self.port}")
 
         # Run FastAPI with uvicorn
         config = uvicorn.Config(
@@ -253,18 +254,18 @@ class RuntimeTwoServer:
 
 
 # Singleton server instance
-_server_instance: Optional[RuntimeTwoServer] = None
+_server_instance: Optional[LoadBalancerSlsServer] = None
 
 
-def get_server() -> RuntimeTwoServer:
-    """Get or create the Runtime Two server instance."""
+def get_server() -> LoadBalancerSlsServer:
+    """Get or create the Load Balancer SLS server instance."""
     global _server_instance
     if _server_instance is None:
-        _server_instance = RuntimeTwoServer()
+        _server_instance = LoadBalancerSlsServer()
     return _server_instance
 
 
-# Runtime Two runs as pure FastAPI server - no traditional handler function needed
+# Load Balancer SLS runs as pure FastAPI server - no traditional handler function needed
 
 
 # For standalone HTTP server mode
@@ -277,4 +278,4 @@ if __name__ == "__main__":
         server = get_server()
         asyncio.run(server.start_server())
     else:
-        log.info("Runtime Two handler ready for serverless execution")
+        log.info("Load Balancer SLS handler ready for serverless execution")
