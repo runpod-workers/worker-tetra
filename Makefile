@@ -78,7 +78,7 @@ test-fast: # Run tests with fast-fail mode
 	uv run pytest tests/ -v -x --tb=short
 
 test-handler: # Test handler locally with all test_*.json files
-	./test-handler.sh
+	cd src && ./test-handler.sh
 
 test-runtime-two: build-runtime-two # Test Runtime Two container locally
 	docker run --rm -p 8000:8000 $(FULL_IMAGE_RUNTIME_TWO)
@@ -110,7 +110,7 @@ format-check: # Check code formatting
 
 # Type checking
 typecheck: # Check types with mypy
-	uv run mypy .
+	uv run mypy src/
 
 # Quality gates (used in CI)
-quality-check: format-check lint typecheck test-coverage
+quality-check: format-check lint typecheck test-coverage test-handler

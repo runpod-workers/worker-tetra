@@ -1,0 +1,10 @@
+{
+  "input": {
+    "function_name": "test_uv_installation_without_acceleration",
+    "function_code": "def test_uv_installation_without_acceleration():\n    import json\n    import sys\n    \n    # Test that packages installed with UV (accelerate_downloads=False) are available\n    try:\n        import requests\n        import transformers\n        \n        # Get package locations to verify they're in the right place\n        requests_location = requests.__file__\n        transformers_location = transformers.__file__\n        \n        # Check if we're using the virtual environment\n        venv_active = hasattr(sys, 'real_prefix') or (hasattr(sys, 'base_prefix') and sys.base_prefix != sys.prefix)\n        \n        return {\n            'success': True,\n            'message': 'Both requests and transformers imported successfully with UV (no acceleration)',\n            'requests_location': requests_location,\n            'transformers_location': transformers_location,\n            'virtual_env_active': venv_active,\n            'python_prefix': sys.prefix\n        }\n    except ImportError as e:\n        return {\n            'success': False,\n            'error': f'Failed to import packages: {str(e)}',\n            'python_prefix': sys.prefix,\n            'virtual_env_active': hasattr(sys, 'real_prefix') or (hasattr(sys, 'base_prefix') and sys.base_prefix != sys.prefix)\n        }\n",
+    "dependencies": ["requests", "transformers"],
+    "accelerate_downloads": false,
+    "args": [],
+    "kwargs": {}
+  }
+}

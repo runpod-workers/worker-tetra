@@ -1,7 +1,7 @@
 import pytest
 import base64
 import cloudpickle
-from unittest.mock import Mock, patch
+from unittest.mock import Mock, patch, AsyncMock
 
 from remote_executor import RemoteExecutor
 from remote_execution import FunctionRequest
@@ -109,11 +109,15 @@ class TestRemoteExecutor:
             self.executor.workspace_manager, "initialize_workspace"
         ) as mock_init:
             with patch.object(
-                self.executor.dependency_installer, "install_system_dependencies"
-            ) as mock_sys_deps:
+                self.executor.dependency_installer,
+                "install_system_dependencies_async",
+                new_callable=AsyncMock,
+            ) as mock_sys_deps_async:
                 with patch.object(
-                    self.executor.dependency_installer, "install_dependencies"
-                ) as mock_py_deps:
+                    self.executor.dependency_installer,
+                    "install_dependencies_async",
+                    new_callable=AsyncMock,
+                ) as mock_py_deps_async:
                     with patch.object(
                         self.executor.function_executor, "execute"
                     ) as mock_execute:
@@ -121,10 +125,14 @@ class TestRemoteExecutor:
                         mock_init.return_value = Mock(
                             success=True, stdout="Workspace ready"
                         )
-                        mock_sys_deps.return_value = Mock(
+
+                        # Mock async methods with proper FunctionResponse returns
+                        from remote_execution import FunctionResponse
+
+                        mock_sys_deps_async.return_value = FunctionResponse(
                             success=True, stdout="System deps installed"
                         )
-                        mock_py_deps.return_value = Mock(
+                        mock_py_deps_async.return_value = FunctionResponse(
                             success=True, stdout="Python deps installed"
                         )
                         mock_execute.return_value = Mock(
@@ -134,8 +142,8 @@ class TestRemoteExecutor:
                         await self.executor.ExecuteFunction(request)
 
                         # Verify all components were called in correct order
-                        mock_sys_deps.assert_called_once_with(["curl"])
-                        mock_py_deps.assert_called_once_with(["requests"])
+                        mock_sys_deps_async.assert_called_once_with(["curl"], True)
+                        mock_py_deps_async.assert_called_once_with(["requests"], True)
                         mock_execute.assert_called_once_with(request)
 
     @pytest.mark.asyncio
@@ -184,8 +192,10 @@ class TestRemoteExecutor:
             self.executor.workspace_manager, "initialize_workspace"
         ) as mock_init:
             with patch.object(
-                self.executor.dependency_installer, "install_dependencies"
-            ) as mock_py_deps:
+                self.executor.dependency_installer,
+                "install_dependencies_async",
+                new_callable=AsyncMock,
+            ) as mock_py_deps_async:
                 with patch.object(
                     self.executor.function_executor, "execute"
                 ) as mock_execute:
@@ -193,7 +203,11 @@ class TestRemoteExecutor:
                     mock_init.return_value = Mock(
                         success=True, stdout="Workspace ready"
                     )
-                    mock_py_deps.return_value = Mock(
+
+                    # Mock async method with FunctionResponse
+                    from remote_execution import FunctionResponse
+
+                    mock_py_deps_async.return_value = FunctionResponse(
                         success=False, error="Package not found"
                     )
 
@@ -211,8 +225,8 @@ class TestRemoteExecutor:
             self.executor.dependency_installer, "install_dependencies"
         ) as mock_install:
             mock_install.return_value = Mock(success=True)
-            self.executor.dependency_installer.install_dependencies(["test"])
-            mock_install.assert_called_once_with(["test"])
+            self.executor.dependency_installer.install_dependencies(["test"], True)
+            mock_install.assert_called_once_with(["test"], True)
 
         # Test workspace manager methods
         with patch.object(
