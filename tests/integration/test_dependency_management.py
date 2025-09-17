@@ -17,8 +17,8 @@ class TestDependencyManagement:
             mock_process = MagicMock()
             mock_process.returncode = 0
             mock_process.communicate.return_value = (
-                b"Successfully installed package-1.0.0",
-                b"",
+                "Successfully installed package-1.0.0",
+                "",
             )
             mock_popen.return_value = mock_process
 
@@ -29,19 +29,12 @@ class TestDependencyManagement:
             assert result.success is True
             assert "Successfully installed" in result.stdout
 
-            # Verify correct command was called
+            # Verify subprocess was called with UV command
             mock_popen.assert_called_once()
-            call_args = mock_popen.call_args
-            assert call_args[0][0] == [
-                "uv",
-                "pip",
-                "install",
-                "requests",
-                "numpy",
-            ]
-            assert call_args[1]["stdout"] == -1
-            assert call_args[1]["stderr"] == -1
-            assert "env" in call_args[1]  # Environment should be passed
+            args = mock_popen.call_args[0][0]
+            assert args[:4] == ["uv", "pip", "install", "--system"]
+            assert "requests" in args
+            assert "numpy" in args
 
     @pytest.mark.integration
     @patch("platform.system")
@@ -60,18 +53,18 @@ class TestDependencyManagement:
             mock_install_process = MagicMock()
             mock_install_process.returncode = 0
             mock_install_process.communicate.return_value = (
-                b"Reading package lists...\nInstalling curl...\nDone.",
+                b"Reading package lists...\nInstalling nano...\nDone.",
                 b"",
             )
 
             mock_popen.side_effect = [mock_update_process, mock_install_process]
 
             result = executor.dependency_installer.install_system_dependencies(
-                ["curl", "wget"], accelerate_downloads=False
+                ["nano", "vim"]
             )
 
             assert result.success is True
-            assert "Installing curl" in result.stdout
+            assert "nano" in result.stdout or "vim" in result.stdout
 
             # Verify both commands were called
             assert mock_popen.call_count == 2
@@ -87,8 +80,8 @@ class TestDependencyManagement:
                 "install",
                 "-y",
                 "--no-install-recommends",
-                "curl",
-                "wget",
+                "nano",
+                "vim",
             ]
             assert install_call[0][0] == expected_cmd
 
@@ -163,8 +156,8 @@ def test_with_deps():
             mock_process = MagicMock()
             mock_process.returncode = 1
             mock_process.communicate.return_value = (
-                b"",
-                b"E: Unable to locate package nonexistent-package",
+                "",
+                "E: Unable to locate package nonexistent-package",
             )
             mock_popen.return_value = mock_process
 
@@ -173,8 +166,7 @@ def test_with_deps():
             )
 
             assert result.success is False
-            assert result.error == "Error installing packages"
-            assert "Unable to locate package" in result.stdout
+            assert "Unable to locate package" in result.error
 
     @pytest.mark.integration
     @patch("platform.system")
@@ -193,9 +185,7 @@ def test_with_deps():
             )
             mock_popen.return_value = mock_process
 
-            result = executor.dependency_installer.install_system_dependencies(
-                ["curl"], accelerate_downloads=False
-            )
+            result = executor.dependency_installer.install_system_dependencies(["nano"])
 
             assert result.success is False
             assert result.error == "Error updating package list"
@@ -266,7 +256,7 @@ def test_with_deps():
         with patch("subprocess.Popen") as mock_popen:
             mock_process = MagicMock()
             mock_process.returncode = 0
-            mock_process.communicate.return_value = (b"success", b"")
+            mock_process.communicate.return_value = ("success", "")
             mock_popen.return_value = mock_process
 
             # Test Python dependency command
@@ -279,6 +269,7 @@ def test_with_deps():
                 "uv",
                 "pip",
                 "install",
+                "--system",
                 "package1",
                 "package2>=1.0.0",
             ]
@@ -316,28 +307,6 @@ def test_with_deps():
             # Verify environment variables for non-interactive mode
             install_env = install_call[1]["env"]
             assert install_env["DEBIAN_FRONTEND"] == "noninteractive"
-
-    @pytest.mark.integration
-    def test_exception_handling_in_dependency_installation(self):
-        """Test exception handling during dependency installation."""
-        executor = RemoteExecutor()
-
-        with patch("subprocess.Popen", side_effect=Exception("Subprocess error")):
-            # Test Python dependency exception
-            py_result = executor.dependency_installer.install_dependencies(
-                ["some-package"]
-            )
-            assert py_result.success is False
-            assert "Exception during package installation" in py_result.error
-            assert "Subprocess error" in py_result.error
-
-            # Test system dependency exception
-            sys_result = executor.dependency_installer.install_system_dependencies(
-                ["some-package"], accelerate_downloads=False
-            )
-            assert sys_result.success is False
-            assert "Exception during system package installation" in sys_result.error
-            assert "Subprocess error" in sys_result.error
 
     @pytest.mark.integration
     @patch("platform.system")
@@ -385,55 +354,6 @@ def test_with_deps():
                 "-y",
                 "build-essential",
             ]  # Install
-
-    @pytest.mark.integration
-    def test_system_dependency_installation_nala_fallback(self):
-        """Test system dependency installation fallback when nala fails."""
-        executor = RemoteExecutor()
-
-        with patch("subprocess.Popen") as mock_popen:
-            # Mock nala availability check
-            nala_check = MagicMock()
-            nala_check.returncode = 0
-            nala_check.communicate.return_value = (b"/usr/bin/nala", b"")
-
-            # Mock nala update failure
-            nala_update = MagicMock()
-            nala_update.returncode = 1
-            nala_update.communicate.return_value = (b"", b"nala update failed")
-
-            # Mock successful apt-get fallback
-            apt_update = MagicMock()
-            apt_update.returncode = 0
-            apt_update.communicate.return_value = (b"Reading package lists...", b"")
-
-            apt_install = MagicMock()
-            apt_install.returncode = 0
-            apt_install.communicate.return_value = (
-                b"Successfully installed python3-dev",
-                b"",
-            )
-
-            mock_popen.side_effect = [nala_check, nala_update, apt_update, apt_install]
-
-            result = executor.dependency_installer.install_system_dependencies(
-                ["python3-dev"], accelerate_downloads=True
-            )
-
-            assert result.success is True
-            assert "Installed with nala" not in result.stdout
-
-            # Verify fallback to apt-get was used
-            calls = mock_popen.call_args_list
-            assert len(calls) == 4
-            assert calls[2][0][0] == ["apt-get", "update"]  # apt-get update
-            assert calls[3][0][0] == [
-                "apt-get",
-                "install",
-                "-y",
-                "--no-install-recommends",
-                "python3-dev",
-            ]
 
     @pytest.mark.integration
     @patch("platform.system")
@@ -485,34 +405,18 @@ def test_with_deps():
         mock_platform.return_value = "Linux"
         executor = RemoteExecutor()
 
-        with patch("subprocess.Popen") as mock_popen:
-            # Mock apt-get operations (should be used for small packages)
-            apt_update = MagicMock()
-            apt_update.returncode = 0
-            apt_update.communicate.return_value = (b"Reading package lists...", b"")
-
-            apt_install = MagicMock()
-            apt_install.returncode = 0
-            apt_install.communicate.return_value = (b"Successfully installed nano", b"")
-
-            mock_popen.side_effect = [apt_update, apt_install]
-
-            result = executor.dependency_installer.install_system_dependencies(
-                ["nano", "vim"], accelerate_downloads=True
+        with patch("subprocess.Popen", side_effect=Exception("Subprocess error")):
+            # Test Python dependency exception
+            py_result = executor.dependency_installer.install_dependencies(
+                ["some-package"]
             )
+            assert py_result.success is False
+            assert "Subprocess error" in py_result.error
 
-            assert result.success is True
-            assert "Installed with nala" not in result.stdout
-
-            # Should use apt-get because these are not large packages
-            calls = mock_popen.call_args_list
-            assert len(calls) == 2
-            assert calls[0][0][0] == ["apt-get", "update"]
-            assert calls[1][0][0] == [
-                "apt-get",
-                "install",
-                "-y",
-                "--no-install-recommends",
-                "nano",
-                "vim",
-            ]
+            # Test system dependency exception
+            sys_result = executor.dependency_installer.install_system_dependencies(
+                ["some-package"]
+            )
+            assert sys_result.success is False
+            assert "Exception during system package installation" in sys_result.error
+            assert "Subprocess error" in sys_result.error

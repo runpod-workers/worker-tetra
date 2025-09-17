@@ -1,10 +1,9 @@
 import os
 import subprocess
-import importlib
 import logging
 import asyncio
 import platform
-from typing import List, Dict
+from typing import List
 
 from remote_execution import FunctionResponse
 from download_accelerator import DownloadAccelerator
@@ -19,6 +18,54 @@ class DependencyInstaller:
         self.logger = logging.getLogger(f"worker_tetra.{__name__.split('.')[-1]}")
         self.download_accelerator = DownloadAccelerator(workspace_manager)
         self._nala_available = None  # Cache nala availability check
+
+    def install_dependencies(
+        self, packages: List[str], accelerate_downloads: bool = True
+    ) -> FunctionResponse:
+        """
+        Install Python packages using uv or regular pip
+
+        Args:
+            packages: List of package names or package specifications
+            accelerate_downloads: Whether to use uv for accelerated downloads
+        Returns:
+            FunctionResponse: Object indicating success or failure with details
+        """
+        if not packages:
+            return FunctionResponse(success=True, stdout="No packages to install")
+
+        self.logger.info(f"Installing Python dependencies: {packages}")
+
+        try:
+            if accelerate_downloads:
+                command = ["uv", "pip", "install", "--system"] + packages
+            else:
+                command = ["pip", "install"] + packages
+
+            self.logger.debug(command)
+
+            process = subprocess.Popen(
+                command,
+                stdout=subprocess.PIPE,
+                stderr=subprocess.PIPE,
+                text=True,
+            )
+
+            try:
+                stdout, stderr = process.communicate(timeout=300)
+            except subprocess.TimeoutExpired:
+                process.kill()
+                return FunctionResponse(
+                    success=False,
+                    error="Package installation timed out after 300 seconds",
+                )
+
+            if process.returncode != 0:
+                return FunctionResponse(success=False, error=stderr)
+            else:
+                return FunctionResponse(success=True, stdout=stdout)
+        except Exception as e:
+            return FunctionResponse(success=False, error=str(e))
 
     def install_system_dependencies(
         self, packages: List[str], accelerate_downloads: bool = True
@@ -48,7 +95,7 @@ class DependencyInstaller:
                 success=True, stdout="No system packages to install"
             )
 
-        self.logger.info(f"Installing system dependencies: {packages}")
+        self.logger.info(f"Installing System dependencies: {packages}")
 
         # Check if we should use accelerated installation with nala
         large_packages = self._identify_large_system_packages(packages)
@@ -57,166 +104,6 @@ class DependencyInstaller:
             return self._install_system_with_nala(packages)
         else:
             return self._install_system_standard(packages)
-
-    def install_dependencies(
-        self, packages: List[str], accelerate_downloads: bool = True
-    ) -> FunctionResponse:
-        """
-        Install Python packages using uv (accelerated) or pip (standard).
-
-        Args:
-            packages: List of package names or package specifications
-            accelerate_downloads: Whether to use uv for accelerated downloads
-        Returns:
-            FunctionResponse: Object indicating success or failure with details
-        """
-        if not packages:
-            return FunctionResponse(success=True, stdout="No packages to install")
-
-        self.logger.info(f"Installing dependencies: {packages}")
-
-        # Always use UV for Python package installation (more reliable than pip)
-        # When acceleration is enabled, use differential installation
-        if accelerate_downloads:
-            if (
-                self.workspace_manager.has_runpod_volume
-                and self.workspace_manager.venv_path
-                and os.path.exists(self.workspace_manager.venv_path)
-            ):
-                # Validate virtual environment before using it
-                validation_result = (
-                    self.workspace_manager._validate_virtual_environment()
-                )
-                if not validation_result.success:
-                    self.logger.warning(
-                        f"Virtual environment is invalid: {validation_result.error}"
-                    )
-                    self.logger.info("Reinitializing workspace...")
-                    init_result = self.workspace_manager.initialize_workspace()
-                    if not init_result.success:
-                        return FunctionResponse(
-                            success=False,
-                            error=f"Failed to reinitialize workspace: {init_result.error}",
-                        )
-                installed_packages = self._get_installed_packages()
-                packages_to_install = self._filter_packages_to_install(
-                    packages, installed_packages
-                )
-
-                if not packages_to_install:
-                    return FunctionResponse(
-                        success=True, stdout="All packages already installed"
-                    )
-
-                packages = packages_to_install
-
-        # Always use UV (works reliably with virtual environments)
-        return self._install_with_uv(packages)
-
-    def _install_with_uv(self, packages: List[str]) -> FunctionResponse:
-        """
-        Install packages using UV package manager
-
-        Args:
-            packages: Packages to install
-
-        Returns:
-            FunctionResponse with installation result
-        """
-        try:
-            # Prepare environment for virtual environment usage
-            env = os.environ.copy()
-            if (
-                self.workspace_manager.has_runpod_volume
-                and self.workspace_manager.venv_path
-            ):
-                env["VIRTUAL_ENV"] = self.workspace_manager.venv_path
-
-            # Use uv pip to install the packages
-            command = ["uv", "pip", "install"] + packages
-            process = subprocess.Popen(
-                command,
-                stdout=subprocess.PIPE,
-                stderr=subprocess.PIPE,
-                env=env,
-            )
-
-            stdout, stderr = process.communicate()
-            importlib.invalidate_caches()
-
-            if process.returncode != 0:
-                return FunctionResponse(
-                    success=False,
-                    error="Error installing packages",
-                    stdout=stderr.decode(),
-                )
-            else:
-                self.logger.info(f"Successfully installed packages: {packages}")
-                return FunctionResponse(
-                    success=True,
-                    stdout=stdout.decode(),
-                )
-        except Exception as e:
-            return FunctionResponse(
-                success=False,
-                error=f"Exception during package installation: {e}",
-            )
-
-    def _get_installed_packages(self) -> Dict[str, str]:
-        """Get list of currently installed packages in the virtual environment."""
-        if (
-            not self.workspace_manager.has_runpod_volume
-            or not self.workspace_manager.venv_path
-            or not os.path.exists(self.workspace_manager.venv_path)
-        ):
-            return {}
-
-        try:
-            env = os.environ.copy()
-            env["VIRTUAL_ENV"] = self.workspace_manager.venv_path
-
-            process = subprocess.Popen(
-                ["uv", "pip", "list", "--format=freeze"],
-                stdout=subprocess.PIPE,
-                stderr=subprocess.PIPE,
-                env=env,
-            )
-
-            stdout, stderr = process.communicate()
-
-            if process.returncode != 0:
-                return {}
-
-            packages = {}
-            for line in stdout.decode().strip().split("\n"):
-                if "==" in line:
-                    name, version = line.split("==", 1)
-                    packages[name] = version
-
-            return packages
-        except Exception:
-            return {}
-
-    def _filter_packages_to_install(
-        self, packages: List[str], installed_packages: Dict[str, str]
-    ) -> List[str]:
-        """Filter packages to only include those that need installation."""
-        packages_to_install = []
-
-        for package in packages:
-            # Parse package specification (e.g., "numpy==1.21.0" -> "numpy", "1.21.0")
-            if "==" in package:
-                name, version = package.split("==", 1)
-                if (
-                    name not in installed_packages
-                    or installed_packages[name] != version
-                ):
-                    packages_to_install.append(package)
-            else:
-                # For packages without version specification, always install
-                packages_to_install.append(package)
-
-        return packages_to_install
 
     def _check_nala_available(self) -> bool:
         """

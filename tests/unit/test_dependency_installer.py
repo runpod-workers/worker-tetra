@@ -1,10 +1,10 @@
 """Tests for DependencyInstaller component."""
 
+import subprocess
 from unittest.mock import Mock, patch
 
 from dependency_installer import DependencyInstaller
 from workspace_manager import WorkspaceManager
-from constants import RUNPOD_VOLUME_PATH, VENV_DIR_NAME
 
 
 class TestSystemDependencies:
@@ -32,9 +32,8 @@ class TestSystemDependencies:
 
         mock_popen.side_effect = [update_process, install_process]
 
-        result = self.installer.install_system_dependencies(
-            ["curl", "wget"], accelerate_downloads=False
-        )
+        # Use small packages that won't trigger nala acceleration
+        result = self.installer.install_system_dependencies(["nano", "vim"])
 
         assert result.success is True
         assert "Installed packages" in result.stdout
@@ -53,9 +52,7 @@ class TestSystemDependencies:
 
         mock_popen.return_value = update_process
 
-        result = self.installer.install_system_dependencies(
-            ["curl"], accelerate_downloads=False
-        )
+        result = self.installer.install_system_dependencies(["curl"])
 
         assert result.success is False
         assert "Error updating package list" in result.error
@@ -68,190 +65,6 @@ class TestSystemDependencies:
 
         assert result.success is True
         assert "No system packages to install" in result.stdout
-
-
-class TestPythonDependencies:
-    """Test Python dependency installation."""
-
-    def setup_method(self):
-        """Setup for each test method."""
-        self.workspace_manager = Mock(spec=WorkspaceManager)
-        self.workspace_manager.has_runpod_volume = False
-        self.workspace_manager.venv_path = None
-        self.installer = DependencyInstaller(self.workspace_manager)
-
-    @patch("subprocess.Popen")
-    @patch("importlib.invalidate_caches")
-    def test_install_dependencies_success(self, mock_invalidate, mock_popen):
-        """Test successful Python dependency installation."""
-        process = Mock()
-        process.returncode = 0
-        process.communicate.return_value = (b"Successfully installed", b"")
-        mock_popen.return_value = process
-
-        result = self.installer.install_dependencies(["requests", "numpy"])
-
-        assert result.success is True
-        assert "Successfully installed" in result.stdout
-        mock_invalidate.assert_called_once()
-
-    @patch("subprocess.Popen")
-    def test_install_dependencies_failure(self, mock_popen):
-        """Test Python dependency installation failure."""
-        process = Mock()
-        process.returncode = 1
-        process.communicate.return_value = (b"", b"Package not found")
-        mock_popen.return_value = process
-
-        result = self.installer.install_dependencies(["nonexistent-package"])
-
-        assert result.success is False
-        assert "Error installing packages" in result.error
-
-    def test_install_dependencies_empty_list(self):
-        """Test Python dependency installation with empty package list."""
-        result = self.installer.install_dependencies([])
-
-        assert result.success is True
-        assert "No packages to install" in result.stdout
-
-    @patch("subprocess.Popen")
-    @patch("importlib.invalidate_caches")
-    def test_install_dependencies_with_acceleration_enabled(
-        self, mock_invalidate, mock_popen
-    ):
-        """Test Python dependency installation with acceleration enabled (uses UV)."""
-        process = Mock()
-        process.returncode = 0
-        process.communicate.return_value = (b"Successfully installed with UV", b"")
-        mock_popen.return_value = process
-
-        result = self.installer.install_dependencies(
-            ["requests", "numpy"], accelerate_downloads=True
-        )
-
-        assert result.success is True
-        assert "Successfully installed with UV" in result.stdout
-        # Verify UV was used
-        mock_popen.assert_called_once()
-        args = mock_popen.call_args[0][0]
-        assert args[0] == "uv"
-        assert args[1] == "pip"
-        assert args[2] == "install"
-        mock_invalidate.assert_called_once()
-
-    @patch("subprocess.Popen")
-    @patch("importlib.invalidate_caches")
-    def test_install_dependencies_with_acceleration_disabled(
-        self, mock_invalidate, mock_popen
-    ):
-        """Test Python dependency installation with acceleration disabled (uses UV)."""
-        process = Mock()
-        process.returncode = 0
-        process.communicate.return_value = (b"Successfully installed with UV", b"")
-        mock_popen.return_value = process
-
-        result = self.installer.install_dependencies(
-            ["requests", "numpy"], accelerate_downloads=False
-        )
-
-        assert result.success is True
-        assert "Successfully installed with UV" in result.stdout
-        # Verify UV was used
-        mock_popen.assert_called_once()
-        args = mock_popen.call_args[0][0]
-        assert args[0] == "uv"
-        assert args[1] == "pip"
-        assert args[2] == "install"
-        mock_invalidate.assert_called_once()
-
-    @patch("subprocess.Popen")
-    def test_install_dependencies_uv_failure(self, mock_popen):
-        """Test Python dependency installation failure using UV."""
-        process = Mock()
-        process.returncode = 1
-        process.communicate.return_value = (b"", b"Package not found")
-        mock_popen.return_value = process
-
-        result = self.installer.install_dependencies(
-            ["nonexistent-package"], accelerate_downloads=False
-        )
-
-        assert result.success is False
-        assert "Error installing packages" in result.error
-        # Verify UV was used
-        args = mock_popen.call_args[0][0]
-        assert args[0] == "uv"
-        assert args[1] == "pip"
-
-
-class TestDifferentialInstallation:
-    """Test differential package installation with volume."""
-
-    def setup_method(self):
-        """Setup for each test method."""
-        self.workspace_manager = Mock(spec=WorkspaceManager)
-        self.workspace_manager.has_runpod_volume = True
-        self.workspace_manager.venv_path = f"{RUNPOD_VOLUME_PATH}/{VENV_DIR_NAME}"
-        self.installer = DependencyInstaller(self.workspace_manager)
-
-    @patch("os.path.exists")
-    @patch("subprocess.Popen")
-    def test_get_installed_packages(self, mock_popen, mock_exists):
-        """Test getting list of installed packages."""
-        mock_exists.return_value = True
-
-        process = Mock()
-        process.returncode = 0
-        process.communicate.return_value = (b"numpy==1.21.0\npandas==1.3.0\n", b"")
-        mock_popen.return_value = process
-
-        packages = self.installer._get_installed_packages()
-
-        assert packages == {"numpy": "1.21.0", "pandas": "1.3.0"}
-
-    @patch("os.path.exists")
-    def test_get_installed_packages_no_venv(self, mock_exists):
-        """Test getting installed packages with no virtual environment."""
-        mock_exists.return_value = False
-
-        packages = self.installer._get_installed_packages()
-
-        assert packages == {}
-
-    def test_filter_packages_to_install(self):
-        """Test filtering packages that need installation."""
-        installed = {"numpy": "1.21.0", "pandas": "1.3.0"}
-        requested = ["numpy==1.21.0", "pandas==1.4.0", "requests"]
-
-        filtered = self.installer._filter_packages_to_install(requested, installed)
-
-        # Should install pandas (different version) and requests (not installed)
-        assert "numpy==1.21.0" not in filtered  # Same version, skip
-        assert "pandas==1.4.0" in filtered  # Different version, install
-        assert "requests" in filtered  # Not installed, install
-
-    @patch("os.path.exists")
-    @patch("subprocess.Popen")
-    def test_skip_already_installed_packages(self, mock_popen, mock_exists):
-        """Test that already installed packages are skipped."""
-        mock_exists.return_value = True
-
-        # Mock getting installed packages
-        list_process = Mock()
-        list_process.returncode = 0
-        list_process.communicate.return_value = (b"numpy==1.21.0\n", b"")
-
-        # No install process should be called since all packages are installed
-        mock_popen.return_value = list_process
-
-        with patch.object(
-            self.installer, "_get_installed_packages", return_value={"numpy": "1.21.0"}
-        ):
-            result = self.installer.install_dependencies(["numpy==1.21.0"])
-
-        assert result.success is True
-        assert "All packages already installed" in result.stdout
 
 
 class TestSystemPackageAcceleration:
@@ -362,41 +175,6 @@ class TestSystemPackageAcceleration:
 
     @patch("platform.system")
     @patch("subprocess.Popen")
-    def test_install_system_with_nala_install_failure_fallback(self, mock_popen):
-        """Test nala installation fallback when install fails."""
-        # Mock successful nala update
-        update_process = Mock()
-        update_process.returncode = 0
-        update_process.communicate.return_value = (b"Updated", b"")
-
-        # Mock failed nala install
-        install_process = Mock()
-        install_process.returncode = 1
-        install_process.communicate.return_value = (b"", b"Install failed")
-
-        # Mock successful apt-get operations for fallback
-        apt_update_process = Mock()
-        apt_update_process.returncode = 0
-        apt_update_process.communicate.return_value = (b"Updated", b"")
-
-        apt_install_process = Mock()
-        apt_install_process.returncode = 0
-        apt_install_process.communicate.return_value = (b"Installed", b"")
-
-        mock_popen.side_effect = [
-            update_process,
-            install_process,
-            apt_update_process,
-            apt_install_process,
-        ]
-
-        result = self.installer._install_system_with_nala(["build-essential"])
-
-        assert result.success is True
-        assert "Installed with nala" not in result.stdout
-
-    @patch("subprocess.Popen")
-    def test_install_system_dependencies_with_acceleration(self, mock_popen):
     def test_install_system_dependencies_with_acceleration(
         self, mock_popen, mock_platform
     ):
@@ -466,3 +244,118 @@ class TestSystemPackageAcceleration:
 
         assert result.success is True
         assert "Installed with nala" not in result.stdout
+
+
+class TestPythonDependencies:
+    """Test Python dependency installation."""
+
+    def setup_method(self):
+        """Setup for each test method."""
+        self.workspace_manager = Mock(spec=WorkspaceManager)
+        self.workspace_manager.has_runpod_volume = False
+        self.workspace_manager.cache_path = None
+        self.installer = DependencyInstaller(self.workspace_manager)
+
+    @patch("subprocess.Popen")
+    def test_install_dependencies_success(self, mock_popen):
+        """Test successful Python dependency installation."""
+        process = Mock()
+        process.returncode = 0
+        process.communicate.return_value = ("Successfully installed", "")
+        mock_popen.return_value = process
+
+        result = self.installer.install_dependencies(["requests", "numpy"])
+
+        assert result.success is True
+        assert "Successfully installed" in result.stdout
+        # Verify UV was called with correct command
+        mock_popen.assert_called_once()
+        args = mock_popen.call_args[0][0]
+        assert args[:4] == ["uv", "pip", "install", "--system"]
+        assert "requests" in args
+        assert "numpy" in args
+
+    @patch("subprocess.Popen")
+    def test_install_dependencies_failure(self, mock_popen):
+        """Test Python dependency installation failure."""
+        process = Mock()
+        process.returncode = 1
+        process.communicate.return_value = ("", "Package not found")
+        mock_popen.return_value = process
+
+        result = self.installer.install_dependencies(["nonexistent-package"])
+
+        assert result.success is False
+        assert result.error == "Package not found"
+
+    def test_install_dependencies_empty_list(self):
+        """Test Python dependency installation with empty package list."""
+        result = self.installer.install_dependencies([])
+
+        assert result.success is True
+        assert "No packages to install" in result.stdout
+
+    @patch("subprocess.Popen")
+    def test_install_dependencies_with_acceleration_enabled(self, mock_popen):
+        """Test Python dependency installation with acceleration enabled (uses UV)."""
+        process = Mock()
+        process.returncode = 0
+        process.communicate.return_value = ("Successfully installed with UV", "")
+        mock_popen.return_value = process
+
+        result = self.installer.install_dependencies(
+            ["requests", "numpy"], accelerate_downloads=True
+        )
+
+        assert result.success is True
+        assert "Successfully installed with UV" in result.stdout
+        # Verify UV was called with correct command
+        mock_popen.assert_called_once()
+        args = mock_popen.call_args[0][0]
+        assert args[:4] == ["uv", "pip", "install", "--system"]
+        assert "requests" in args
+        assert "numpy" in args
+
+    @patch("subprocess.Popen")
+    def test_install_dependencies_with_acceleration_disabled(self, mock_popen):
+        """Test Python dependency installation with acceleration disabled (uses pip)."""
+        process = Mock()
+        process.returncode = 0
+        process.communicate.return_value = ("Successfully installed with pip", "")
+        mock_popen.return_value = process
+
+        result = self.installer.install_dependencies(
+            ["requests", "numpy"], accelerate_downloads=False
+        )
+
+        assert result.success is True
+        assert "Successfully installed with pip" in result.stdout
+        # Verify pip was called with correct command
+        mock_popen.assert_called_once()
+        args = mock_popen.call_args[0][0]
+        assert args[:2] == ["pip", "install"]
+        assert "requests" in args
+        assert "numpy" in args
+
+    @patch("subprocess.Popen")
+    def test_install_dependencies_exception(self, mock_popen):
+        """Test Python dependency installation exception handling."""
+        mock_popen.side_effect = Exception("Subprocess error")
+
+        result = self.installer.install_dependencies(["some-package"])
+
+        assert result.success is False
+        assert "Subprocess error" in result.error
+
+    @patch("subprocess.Popen")
+    def test_install_dependencies_timeout(self, mock_popen):
+        """Test Python dependency installation timeout handling."""
+        process = Mock()
+        process.communicate.side_effect = subprocess.TimeoutExpired("cmd", 300)
+        mock_popen.return_value = process
+
+        result = self.installer.install_dependencies(["some-package"])
+
+        assert result.success is False
+        assert "timed out after 300 seconds" in result.error
+        process.kill.assert_called_once()

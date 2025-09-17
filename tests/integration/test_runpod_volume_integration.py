@@ -564,7 +564,7 @@ class TestErrorHandlingIntegration:
         result = await handler(event)
 
         assert result["success"] is False
-        assert "error installing packages" in result.get("error", "").lower()
+        assert "package not found" in result.get("error", "").lower()
         # Function should not have been executed
         assert "result" not in result or result["result"] is None
 
