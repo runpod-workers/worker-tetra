@@ -7,7 +7,7 @@ from typing import List
 
 from remote_execution import FunctionResponse
 from download_accelerator import DownloadAccelerator
-from constants import LARGE_SYSTEM_PACKAGES, NALA_CHECK_CMD
+from constants import LARGE_SYSTEM_PACKAGES
 
 
 class DependencyInstaller:
@@ -115,7 +115,7 @@ class DependencyInstaller:
         if self._nala_available is None:
             try:
                 process = subprocess.Popen(
-                    NALA_CHECK_CMD,
+                    ["which", "nala"],
                     stdout=subprocess.PIPE,
                     stderr=subprocess.PIPE,
                 )
@@ -168,9 +168,12 @@ class DependencyInstaller:
                 )
                 return self._install_system_standard(packages)
 
+            command = ["nala", "install", "-y"] + packages
+            self.logger.debug(command)
+
             # Install packages with nala
             process = subprocess.Popen(
-                ["nala", "install", "-y"] + packages,
+                command,
                 stdout=subprocess.PIPE,
                 stderr=subprocess.PIPE,
                 env={
@@ -227,8 +230,11 @@ class DependencyInstaller:
                 )
 
             # Install the packages
+            command = ["apt-get", "install", "-y", "--no-install-recommends"] + packages
+            self.logger.debug(command)
+
             process = subprocess.Popen(
-                ["apt-get", "install", "-y", "--no-install-recommends"] + packages,
+                command,
                 stdout=subprocess.PIPE,
                 stderr=subprocess.PIPE,
                 env={

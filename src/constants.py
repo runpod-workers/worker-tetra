@@ -85,6 +85,3 @@ LARGE_SYSTEM_PACKAGES = [
     "wget",
 ]
 """List of system packages that benefit from nala's accelerated installation."""
-
-NALA_CHECK_CMD = ["which", "nala"]
-"""Command to check if nala is available."""
