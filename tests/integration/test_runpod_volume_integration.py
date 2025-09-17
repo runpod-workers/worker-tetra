@@ -106,6 +106,7 @@ def numpy_test():
             assert any("numpy==1.21.0" in " ".join(call) for call in install_calls)
 
     @patch("os.makedirs")
+    @patch("platform.system")
     @patch("workspace_manager.WorkspaceManager._validate_virtual_environment")
     @patch("os.path.exists")
     @patch("subprocess.Popen")
@@ -118,9 +119,13 @@ def numpy_test():
         mock_popen,
         mock_exists,
         mock_validate,
+        mock_platform,
         mock_makedirs,
     ):
         """Test workflow that includes both system and Python dependencies."""
+        # Mock platform to return Linux to enable system dependency installation
+        mock_platform.return_value = "Linux"
+
         # Mock volume exists with endpoint-specific workspace
         expected_workspace = f"{RUNPOD_VOLUME_PATH}/{RUNTIMES_DIR_NAME}/default"
         expected_venv = f"{expected_workspace}/{VENV_DIR_NAME}"

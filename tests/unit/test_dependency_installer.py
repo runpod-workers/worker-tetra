@@ -15,9 +15,11 @@ class TestSystemDependencies:
         self.workspace_manager = Mock(spec=WorkspaceManager)
         self.installer = DependencyInstaller(self.workspace_manager)
 
+    @patch("platform.system")
     @patch("subprocess.Popen")
-    def test_install_system_dependencies_success(self, mock_popen):
-        """Test successful system dependency installation."""
+    def test_install_system_dependencies_success(self, mock_popen, mock_platform):
+        """Test successful system dependency installation with small packages (no nala acceleration)."""
+        mock_platform.return_value = "Linux"
         # Mock apt-get update
         update_process = Mock()
         update_process.returncode = 0
@@ -38,9 +40,13 @@ class TestSystemDependencies:
         assert "Installed packages" in result.stdout
         assert mock_popen.call_count == 2
 
+    @patch("platform.system")
     @patch("subprocess.Popen")
-    def test_install_system_dependencies_update_failure(self, mock_popen):
+    def test_install_system_dependencies_update_failure(
+        self, mock_popen, mock_platform
+    ):
         """Test system dependency installation with update failure."""
+        mock_platform.return_value = "Linux"
         update_process = Mock()
         update_process.returncode = 1
         update_process.communicate.return_value = (b"", b"Update failed")
@@ -54,8 +60,10 @@ class TestSystemDependencies:
         assert result.success is False
         assert "Error updating package list" in result.error
 
-    def test_install_system_dependencies_empty_list(self):
+    @patch("platform.system")
+    def test_install_system_dependencies_empty_list(self, mock_platform):
         """Test system dependency installation with empty package list."""
+        mock_platform.return_value = "Linux"
         result = self.installer.install_system_dependencies([])
 
         assert result.success is True
@@ -352,6 +360,7 @@ class TestSystemPackageAcceleration:
         assert result.success is True
         assert "Installed with nala" not in result.stdout
 
+    @patch("platform.system")
     @patch("subprocess.Popen")
     def test_install_system_with_nala_install_failure_fallback(self, mock_popen):
         """Test nala installation fallback when install fails."""
@@ -388,7 +397,11 @@ class TestSystemPackageAcceleration:
 
     @patch("subprocess.Popen")
     def test_install_system_dependencies_with_acceleration(self, mock_popen):
+    def test_install_system_dependencies_with_acceleration(
+        self, mock_popen, mock_platform
+    ):
         """Test system dependency installation with acceleration enabled."""
+        mock_platform.return_value = "Linux"
         # Mock nala availability check
         nala_check = Mock()
         nala_check.returncode = 0

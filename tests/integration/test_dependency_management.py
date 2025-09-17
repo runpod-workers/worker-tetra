@@ -44,8 +44,10 @@ class TestDependencyManagement:
             assert "env" in call_args[1]  # Environment should be passed
 
     @pytest.mark.integration
-    def test_install_system_dependencies_integration(self):
+    @patch("platform.system")
+    def test_install_system_dependencies_integration(self, mock_platform):
         """Test system dependency installation with mocked subprocess."""
+        mock_platform.return_value = "Linux"
         executor = RemoteExecutor()
 
         with patch("subprocess.Popen") as mock_popen:
@@ -175,8 +177,10 @@ def test_with_deps():
             assert "Unable to locate package" in result.stdout
 
     @pytest.mark.integration
-    def test_system_dependency_update_failure(self):
+    @patch("platform.system")
+    def test_system_dependency_update_failure(self, mock_platform):
         """Test handling of apt-get update failures."""
+        mock_platform.return_value = "Linux"
         executor = RemoteExecutor()
 
         with patch("subprocess.Popen") as mock_popen:
@@ -236,8 +240,10 @@ def test_with_deps():
             assert "Error installing packages" in result.error
 
     @pytest.mark.integration
-    def test_empty_dependency_lists(self):
+    @patch("platform.system")
+    def test_empty_dependency_lists(self, mock_platform):
         """Test handling of empty dependency lists."""
+        mock_platform.return_value = "Linux"
         executor = RemoteExecutor()
 
         # Test empty Python dependencies
@@ -251,8 +257,10 @@ def test_with_deps():
         assert sys_result.stdout == "No system packages to install"
 
     @pytest.mark.integration
-    def test_dependency_command_construction(self):
+    @patch("platform.system")
+    def test_dependency_command_construction(self, mock_platform):
         """Test that dependency installation commands are constructed correctly."""
+        mock_platform.return_value = "Linux"
         executor = RemoteExecutor()
 
         with patch("subprocess.Popen") as mock_popen:
@@ -332,8 +340,10 @@ def test_with_deps():
             assert "Subprocess error" in sys_result.error
 
     @pytest.mark.integration
-    def test_system_dependency_installation_with_nala_acceleration(self):
+    @patch("platform.system")
+    def test_system_dependency_installation_with_nala_acceleration(self, mock_platform):
         """Test system dependency installation with nala acceleration enabled."""
+        mock_platform.return_value = "Linux"
         executor = RemoteExecutor()
 
         with patch("subprocess.Popen") as mock_popen:
@@ -426,8 +436,10 @@ def test_with_deps():
             ]
 
     @pytest.mark.integration
-    def test_system_dependency_installation_no_nala_available(self):
+    @patch("platform.system")
+    def test_system_dependency_installation_no_nala_available(self, mock_platform):
         """Test system dependency installation when nala is not available."""
+        mock_platform.return_value = "Linux"
         executor = RemoteExecutor()
 
         with patch("subprocess.Popen") as mock_popen:
@@ -467,8 +479,10 @@ def test_with_deps():
             ]
 
     @pytest.mark.integration
-    def test_system_dependency_installation_with_small_packages(self):
-        """Test system dependency installation with small packages (no acceleration)."""
+    @patch("platform.system")
+    def test_exception_handling_in_dependency_installation(self, mock_platform):
+        """Test exception handling during dependency installation."""
+        mock_platform.return_value = "Linux"
         executor = RemoteExecutor()
 
         with patch("subprocess.Popen") as mock_popen:
