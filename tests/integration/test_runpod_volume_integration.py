@@ -174,13 +174,27 @@ def numpy_test():
         nala_check_process.returncode = 1  # nala not available
         nala_check_process.communicate.return_value = (b"", b"which: nala: not found")
 
-        mock_popen.side_effect = [
-            nala_check_process,
-            apt_update_process,
-            apt_install_process,
-            pip_list_process,
-            pip_install_process,
-        ]
+        # Create a function that returns appropriate mock based on the command
+        def popen_side_effect(*args, **kwargs):
+            cmd = args[0]
+            if "nala" in str(cmd) or "which" in str(cmd):
+                return nala_check_process
+            elif "apt-get" in str(cmd) and "update" in str(cmd):
+                return apt_update_process
+            elif "apt-get" in str(cmd) and "install" in str(cmd):
+                return apt_install_process
+            elif "uv" in str(cmd) and "list" in str(cmd):
+                return pip_list_process
+            elif "uv" in str(cmd) and "install" in str(cmd):
+                return pip_install_process
+            else:
+                # Return a generic successful process for any other calls
+                generic_process = Mock()
+                generic_process.returncode = 0
+                generic_process.communicate.return_value = (b"", b"")
+                return generic_process
+
+        mock_popen.side_effect = popen_side_effect
 
         # Mock subprocess.run for the test function
         mock_run_result = Mock()

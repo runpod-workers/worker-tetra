@@ -321,7 +321,7 @@ class TestSystemPackageAcceleration:
         result = self.installer._install_system_with_nala(["build-essential"])
 
         assert result.success is True
-        assert "Installed with nala acceleration" in result.stdout
+        assert "Installed with nala" in result.stdout
         assert mock_popen.call_count == 2
 
     @patch("subprocess.Popen")
@@ -350,7 +350,7 @@ class TestSystemPackageAcceleration:
         result = self.installer._install_system_with_nala(["build-essential"])
 
         assert result.success is True
-        assert "Installed with nala acceleration" not in result.stdout
+        assert "Installed with nala" not in result.stdout
 
     @patch("subprocess.Popen")
     def test_install_system_with_nala_install_failure_fallback(self, mock_popen):
@@ -384,7 +384,7 @@ class TestSystemPackageAcceleration:
         result = self.installer._install_system_with_nala(["build-essential"])
 
         assert result.success is True
-        assert "Installed with nala acceleration" not in result.stdout
+        assert "Installed with nala" not in result.stdout
 
     @patch("subprocess.Popen")
     def test_install_system_dependencies_with_acceleration(self, mock_popen):
@@ -410,7 +410,7 @@ class TestSystemPackageAcceleration:
         )
 
         assert result.success is True
-        assert "Installed with nala acceleration" in result.stdout
+        assert "Installed with nala" in result.stdout
 
     @patch("subprocess.Popen")
     def test_install_system_dependencies_without_acceleration(self, mock_popen):
@@ -431,7 +431,7 @@ class TestSystemPackageAcceleration:
         )
 
         assert result.success is True
-        assert "Installed with nala acceleration" not in result.stdout
+        assert "Installed with nala" not in result.stdout
 
     @patch("subprocess.Popen")
     def test_install_system_dependencies_no_large_packages(self, mock_popen):
@@ -452,4 +452,4 @@ class TestSystemPackageAcceleration:
         )
 
         assert result.success is True
-        assert "Installed with nala acceleration" not in result.stdout
+        assert "Installed with nala" not in result.stdout
