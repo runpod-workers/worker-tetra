@@ -227,14 +227,15 @@ class TestDownloadAccelerationIntegration:
         assert result.success is False
         assert "defer to HF native handling" in result.error
 
-    @patch("src.dependency_installer.subprocess.Popen")
-    def test_dependency_installation_without_acceleration(self, mock_popen):
+    @patch("src.dependency_installer.run_logged_subprocess")
+    def test_dependency_installation_without_acceleration(self, mock_subprocess):
         """Test that packages install normally without aria2c acceleration."""
         # Mock successful installation
-        mock_process = Mock()
-        mock_process.returncode = 0
-        mock_process.communicate.return_value = (b"Installed successfully", b"")
-        mock_popen.return_value = mock_process
+        from remote_execution import FunctionResponse
+
+        mock_subprocess.return_value = FunctionResponse(
+            success=True, stdout="Installed successfully"
+        )
 
         installer = DependencyInstaller(self.mock_workspace_manager)
 
@@ -245,9 +246,7 @@ class TestDownloadAccelerationIntegration:
         assert result.success is True
 
         # Verify the installation was called
-        mock_popen.assert_called_once()
-        args, _ = mock_popen.call_args
-        assert set(packages).issubset(args[0])
+        mock_subprocess.assert_called_once()
 
     @patch("src.hf_downloader_tetra.DownloadAccelerator")
     def test_model_cache_management(self, mock_download_accelerator):

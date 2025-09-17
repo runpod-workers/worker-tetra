@@ -1,5 +1,4 @@
 import os
-import subprocess
 import logging
 import asyncio
 import platform
@@ -8,6 +7,7 @@ from typing import List
 from remote_execution import FunctionResponse
 from download_accelerator import DownloadAccelerator
 from constants import LARGE_SYSTEM_PACKAGES
+from subprocess_utils import run_logged_subprocess
 
 
 class DependencyInstaller:
@@ -36,34 +36,19 @@ class DependencyInstaller:
 
         self.logger.info(f"Installing Python dependencies: {packages}")
 
+        if accelerate_downloads:
+            command = ["uv", "pip", "install", "--system"] + packages
+        else:
+            command = ["pip", "install"] + packages
+
+        operation_name = f"Installing Python packages ({'accelerated' if accelerate_downloads else 'standard'})"
         try:
-            if accelerate_downloads:
-                command = ["uv", "pip", "install", "--system"] + packages
-            else:
-                command = ["pip", "install"] + packages
-
-            self.logger.debug(command)
-
-            process = subprocess.Popen(
-                command,
-                stdout=subprocess.PIPE,
-                stderr=subprocess.PIPE,
-                text=True,
+            return run_logged_subprocess(
+                command=command,
+                logger=self.logger,
+                operation_name=operation_name,
+                timeout=300,
             )
-
-            try:
-                stdout, stderr = process.communicate(timeout=300)
-            except subprocess.TimeoutExpired:
-                process.kill()
-                return FunctionResponse(
-                    success=False,
-                    error="Package installation timed out after 300 seconds",
-                )
-
-            if process.returncode != 0:
-                return FunctionResponse(success=False, error=stderr)
-            else:
-                return FunctionResponse(success=True, stdout=stdout)
         except Exception as e:
             return FunctionResponse(success=False, error=str(e))
 
@@ -114,15 +99,14 @@ class DependencyInstaller:
         """
         if self._nala_available is None:
             try:
-                process = subprocess.Popen(
-                    ["which", "nala"],
-                    stdout=subprocess.PIPE,
-                    stderr=subprocess.PIPE,
+                result = run_logged_subprocess(
+                    command=["which", "nala"],
+                    logger=self.logger,
+                    operation_name="Checking nala availability",
                 )
-                process.communicate()
-                self._nala_available = process.returncode == 0
-
+                self._nala_available = result.success
             except Exception:
+                # If subprocess utility fails, assume nala is not available
                 self._nala_available = False
 
         return self._nala_available
@@ -153,55 +137,43 @@ class DependencyInstaller:
         Returns:
             FunctionResponse with installation result
         """
-        try:
-            # Update package list first with nala
-            update_process = subprocess.Popen(
-                ["nala", "update"],
-                stdout=subprocess.PIPE,
-                stderr=subprocess.PIPE,
-            )
-            update_stdout, update_stderr = update_process.communicate()
+        # Update package list first with nala
+        update_result = run_logged_subprocess(
+            command=["nala", "update"],
+            logger=self.logger,
+            operation_name="Updating package list with nala",
+        )
 
-            if update_process.returncode != 0:
-                self.logger.warning(
-                    "nala update failed, falling back to standard installation"
-                )
-                return self._install_system_standard(packages)
-
-            command = ["nala", "install", "-y"] + packages
-            self.logger.debug(command)
-
-            # Install packages with nala
-            process = subprocess.Popen(
-                command,
-                stdout=subprocess.PIPE,
-                stderr=subprocess.PIPE,
-                env={
-                    **os.environ,
-                    "DEBIAN_FRONTEND": "noninteractive",
-                },
-            )
-
-            stdout, stderr = process.communicate()
-
-            if process.returncode != 0:
-                self.logger.warning(
-                    "nala installation failed, falling back to standard installation"
-                )
-                return self._install_system_standard(packages)
-            else:
-                self.logger.info(
-                    f"Successfully installed system packages with nala: {packages}"
-                )
-                return FunctionResponse(
-                    success=True,
-                    stdout=f"Installed with nala: {stdout.decode()}",
-                )
-        except Exception as e:
+        if not update_result.success:
             self.logger.warning(
-                f"nala installation failed with exception, falling back to standard: {e}"
+                "nala update failed, falling back to standard installation"
             )
             return self._install_system_standard(packages)
+
+        # Install packages with nala
+        install_result = run_logged_subprocess(
+            command=["nala", "install", "-y"] + packages,
+            logger=self.logger,
+            operation_name="Installing system packages with nala",
+            env={
+                **os.environ,
+                "DEBIAN_FRONTEND": "noninteractive",
+            },
+        )
+
+        if not install_result.success:
+            self.logger.warning(
+                "nala installation failed, falling back to standard installation"
+            )
+            return self._install_system_standard(packages)
+        else:
+            self.logger.info(
+                f"Successfully installed system packages with nala: {packages}"
+            )
+            return FunctionResponse(
+                success=True,
+                stdout=f"Installed with nala: {install_result.stdout}",
+            )
 
     def _install_system_standard(self, packages: List[str]) -> FunctionResponse:
         """
@@ -215,53 +187,45 @@ class DependencyInstaller:
         """
         try:
             # Update package list first
-            update_process = subprocess.Popen(
-                ["apt-get", "update"],
-                stdout=subprocess.PIPE,
-                stderr=subprocess.PIPE,
+            update_result = run_logged_subprocess(
+                command=["apt-get", "update"],
+                logger=self.logger,
+                operation_name="Updating package list with apt-get",
             )
-            update_stdout, update_stderr = update_process.communicate()
 
-            if update_process.returncode != 0:
+            if not update_result.success:
                 return FunctionResponse(
                     success=False,
                     error="Error updating package list",
-                    stdout=update_stderr.decode(),
+                    stdout=update_result.error,
                 )
 
             # Install the packages
-            command = ["apt-get", "install", "-y", "--no-install-recommends"] + packages
-            self.logger.debug(command)
-
-            process = subprocess.Popen(
-                command,
-                stdout=subprocess.PIPE,
-                stderr=subprocess.PIPE,
+            install_result = run_logged_subprocess(
+                command=["apt-get", "install", "-y", "--no-install-recommends"]
+                + packages,
+                logger=self.logger,
+                operation_name="Installing system packages with apt-get",
                 env={
                     **os.environ,
                     "DEBIAN_FRONTEND": "noninteractive",
                 },
             )
 
-            stdout, stderr = process.communicate()
-
-            if process.returncode != 0:
+            if not install_result.success:
                 return FunctionResponse(
                     success=False,
                     error="Error installing system packages",
-                    stdout=stderr.decode(),
+                    stdout=install_result.error,
                 )
             else:
                 self.logger.info(f"Successfully installed system packages: {packages}")
                 return FunctionResponse(
                     success=True,
-                    stdout=stdout.decode(),
+                    stdout=install_result.stdout,
                 )
         except Exception as e:
-            return FunctionResponse(
-                success=False,
-                error=f"Exception during system package installation: {e}",
-            )
+            return FunctionResponse(success=False, error=str(e))
 
     async def install_system_dependencies_async(
         self, packages: List[str], accelerate_downloads: bool = True
