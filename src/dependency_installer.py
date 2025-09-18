@@ -18,6 +18,7 @@ class DependencyInstaller:
         self.logger = logging.getLogger(f"worker_tetra.{__name__.split('.')[-1]}")
         self.download_accelerator = DownloadAccelerator(workspace_manager)
         self._nala_available = None  # Cache nala availability check
+        self._is_docker = None  # Cache Docker environment detection
 
     def install_dependencies(
         self, packages: List[str], accelerate_downloads: bool = True
@@ -37,17 +38,32 @@ class DependencyInstaller:
         self.logger.info(f"Installing Python dependencies: {packages}")
 
         if accelerate_downloads:
-            command = ["uv", "pip", "install", "--system"] + packages
+            if self._is_docker_environment():
+                # Docker: Use system installation with cache handling
+                command = ["uv", "pip", "install", "--system", "--no-cache"] + packages
+            else:
+                # Local/non-Docker: Use regular venv installation
+                command = ["uv", "pip", "install"] + packages
         else:
             command = ["pip", "install"] + packages
 
         operation_name = f"Installing Python packages ({'accelerated' if accelerate_downloads else 'standard'})"
+
+        # Set environment variables to avoid UV cache issues in read-only volumes
+        env = None
+        if self._is_docker_environment():
+            env = os.environ.copy()
+            # Disable UV cache completely in Docker environments
+            env["UV_NO_CACHE"] = "1"
+            env["UV_CACHE_DIR"] = "/tmp/uv-cache"  # Use writable temp directory
+
         try:
             return run_logged_subprocess(
                 command=command,
                 logger=self.logger,
                 operation_name=operation_name,
                 timeout=300,
+                env=env,
             )
         except Exception as e:
             return FunctionResponse(success=False, error=str(e))
@@ -110,6 +126,31 @@ class DependencyInstaller:
                 self._nala_available = False
 
         return self._nala_available
+
+    def _is_docker_environment(self) -> bool:
+        """
+        Detect if we're running in a Docker container.
+
+        Returns:
+            True if running in Docker, False otherwise
+        """
+        if self._is_docker is None:
+            try:
+                # Check for .dockerenv file (most reliable indicator)
+                if os.path.exists("/.dockerenv"):
+                    self._is_docker = True
+                # Check if we're in a container via cgroup
+                elif os.path.exists("/proc/1/cgroup"):
+                    with open("/proc/1/cgroup", "r") as f:
+                        content = f.read()
+                        self._is_docker = "docker" in content or "containerd" in content
+                else:
+                    self._is_docker = False
+            except Exception:
+                # If detection fails, assume not Docker
+                self._is_docker = False
+
+        return self._is_docker
 
     def _identify_large_system_packages(self, packages: List[str]) -> List[str]:
         """

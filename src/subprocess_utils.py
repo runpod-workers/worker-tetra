@@ -21,6 +21,7 @@ def run_logged_subprocess(
     timeout: int = 300,
     capture_output: bool = True,
     text: bool = True,
+    env: Optional[dict[str, str]] = None,
     **popen_kwargs,
 ) -> FunctionResponse:
     """
@@ -59,6 +60,8 @@ def run_logged_subprocess(
             popen_kwargs.setdefault("stderr", subprocess.PIPE)
         if text:
             popen_kwargs["text"] = True
+        if env:
+            popen_kwargs["env"] = env
 
         # Execute subprocess
         process = subprocess.Popen(command, **popen_kwargs)
