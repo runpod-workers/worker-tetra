@@ -1,5 +1,4 @@
 import os
-import subprocess
 import fcntl
 import time
 import logging
@@ -10,6 +9,7 @@ if TYPE_CHECKING:
     from huggingface_accelerator import HuggingFaceAccelerator
 
 from remote_execution import FunctionResponse
+from subprocess_utils import run_logged_subprocess
 from constants import (
     RUNPOD_VOLUME_PATH,
     DEFAULT_WORKSPACE_PATH,
@@ -185,29 +185,22 @@ class WorkspaceManager:
                 success=False, error="Virtual environment path not configured"
             )
 
-        try:
-            process = subprocess.Popen(
-                ["uv", "venv", self.venv_path],
-                stdout=subprocess.PIPE,
-                stderr=subprocess.PIPE,
-            )
+        result = run_logged_subprocess(
+            command=["uv", "venv", self.venv_path],
+            logger=self.logger,
+            operation_name="Creating virtual environment",
+        )
 
-            stdout, stderr = process.communicate()
-
-            if process.returncode != 0:
-                return FunctionResponse(
-                    success=False,
-                    error="Failed to create virtual environment",
-                    stdout=stderr.decode(),
-                )
-            else:
-                # Create symlink from /app/.venv to volume venv for libraries that hardcode /app/.venv
-                self._create_app_venv_symlink()
-                return FunctionResponse(success=True, stdout=stdout.decode())
-        except Exception as e:
+        if not result.success:
             return FunctionResponse(
-                success=False, error=f"Exception creating virtual environment: {str(e)}"
+                success=False,
+                error="Failed to create virtual environment",
+                stdout=result.error,
             )
+        else:
+            # Create symlink from /app/.venv to volume venv for libraries that hardcode /app/.venv
+            self._create_app_venv_symlink()
+            return FunctionResponse(success=True, stdout=result.stdout)
 
     def _create_app_venv_symlink(self):
         """
@@ -327,33 +320,22 @@ class WorkspaceManager:
                 )
 
         # Try to execute a simple Python command to verify functionality
-        try:
-            process = subprocess.Popen(
-                [python_exe, "-c", "import sys; print(sys.version)"],
-                stdout=subprocess.PIPE,
-                stderr=subprocess.PIPE,
-            )
-            try:
-                stdout, stderr = process.communicate(timeout=10)
-            except subprocess.TimeoutExpired:
-                process.kill()
-                return FunctionResponse(
-                    success=False, error="Python interpreter validation timed out"
-                )
+        result = run_logged_subprocess(
+            command=[python_exe, "-c", "import sys; print(sys.version)"],
+            logger=self.logger,
+            operation_name="Validating Python interpreter",
+            timeout=10,
+        )
 
-            if process.returncode != 0:
-                return FunctionResponse(
-                    success=False,
-                    error=f"Python interpreter failed to execute: {stderr.decode()}",
-                )
+        if not result.success:
+            return FunctionResponse(
+                success=False,
+                error=f"Python interpreter failed to execute: {result.error}",
+            )
 
-            return FunctionResponse(
-                success=True, stdout="Virtual environment is functional"
-            )
-        except Exception as e:
-            return FunctionResponse(
-                success=False, error=f"Error validating virtual environment: {str(e)}"
-            )
+        return FunctionResponse(
+            success=True, stdout="Virtual environment is functional"
+        )
 
     def _remove_broken_virtual_environment(self):
         """Remove broken virtual environment directory and associated symlink."""

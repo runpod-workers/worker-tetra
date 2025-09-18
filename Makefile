@@ -77,15 +77,15 @@ test-handler: # Test handler locally with all test_*.json files
 
 # Smoke Tests (local on Mac OS)
 
-smoketest-macos-build: setup # Build CPU-only Mac OS Docker image (macos/arm64)
+smoketest-macos-build: setup # Build Mac OS Docker image (macos/arm64)
 	docker buildx build \
 	--platform linux/arm64 \
-	-f Dockerfile-cpu \
-	-t $(FULL_IMAGE_CPU)-mac \
+	-f Dockerfile \
+	-t $(FULL_IMAGE)-mac \
 	. --load
 
-smoketest-macos: smoketest-macos-build # Test CPU Docker image locally
-	docker run --rm $(FULL_IMAGE_CPU)-mac ./test-handler.sh
+smoketest-macos: smoketest-macos-build # Test Docker image locally
+	docker run --rm $(FULL_IMAGE)-mac ./test-handler.sh
 
 # Linting commands
 lint: # Check code with ruff

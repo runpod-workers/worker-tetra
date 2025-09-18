@@ -1,0 +1,9 @@
+{
+  "input": {
+    "function_name": "test_torch_without_dependency",
+    "function_code": "def test_torch_without_dependency():\n    import sys\n    import os\n    \n    # First check if this is an environment where PyTorch should be available\n    # Skip if running on macOS (local development)\n    if sys.platform == 'darwin':\n        return {\n            'skipped': True,\n            'reason': 'PyTorch system packages not available on macOS',\n            'platform': sys.platform\n        }\n    \n    try:\n        import torch\n        \n        # Test both packages work\n        torch_tensor = torch.tensor([1.0, 2.0, 3.0])\n        \n        return {\n            'torch_version': torch.__version__,\n            'torch_sum': float(torch_tensor.sum().item()),\n            'torch_location': torch.__file__,\n            'system_package_access': 'working'\n        }\n    except ImportError as e:\n        # If PyTorch is not available, provide diagnostic information\n        import site\n        return {\n            'torch_available': False,\n            'import_error': str(e),\n            'python_executable': sys.executable,\n            'site_packages': site.getsitepackages(),\n            'system_package_access': 'failed',\n            'diagnostic_info': 'PyTorch not found in system packages - may indicate configuration issue'\n        }",
+    "dependencies": [],
+    "args": [],
+    "kwargs": {}
+  }
+}

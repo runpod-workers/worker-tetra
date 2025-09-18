@@ -1,0 +1,8 @@
+{
+  "input": {
+    "function_name": "test_runpod_import",
+    "function_code": "def test_runpod_import():\n    import sys\n    print(f\"Python path: {sys.path}\")\n    print(f\"Python executable: {sys.executable}\")\n    \n    try:\n        import runpod\n        print(f\"✅ runpod imported successfully: {runpod.__version__}\")\n        return {\"success\": True, \"runpod_version\": runpod.__version__}\n    except ImportError as e:\n        print(f\"❌ Failed to import runpod: {e}\")\n        return {\"success\": False, \"error\": str(e)}\n",
+    "args": [],
+    "kwargs": {}
+  }
+}
