@@ -1,4 +1,4 @@
-FROM pytorch/pytorch:2.2.0-cuda12.1-cudnn8-runtime AS builder
+FROM pytorch/pytorch:2.8.0-cuda12.8-cudnn9-runtime AS builder
 
 WORKDIR /app
 
@@ -15,7 +15,7 @@ RUN uv sync
 
 
 # --- Final stage: strip build tools, retain only runtime essentials ---
-FROM pytorch/pytorch:2.2.0-cuda12.1-cudnn8-runtime
+FROM pytorch/pytorch:2.8.0-cuda12.8-cudnn9-runtime
 
 WORKDIR /app
 
