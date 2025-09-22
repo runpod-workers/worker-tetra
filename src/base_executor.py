@@ -25,17 +25,6 @@ class BaseExecutor(ABC):
             raise ValueError("workspace_manager is required for all executors")
         self.workspace_manager = workspace_manager
 
-    def _setup_execution_environment(self):
-        """
-        Setup execution environment including Python path.
-
-        This method MUST be called before any code execution to ensure:
-        - Volume-installed packages are available in sys.path
-        - Workspace is properly configured
-        """
-        # Setup Python path for volume packages - CRITICAL for volume-installed dependencies
-        self.workspace_manager.setup_python_path()
-
     @abstractmethod
     def execute(self, request: FunctionRequest) -> FunctionResponse:
         """

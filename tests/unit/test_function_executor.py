@@ -142,27 +142,6 @@ class TestWorkspaceIntegration:
         self.workspace_manager = Mock(spec=WorkspaceManager)
         self.executor = FunctionExecutor(self.workspace_manager)
 
-    def test_execute_function_in_workspace(self):
-        """Test that function execution uses workspace directory."""
-        self.workspace_manager.change_to_workspace.return_value = "/original"
-
-        request = FunctionRequest(
-            function_name="test_func",
-            function_code="def test_func():\n    return 'test'",
-            args=[],
-            kwargs={},
-        )
-
-        with patch("os.chdir") as mock_chdir:
-            self.executor.execute(request)
-
-        # Verify workspace methods were called
-        self.workspace_manager.change_to_workspace.assert_called_once()
-        self.workspace_manager.setup_python_path.assert_called_once()
-
-        # Verify directory was restored
-        mock_chdir.assert_called_once_with("/original")
-
     def test_execute_function_workspace_restoration_on_error(self):
         """Test that workspace directory is restored even on error."""
         self.workspace_manager.change_to_workspace.return_value = "/original"

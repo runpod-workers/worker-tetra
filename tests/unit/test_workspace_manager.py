@@ -281,30 +281,8 @@ class TestWorkspaceOperations:
 
         assert original_cwd is None
 
-    @patch("os.makedirs")
-    @patch("workspace_manager.WorkspaceManager._validate_virtual_environment")
-    @patch("os.path.exists")
-    @patch("glob.glob")
-    def test_setup_python_path(
-        self, mock_glob, mock_exists, mock_validate, mock_makedirs
-    ):
-        """Test Python path setup with virtual environment."""
-        expected_workspace = f"{RUNPOD_VOLUME_PATH}/{RUNTIMES_DIR_NAME}/default"
-        expected_venv = f"{expected_workspace}/{VENV_DIR_NAME}"
-        mock_exists.side_effect = lambda path: path in [
-            RUNPOD_VOLUME_PATH,
-            expected_venv,
-        ]
-        mock_glob.return_value = [f"{expected_venv}/lib/python3.12/site-packages"]
-        mock_validate.return_value = FunctionResponse(success=True, stdout="Valid venv")
-
         manager = WorkspaceManager()
 
-        import sys
-
-        original_path = sys.path.copy()
-        try:
-            manager.setup_python_path()
             assert f"{expected_venv}/lib/python3.12/site-packages" in sys.path
         finally:
             sys.path = original_path

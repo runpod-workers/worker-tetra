@@ -264,26 +264,6 @@ class WorkspaceManager:
             return original_cwd
         return None
 
-    def setup_python_path(self):
-        """Add virtual environment packages to Python path if available."""
-        if self.has_runpod_volume and self.venv_path and os.path.exists(self.venv_path):
-            # Validate venv before using it
-            validation_result = self._validate_virtual_environment()
-            if not validation_result.success:
-                self.logger.warning(
-                    f"Virtual environment is invalid: {validation_result.error}"
-                )
-                return
-            import glob
-            import sys
-
-            site_packages = glob.glob(
-                os.path.join(self.venv_path, "lib", "python*", "site-packages")
-            )
-            for site_package_path in site_packages:
-                if site_package_path not in sys.path:
-                    sys.path.insert(0, site_package_path)
-
     def _validate_virtual_environment(self) -> FunctionResponse:
         """
         Validate that the virtual environment is functional.
