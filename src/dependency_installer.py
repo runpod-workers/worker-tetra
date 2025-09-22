@@ -37,15 +37,23 @@ class DependencyInstaller:
 
         self.logger.info(f"Installing Python dependencies: {packages}")
 
-        if accelerate_downloads:
-            if self._is_docker_environment():
-                # Docker: Use system installation with cache handling
-                command = ["uv", "pip", "install", "--system", "--no-cache"] + packages
+        if self._is_docker_environment():
+            # Docker: Use full path to system python to avoid venv interference
+            # This ensures packages are installed to the system location where they can be imported
+            system_python = "/opt/conda/bin/python"
+            if accelerate_downloads:
+                command = [
+                    system_python,
+                    "-m",
+                    "pip",
+                    "install",
+                    "--no-cache-dir",
+                ] + packages
             else:
-                # Local/non-Docker: Use regular venv installation
-                command = ["uv", "pip", "install"] + packages
+                command = [system_python, "-m", "pip", "install"] + packages
         else:
-            command = ["pip", "install"] + packages
+            # Local: Always use uv with current python for consistency
+            command = ["uv", "pip", "install", "--python", "python"] + packages
 
         operation_name = f"Installing Python packages ({'accelerated' if accelerate_downloads else 'standard'})"
 
