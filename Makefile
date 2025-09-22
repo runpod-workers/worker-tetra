@@ -30,10 +30,6 @@ clean: # Remove build artifacts and cache files
 	find . -type f -name "*.pyc" -delete
 	find . -type f -name "*.pkl" -delete
 
-upgrade: # Upgrade all dependencies
-	uv sync --upgrade
-	uv sync --all-groups
-
 setup: dev # Initialize project, sync deps, update submodules
 	git submodule init
 	git submodule update --remote --merge
