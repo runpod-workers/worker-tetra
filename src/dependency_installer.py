@@ -38,19 +38,12 @@ class DependencyInstaller:
         self.logger.info(f"Installing Python dependencies: {packages}")
 
         if self._is_docker_environment():
-            # Docker: Use full path to system python to avoid venv interference
-            # This ensures packages are installed to the system location where they can be imported
-            system_python = "/opt/conda/bin/python"
             if accelerate_downloads:
-                command = [
-                    system_python,
-                    "-m",
-                    "pip",
-                    "install",
-                    "--no-cache-dir",
-                ] + packages
+                # Packages are installed to the system location where they can be imported
+                command = ["uv", "pip", "install", "--system", "--no-cache"] + packages
             else:
-                command = [system_python, "-m", "pip", "install"] + packages
+                # Use full path to system python
+                command = ["/opt/conda/bin/python", "-m", "pip", "install"] + packages
         else:
             # Local: Always use uv with current python for consistency
             command = ["uv", "pip", "install", "--python", "python"] + packages
