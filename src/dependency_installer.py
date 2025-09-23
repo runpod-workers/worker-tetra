@@ -7,7 +7,7 @@ from typing import List, Dict
 
 from remote_execution import FunctionResponse
 from download_accelerator import DownloadAccelerator
-from constants import LARGE_SYSTEM_PACKAGES, NALA_CHECK_CMD
+from constants import LARGE_SYSTEM_PACKAGES
 
 
 class DependencyInstaller:
@@ -15,7 +15,7 @@ class DependencyInstaller:
 
     def __init__(self, workspace_manager):
         self.workspace_manager = workspace_manager
-        self.logger = logging.getLogger(__name__)
+        self.logger = logging.getLogger(f"worker_tetra.{__name__.split('.')[-1]}")
         self.download_accelerator = DownloadAccelerator(workspace_manager)
         self._nala_available = None  # Cache nala availability check
 
@@ -43,9 +43,6 @@ class DependencyInstaller:
         large_packages = self._identify_large_system_packages(packages)
 
         if accelerate_downloads and large_packages and self._check_nala_available():
-            self.logger.info(
-                f"Using nala for accelerated installation of system packages: {large_packages}"
-            )
             return self._install_system_with_nala(packages)
         else:
             return self._install_system_standard(packages)
@@ -220,25 +217,15 @@ class DependencyInstaller:
         if self._nala_available is None:
             try:
                 process = subprocess.Popen(
-                    NALA_CHECK_CMD,
+                    ["which", "nala"],
                     stdout=subprocess.PIPE,
                     stderr=subprocess.PIPE,
                 )
                 process.communicate()
                 self._nala_available = process.returncode == 0
 
-                if self._nala_available:
-                    self.logger.debug(
-                        "nala is available for accelerated system package installation"
-                    )
-                else:
-                    self.logger.debug("nala is not available, falling back to apt-get")
-
             except Exception:
                 self._nala_available = False
-                self.logger.debug(
-                    "nala availability check failed, falling back to apt-get"
-                )
 
         return self._nala_available
 
@@ -270,7 +257,6 @@ class DependencyInstaller:
         """
         try:
             # Update package list first with nala
-            self.logger.info("Updating package list with nala")
             update_process = subprocess.Popen(
                 ["nala", "update"],
                 stdout=subprocess.PIPE,
@@ -285,7 +271,6 @@ class DependencyInstaller:
                 return self._install_system_standard(packages)
 
             # Install packages with nala
-            self.logger.info("Installing packages with nala acceleration")
             process = subprocess.Popen(
                 ["nala", "install", "-y"] + packages,
                 stdout=subprocess.PIPE,
@@ -309,7 +294,7 @@ class DependencyInstaller:
                 )
                 return FunctionResponse(
                     success=True,
-                    stdout=f"Installed with nala acceleration: {stdout.decode()}",
+                    stdout=f"Installed with nala: {stdout.decode()}",
                 )
         except Exception as e:
             self.logger.warning(

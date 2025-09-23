@@ -85,10 +85,3 @@ LARGE_SYSTEM_PACKAGES = [
     "wget",
 ]
 """List of system packages that benefit from nala's accelerated installation."""
-
-NALA_CHECK_CMD = ["which", "nala"]
-"""Command to check if nala is available."""
-
-# Logging Configuration
-LOG_FORMAT = "%(asctime)s - %(levelname)s - %(name)s - %(message)s"
-"""Standard log format string used across the application."""
