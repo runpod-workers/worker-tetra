@@ -1,0 +1,9 @@
+{
+  "input": {
+    "function_name": "test_numpy_import",
+    "function_code": "def test_numpy_import():\n    import numpy as np\n    arr = np.array([1, 2, 3, 4, 5])\n    return {\n        'numpy_version': np.__version__,\n        'array_sum': int(arr.sum()),\n        'array_mean': float(arr.mean())\n    }",
+    "dependencies": ["numpy"],
+    "args": [],
+    "kwargs": {}
+  }
+}

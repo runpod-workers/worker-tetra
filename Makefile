@@ -30,13 +30,9 @@ clean: # Remove build artifacts and cache files
 	find . -type f -name "*.pyc" -delete
 	find . -type f -name "*.pkl" -delete
 
-upgrade: # Upgrade all dependencies
-	uv sync --upgrade
-	uv sync --all-groups
-
 setup: dev # Initialize project, sync deps, update submodules
 	git submodule init
-	git submodule update --remote --merge
+	git submodule update --remote --rebase
 	cp tetra-rp/src/tetra_rp/protos/remote_execution.py src/
 
 build: # Build both GPU and CPU Docker images
@@ -77,15 +73,15 @@ test-handler: # Test handler locally with all test_*.json files
 
 # Smoke Tests (local on Mac OS)
 
-smoketest-macos-build: setup # Build CPU-only Mac OS Docker image (macos/arm64)
+smoketest-macos-build: setup # Build Mac OS Docker image (macos/arm64)
 	docker buildx build \
 	--platform linux/arm64 \
-	-f Dockerfile-cpu \
-	-t $(FULL_IMAGE_CPU)-mac \
+	-f Dockerfile \
+	-t $(FULL_IMAGE)-mac \
 	. --load
 
-smoketest-macos: smoketest-macos-build # Test CPU Docker image locally
-	docker run --rm $(FULL_IMAGE_CPU)-mac ./test-handler.sh
+smoketest-macos: smoketest-macos-build # Test Docker image locally
+	docker run --rm $(FULL_IMAGE)-mac ./test-handler.sh
 
 # Linting commands
 lint: # Check code with ruff
