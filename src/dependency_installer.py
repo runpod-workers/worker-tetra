@@ -43,7 +43,7 @@ class DependencyInstaller:
                 command = ["uv", "pip", "install", "--system", "--no-cache"] + packages
             else:
                 # Use full path to system python
-                command = ["/opt/conda/bin/python", "-m", "pip", "install"] + packages
+                command = ["pip", "install"] + packages
         else:
             # Local: Always use uv with current python for consistency
             command = ["uv", "pip", "install", "--python", "python"] + packages
