@@ -99,7 +99,9 @@ jobs:
         run: make setup
 
       - name: Test local handler execution
-        run: make test-handler
+        run: |
+          source .venv/bin/activate
+          make test-handler
 
   release:
     runs-on: ubuntu-latest
