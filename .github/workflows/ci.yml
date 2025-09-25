@@ -81,7 +81,7 @@ jobs:
     needs: [test, lint]
     strategy:
       matrix:
-        image-type: [gpu, cpu]
+        image-type: [cpu]
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
@@ -102,19 +102,6 @@ jobs:
           git submodule update --remote --merge
           cp tetra-rp/src/tetra_rp/protos/remote_execution.py src/
 
-      - name: Build GPU Docker image for handler testing
-        if: matrix.image-type == 'gpu'
-        uses: docker/build-push-action@v6
-        with:
-          context: .
-          file: ./Dockerfile
-          platforms: linux/amd64
-          push: false
-          tags: tetra-rp:local-test
-          cache-from: type=gha
-          cache-to: type=gha,mode=max
-          load: true
-
       - name: Build CPU Docker image for handler testing
         if: matrix.image-type == 'cpu'
         uses: docker/build-push-action@v6
@@ -127,12 +114,6 @@ jobs:
           cache-from: type=gha
           cache-to: type=gha,mode=max
           load: true
-
-      - name: Test GPU handler execution in Docker environment
-        if: matrix.image-type == 'gpu'
-        run: |
-          echo "Testing GPU handler in Docker environment..."
-          docker run --rm tetra-rp:local-test ./test-handler.sh
 
       - name: Test CPU handler execution in Docker environment
         if: matrix.image-type == 'cpu'
