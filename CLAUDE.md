@@ -142,7 +142,7 @@ make build-cpu               # Build CPU-only Docker image
 
 ### Submodule Management
 ```bash
-git submodule update --remote --merge    # Update tetra-rp to latest
+git submodule update --remote --rebase    # Update tetra-rp to latest
 ```
 
 ## Configuration

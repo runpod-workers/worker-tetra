@@ -99,7 +99,7 @@ jobs:
       - name: Setup dependencies
         run: |
           uv sync
-          git submodule update --remote --merge
+          git submodule update --remote --rebase
           cp tetra-rp/src/tetra_rp/protos/remote_execution.py src/
 
       - name: Build CPU Docker image for handler testing
@@ -167,7 +167,7 @@ jobs:
       - name: Setup dependencies
         run: |
           uv sync
-          git submodule update --remote --merge
+          git submodule update --remote --rebase
           cp tetra-rp/src/tetra_rp/protos/remote_execution.py src/
 
       - name: Build and test CPU Docker image (PR)
@@ -226,7 +226,7 @@ jobs:
       - name: Setup dependencies
         run: |
           uv sync
-          git submodule update --remote --merge
+          git submodule update --remote --rebase
           cp tetra-rp/src/tetra_rp/protos/remote_execution.py src/
 
       - name: Build and push GPU Docker image (main)
@@ -279,7 +279,7 @@ jobs:
       - name: Setup dependencies
         run: |
           uv sync
-          git submodule update --remote --merge
+          git submodule update --remote --rebase
           cp tetra-rp/src/tetra_rp/protos/remote_execution.py src/
 
       - name: Build and push CPU Docker image (main)
@@ -342,7 +342,7 @@ jobs:
       - name: Setup dependencies
         run: |
           uv sync
-          git submodule update --remote --merge
+          git submodule update --remote --rebase
           cp tetra-rp/src/tetra_rp/protos/remote_execution.py src/
 
       - name: Build and push GPU Docker image (prod)
@@ -405,7 +405,7 @@ jobs:
       - name: Setup dependencies
         run: |
           uv sync
-          git submodule update --remote --merge
+          git submodule update --remote --rebase
           cp tetra-rp/src/tetra_rp/protos/remote_execution.py src/
 
       - name: Build and push CPU Docker image (prod)
