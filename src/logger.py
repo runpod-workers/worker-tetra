@@ -9,9 +9,6 @@ import os
 import sys
 from typing import Union, Optional
 
-# Application logger namespace
-APP_LOGGER_NAME = "tetra"
-
 
 def get_log_level() -> int:
     """Get log level from environment variable, defaulting to INFO."""

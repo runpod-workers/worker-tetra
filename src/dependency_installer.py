@@ -38,19 +38,12 @@ class DependencyInstaller:
         self.logger.info(f"Installing Python dependencies: {packages}")
 
         if self._is_docker_environment():
-            # Docker: Use full path to system python to avoid venv interference
-            # This ensures packages are installed to the system location where they can be imported
-            system_python = "/opt/conda/bin/python"
             if accelerate_downloads:
-                command = [
-                    system_python,
-                    "-m",
-                    "pip",
-                    "install",
-                    "--no-cache-dir",
-                ] + packages
+                # Packages are installed to the system location where they can be imported
+                command = ["uv", "pip", "install", "--system", "--no-cache"] + packages
             else:
-                command = [system_python, "-m", "pip", "install"] + packages
+                # Use full path to system python
+                command = ["pip", "install"] + packages
         else:
             # Local: Always use uv with current python for consistency
             command = ["uv", "pip", "install", "--python", "python"] + packages
@@ -89,6 +82,16 @@ class DependencyInstaller:
         Returns:
             FunctionResponse: Object indicating success or failure with details
         """
+        # Check if we're running on a system without nala/apt-get (e.g., macOS for local testing)
+        if platform.system().lower() == "darwin":
+            self.logger.warning(
+                "System package installation not supported on macOS (local testing environment)"
+            )
+            return FunctionResponse(
+                success=True,  # Don't fail tests, just skip system packages
+                stdout=f"Skipped system packages on macOS: {packages}",
+            )
+
         # Check if we're running on a system without nala/apt-get (e.g., macOS for local testing)
         if platform.system().lower() == "darwin":
             self.logger.warning(

@@ -79,16 +79,17 @@ jobs:
   local-execution-test:
     runs-on: ubuntu-latest
     needs: [test, lint]
+    strategy:
+      matrix:
+        image-type: [cpu]
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
         with:
           submodules: recursive
 
-      - name: Set up Python
-        uses: actions/setup-python@v5
-        with:
-          python-version: "3.11"
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
 
       - name: Set up uv
         uses: astral-sh/setup-uv@v4
@@ -96,10 +97,29 @@ jobs:
           enable-cache: true
 
       - name: Setup dependencies
-        run: make setup
+        run: |
+          uv sync
+          git submodule update --remote --rebase
+          cp tetra-rp/src/tetra_rp/protos/remote_execution.py src/
 
-      - name: Test local handler execution
-        run: make test-handler
+      - name: Build CPU Docker image for handler testing
+        if: matrix.image-type == 'cpu'
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          file: ./Dockerfile-cpu
+          platforms: linux/amd64
+          push: false
+          tags: tetra-rp-cpu:local-test
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+          load: true
+
+      - name: Test CPU handler execution in Docker environment
+        if: matrix.image-type == 'cpu'
+        run: |
+          echo "Testing CPU handler in Docker environment..."
+          docker run --rm tetra-rp-cpu:local-test ./test-handler.sh
 
   release:
     runs-on: ubuntu-latest
@@ -115,7 +135,7 @@ jobs:
           release-type: python
           token: ${{ secrets.GITHUB_TOKEN }}
 
-  docker-pr-gpu:
+  docker-pr:
     runs-on: ubuntu-latest
     needs: [test, lint, local-execution-test]
     if: github.event_name == 'pull_request'
@@ -147,59 +167,7 @@ jobs:
       - name: Setup dependencies
         run: |
           uv sync
-          git submodule update --remote --merge
-          cp tetra-rp/src/tetra_rp/protos/remote_execution.py src/
-
-      - name: Build and test GPU Docker image (PR)
-        uses: docker/build-push-action@v6
-        with:
-          context: .
-          file: ./Dockerfile
-          platforms: linux/amd64
-          push: false
-          tags: tetra-rp:pr-test
-          cache-from: type=gha
-          cache-to: type=gha,mode=max
-          load: true
-
-      - name: Test GPU Docker image with handler test suite
-        run: |
-          echo "Testing GPU image with handler test suite..."
-          docker run --rm tetra-rp:pr-test ./test-handler.sh
-
-  docker-pr-cpu:
-    runs-on: ubuntu-latest
-    needs: [test, lint, local-execution-test]
-    if: github.event_name == 'pull_request'
-    steps:
-      - name: Clear Space
-        run: |
-          rm -rf /usr/share/dotnet
-          rm -rf /opt/ghc
-          rm -rf "/usr/local/share/boost"
-          rm -rf "$AGENT_TOOLSDIRECTORY"
-
-      - name: Checkout repository
-        uses: actions/checkout@v4
-        with:
-          submodules: recursive
-          fetch-depth: 0
-
-      - name: Set up QEMU
-        uses: docker/setup-qemu-action@v3
-
-      - name: Set up Docker Buildx
-        uses: docker/setup-buildx-action@v3
-
-      - name: Set up uv
-        uses: astral-sh/setup-uv@v4
-        with:
-          enable-cache: true
-
-      - name: Setup dependencies
-        run: |
-          uv sync
-          git submodule update --remote --merge
+          git submodule update --remote --rebase
           cp tetra-rp/src/tetra_rp/protos/remote_execution.py src/
 
       - name: Build and test CPU Docker image (PR)
@@ -258,7 +226,7 @@ jobs:
       - name: Setup dependencies
         run: |
           uv sync
-          git submodule update --remote --merge
+          git submodule update --remote --rebase
           cp tetra-rp/src/tetra_rp/protos/remote_execution.py src/
 
       - name: Build and push GPU Docker image (main)
@@ -311,7 +279,7 @@ jobs:
       - name: Setup dependencies
         run: |
           uv sync
-          git submodule update --remote --merge
+          git submodule update --remote --rebase
           cp tetra-rp/src/tetra_rp/protos/remote_execution.py src/
 
       - name: Build and push CPU Docker image (main)
@@ -374,7 +342,7 @@ jobs:
       - name: Setup dependencies
         run: |
           uv sync
-          git submodule update --remote --merge
+          git submodule update --remote --rebase
           cp tetra-rp/src/tetra_rp/protos/remote_execution.py src/
 
       - name: Build and push GPU Docker image (prod)
@@ -437,7 +405,7 @@ jobs:
       - name: Setup dependencies
         run: |
           uv sync
-          git submodule update --remote --merge
+          git submodule update --remote --rebase
           cp tetra-rp/src/tetra_rp/protos/remote_execution.py src/
 
       - name: Build and push CPU Docker image (prod)
