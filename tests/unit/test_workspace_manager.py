@@ -281,12 +281,6 @@ class TestWorkspaceOperations:
 
         assert original_cwd is None
 
-        manager = WorkspaceManager()
-
-            assert f"{expected_venv}/lib/python3.12/site-packages" in sys.path
-        finally:
-            sys.path = original_path
-
 
 class TestAppVenvSymlink:
     """Tests for /app/.venv symlink functionality."""
