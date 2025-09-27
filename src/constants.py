@@ -1,3 +1,7 @@
+# Logger Configuration
+NAMESPACE = "tetra"
+"""Application logger namespace for all components."""
+
 # RunPod Volume Paths
 RUNPOD_VOLUME_PATH = "/runpod-volume"
 """Path to the RunPod persistent volume mount point."""

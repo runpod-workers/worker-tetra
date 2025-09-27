@@ -31,9 +31,6 @@ class FunctionExecutor(BaseExecutor):
         log_io = io.StringIO()
 
         try:
-            # Setup execution environment including Python path
-            self._setup_execution_environment()
-
             # Capture all stdout, stderr, and logs
             with redirect_stdout(stdout_io), redirect_stderr(stderr_io):
                 try:

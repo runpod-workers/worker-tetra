@@ -34,9 +34,6 @@ class ClassExecutor(BaseExecutor):
 
         with redirect_stdout(stdout_io), redirect_stderr(stderr_io):
             try:
-                # Setup execution environment including Python path
-                self._setup_execution_environment()
-
                 # Setup logging
                 log_handler = logging.StreamHandler(log_io)
                 log_handler.setLevel(logging.DEBUG)

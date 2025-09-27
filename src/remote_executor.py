@@ -7,6 +7,7 @@ from dependency_installer import DependencyInstaller
 from function_executor import FunctionExecutor
 from class_executor import ClassExecutor
 from log_streamer import start_log_streaming, stop_log_streaming, get_streamed_logs
+from constants import NAMESPACE
 
 
 class RemoteExecutor(RemoteExecutorStub):
@@ -17,7 +18,7 @@ class RemoteExecutor(RemoteExecutorStub):
 
     def __init__(self):
         super().__init__()
-        self.logger = logging.getLogger(f"worker_tetra.{__name__.split('.')[-1]}")
+        self.logger = logging.getLogger(f"{NAMESPACE}.{__name__.split('.')[-1]}")
 
         # Initialize components using composition
         self.workspace_manager = WorkspaceManager()

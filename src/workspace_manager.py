@@ -11,6 +11,7 @@ if TYPE_CHECKING:
 from remote_execution import FunctionResponse
 from subprocess_utils import run_logged_subprocess
 from constants import (
+    NAMESPACE,
     RUNPOD_VOLUME_PATH,
     DEFAULT_WORKSPACE_PATH,
     VENV_DIR_NAME,
@@ -29,7 +30,7 @@ class WorkspaceManager:
     hf_cache_path: Optional[str]
 
     def __init__(self) -> None:
-        self.logger = logging.getLogger(f"worker_tetra.{__name__.split('.')[-1]}")
+        self.logger = logging.getLogger(f"{NAMESPACE}.{__name__.split('.')[-1]}")
         self.has_runpod_volume = os.path.exists(RUNPOD_VOLUME_PATH)
         self.endpoint_id = os.environ.get("RUNPOD_ENDPOINT_ID", "default")
 
@@ -262,26 +263,6 @@ class WorkspaceManager:
             os.chdir(self.workspace_path)
             return original_cwd
         return None
-
-    def setup_python_path(self):
-        """Add virtual environment packages to Python path if available."""
-        if self.has_runpod_volume and self.venv_path and os.path.exists(self.venv_path):
-            # Validate venv before using it
-            validation_result = self._validate_virtual_environment()
-            if not validation_result.success:
-                self.logger.warning(
-                    f"Virtual environment is invalid: {validation_result.error}"
-                )
-                return
-            import glob
-            import sys
-
-            site_packages = glob.glob(
-                os.path.join(self.venv_path, "lib", "python*", "site-packages")
-            )
-            for site_package_path in site_packages:
-                if site_package_path not in sys.path:
-                    sys.path.insert(0, site_package_path)
 
     def _validate_virtual_environment(self) -> FunctionResponse:
         """

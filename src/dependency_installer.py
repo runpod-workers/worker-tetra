@@ -6,7 +6,7 @@ from typing import List
 
 from remote_execution import FunctionResponse
 from download_accelerator import DownloadAccelerator
-from constants import LARGE_SYSTEM_PACKAGES
+from constants import LARGE_SYSTEM_PACKAGES, NAMESPACE
 from subprocess_utils import run_logged_subprocess
 
 
@@ -15,7 +15,7 @@ class DependencyInstaller:
 
     def __init__(self, workspace_manager):
         self.workspace_manager = workspace_manager
-        self.logger = logging.getLogger(f"worker_tetra.{__name__.split('.')[-1]}")
+        self.logger = logging.getLogger(f"{NAMESPACE}.{__name__.split('.')[-1]}")
         self.download_accelerator = DownloadAccelerator(workspace_manager)
         self._nala_available = None  # Cache nala availability check
         self._is_docker = None  # Cache Docker environment detection
@@ -82,6 +82,16 @@ class DependencyInstaller:
         Returns:
             FunctionResponse: Object indicating success or failure with details
         """
+        # Check if we're running on a system without nala/apt-get (e.g., macOS for local testing)
+        if platform.system().lower() == "darwin":
+            self.logger.warning(
+                "System package installation not supported on macOS (local testing environment)"
+            )
+            return FunctionResponse(
+                success=True,  # Don't fail tests, just skip system packages
+                stdout=f"Skipped system packages on macOS: {packages}",
+            )
+
         # Check if we're running on a system without nala/apt-get (e.g., macOS for local testing)
         if platform.system().lower() == "darwin":
             self.logger.warning(

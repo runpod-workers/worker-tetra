@@ -13,7 +13,7 @@ class TestHandlerIntegration:
 
     def setup_method(self):
         """Setup for each test method."""
-        self.test_data_dir = Path(__file__).parent.parent.parent / "src"
+        self.test_data_dir = Path(__file__).parent.parent.parent / "src" / "tests"
         self.test_input_file = self.test_data_dir / "test_input.json"
         self.test_class_input_file = self.test_data_dir / "test_class_input.json"
 
