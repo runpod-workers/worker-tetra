@@ -12,7 +12,8 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
  && rm -rf /var/lib/apt/lists/*
 
 # Copy app code and install dependencies
-COPY README.md src/* pyproject.toml uv.lock ./
+COPY README.md pyproject.toml uv.lock ./
+COPY src/ ./
 RUN uv export --format requirements-txt --no-dev --no-hashes > requirements.txt \
  && uv pip install --system -r requirements.txt
 
