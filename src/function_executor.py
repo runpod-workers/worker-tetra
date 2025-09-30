@@ -4,16 +4,12 @@ import traceback
 from contextlib import redirect_stdout, redirect_stderr
 from typing import Dict, Any
 
-from base_executor import BaseExecutor
 from remote_execution import FunctionRequest, FunctionResponse
 from serialization_utils import SerializationUtils
 
 
-class FunctionExecutor(BaseExecutor):
+class FunctionExecutor:
     """Handles execution of individual functions with output capture."""
-
-    def __init__(self, workspace_manager):
-        super().__init__(workspace_manager)
 
     def execute(self, request: FunctionRequest) -> FunctionResponse:
         """

@@ -20,10 +20,9 @@ from constants import LARGE_HF_MODEL_PATTERNS, BYTES_PER_MB, MB_SIZE_THRESHOLD
 class TetraHFDownloader(HFDownloadStrategy):
     """Custom Tetra HuggingFace downloader with manual acceleration logic."""
 
-    def __init__(self, workspace_manager):
-        self.workspace_manager = workspace_manager
+    def __init__(self):
         self.logger = logging.getLogger(__name__)
-        self.download_accelerator = DownloadAccelerator(workspace_manager)
+        self.download_accelerator = DownloadAccelerator()
         self.api = HfApi()
 
         # Use standard HF cache location

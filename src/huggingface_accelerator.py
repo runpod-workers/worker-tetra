@@ -1,11 +1,11 @@
 """
 HuggingFace model download acceleration.
 
-This module provides accelerated downloads for HuggingFace models and datasets,
-integrating with the existing volume workspace caching system using pluggable
-download strategies.
+This module provides accelerated downloads for HuggingFace models and datasets
+using pluggable download strategies.
 """
 
+import asyncio
 import logging
 from typing import Dict, List, Any
 
@@ -18,15 +18,12 @@ from hf_download_strategy import HFDownloadStrategy
 class HuggingFaceAccelerator:
     """Accelerated downloads for HuggingFace models and files using pluggable strategies."""
 
-    def __init__(self, workspace_manager):
-        self.workspace_manager = workspace_manager
+    def __init__(self):
         self.logger = logging.getLogger(__name__)
         self.api = HfApi()
 
         # Create the configured download strategy
-        self.strategy: HFDownloadStrategy = HFStrategyFactory.create_strategy(
-            workspace_manager
-        )
+        self.strategy: HFDownloadStrategy = HFStrategyFactory.create_strategy()
 
     def get_model_files(
         self, model_id: str, revision: str = "main"
@@ -90,6 +87,23 @@ class HuggingFaceAccelerator:
         """
         return self.strategy.download_model(model_id, revision)
 
+    async def accelerate_model_download_async(
+        self, model_id: str, revision: str = "main"
+    ) -> FunctionResponse:
+        """
+        Async wrapper for pre-downloading HuggingFace models.
+
+        Args:
+            model_id: HuggingFace model identifier
+            revision: Model revision/branch
+
+        Returns:
+            FunctionResponse with download results
+        """
+        return await asyncio.to_thread(
+            self.accelerate_model_download, model_id, revision
+        )
+
     def is_model_cached(self, model_id: str, revision: str = "main") -> bool:
         """
         Check if model is already cached using the configured strategy.
@@ -146,5 +160,5 @@ class HuggingFaceAccelerator:
             strategy: Strategy name ("tetra" or "native")
         """
         HFStrategyFactory.set_strategy(strategy)
-        self.strategy = HFStrategyFactory.create_strategy(self.workspace_manager)
+        self.strategy = HFStrategyFactory.create_strategy()
         self.logger.info(f"Switched to {strategy} download strategy")

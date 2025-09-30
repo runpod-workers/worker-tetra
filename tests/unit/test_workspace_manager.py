@@ -5,7 +5,6 @@ from unittest.mock import patch
 from workspace_manager import WorkspaceManager
 from constants import (
     RUNPOD_VOLUME_PATH,
-    DEFAULT_WORKSPACE_PATH,
     RUNTIMES_DIR_NAME,
 )
 
@@ -68,44 +67,4 @@ class TestVolumeDetection:
         manager = WorkspaceManager()
 
         assert manager.has_runpod_volume is False
-        assert manager.workspace_path == DEFAULT_WORKSPACE_PATH
-
-
-class TestSyncOperations:
-    """Test volume sync operations."""
-
-    @patch("os.path.exists")
-    def test_sync_from_volume_to_container_returns_success(self, mock_exists):
-        """Test sync from volume to container interface."""
-        mock_exists.return_value = True
-
-        manager = WorkspaceManager()
-        result = manager.sync_from_volume_to_container()
-
-        assert result.success is True
-        assert "replicator" in result.stdout.lower()
-
-    @patch("os.path.exists")
-    def test_sync_from_container_to_volume_returns_success(self, mock_exists):
-        """Test sync from container to volume interface."""
-        mock_exists.return_value = True
-
-        manager = WorkspaceManager()
-        result = manager.sync_from_container_to_volume()
-
-        assert result.success is True
-        assert "replicator" in result.stdout.lower()
-
-    @patch("os.path.exists")
-    def test_sync_accepts_optional_source_path(self, mock_exists):
-        """Test sync methods accept optional source path parameter."""
-        mock_exists.return_value = True
-
-        manager = WorkspaceManager()
-
-        # Should not raise exceptions
-        result1 = manager.sync_from_volume_to_container("/some/path")
-        result2 = manager.sync_from_container_to_volume("/some/other/path")
-
-        assert result1.success is True
-        assert result2.success is True
+        assert manager.workspace_path is None

@@ -14,7 +14,6 @@ from src.download_accelerator import (
 )
 from src.huggingface_accelerator import HuggingFaceAccelerator
 from src.dependency_installer import DependencyInstaller
-from src.workspace_manager import WorkspaceManager
 from src.remote_executor import RemoteExecutor
 from src.remote_execution import FunctionRequest
 
@@ -25,9 +24,6 @@ class TestDownloadAccelerationIntegration:
     def setup_method(self):
         """Set up test environment."""
         self.temp_dir = Path(tempfile.mkdtemp())
-        self.mock_workspace_manager = Mock(spec=WorkspaceManager)
-        self.mock_workspace_manager.has_runpod_volume = True
-        self.mock_workspace_manager.workspace_path = str(self.temp_dir)
 
     def teardown_method(self):
         """Clean up test environment."""
@@ -49,7 +45,7 @@ class TestDownloadAccelerationIntegration:
 
     def test_download_accelerator_decision_logic(self):
         """Test when acceleration should be used."""
-        accelerator = DownloadAccelerator(self.mock_workspace_manager)
+        accelerator = DownloadAccelerator()
 
         # Mock hf_transfer as available
         accelerator.hf_transfer_downloader.hf_transfer_available = True
@@ -93,7 +89,7 @@ class TestDownloadAccelerationIntegration:
         ]
         mock_repo_info.return_value = mock_repo_info_obj
 
-        accelerator = HuggingFaceAccelerator(self.mock_workspace_manager)
+        accelerator = HuggingFaceAccelerator()
         files = accelerator.get_model_files("gpt2")
 
         assert len(files) == 2
@@ -103,7 +99,7 @@ class TestDownloadAccelerationIntegration:
 
     def test_hf_model_acceleration_decision(self):
         """Test when HuggingFace models should be pre-cached."""
-        accelerator = HuggingFaceAccelerator(self.mock_workspace_manager)
+        accelerator = HuggingFaceAccelerator()
 
         # Should pre-cache known large models (HF handles acceleration automatically)
         assert accelerator.should_accelerate_model("gpt2") is True
@@ -114,14 +110,9 @@ class TestDownloadAccelerationIntegration:
         # Should not pre-cache unknown/small models
         assert accelerator.should_accelerate_model("unknown/tiny-model") is False
 
-    @patch("src.workspace_manager.WorkspaceManager.__init__")
-    def test_remote_executor_with_acceleration(self, mock_workspace_init):
+    def test_remote_executor_with_acceleration(self):
         """Test RemoteExecutor integration with download acceleration."""
-        # Mock workspace manager
-        mock_workspace_init.return_value = None
-
         executor = RemoteExecutor()
-        executor.workspace_manager = self.mock_workspace_manager
         executor.workspace_manager.has_runpod_volume = True
 
         # Mock dependency installer
@@ -176,7 +167,7 @@ class TestDownloadAccelerationIntegration:
 
     def test_strategy_selection_logic(self):
         """Test the download strategy selection logic."""
-        accelerator = DownloadAccelerator(self.mock_workspace_manager)
+        accelerator = DownloadAccelerator()
         accelerator.hf_transfer_downloader.hf_transfer_available = True
 
         # Test file caching detection
@@ -191,7 +182,7 @@ class TestDownloadAccelerationIntegration:
 
     def test_fallback_behavior_without_accelerators(self):
         """Test graceful fallback when accelerators are not available."""
-        accelerator = DownloadAccelerator(self.mock_workspace_manager)
+        accelerator = DownloadAccelerator()
         accelerator.hf_transfer_downloader.hf_transfer_available = False
 
         # With new logic, when acceleration is not available, we defer to HF native handling
@@ -214,7 +205,7 @@ class TestDownloadAccelerationIntegration:
             success=True, stdout="Installed successfully"
         )
 
-        installer = DependencyInstaller(self.mock_workspace_manager)
+        installer = DependencyInstaller()
 
         # Install packages
         packages = ["torch==2.0.0", "transformers>=4.20.0"]
@@ -228,7 +219,7 @@ class TestDownloadAccelerationIntegration:
     @patch("src.hf_downloader_tetra.DownloadAccelerator")
     def test_model_cache_management(self, mock_download_accelerator):
         """Test model cache information API using tetra strategy."""
-        accelerator = HuggingFaceAccelerator(self.mock_workspace_manager)
+        accelerator = HuggingFaceAccelerator()
 
         # Test cache info for non-existent model
         cache_info = accelerator.get_cache_info("non-existent-model")
@@ -273,7 +264,7 @@ class TestDownloadAccelerationErrorHandling:
         # Mock API failure
         mock_repo_info.side_effect = Exception("API error")
 
-        accelerator = HuggingFaceAccelerator(None)
+        accelerator = HuggingFaceAccelerator()
         files = accelerator.get_model_files("gpt2")
 
         # Should return empty list on failure
@@ -284,7 +275,7 @@ class TestDownloadAccelerationErrorHandling:
         mock_workspace = Mock()
         mock_workspace.has_runpod_volume = True
 
-        accelerator = HuggingFaceAccelerator(mock_workspace)
+        accelerator = HuggingFaceAccelerator()
 
         # Test with empty model ID - should return success but indicate no pre-caching needed
         result = accelerator.accelerate_model_download("")

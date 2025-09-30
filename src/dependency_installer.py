@@ -13,10 +13,9 @@ from subprocess_utils import run_logged_subprocess
 class DependencyInstaller:
     """Handles installation of system and Python dependencies."""
 
-    def __init__(self, workspace_manager):
-        self.workspace_manager = workspace_manager
+    def __init__(self):
         self.logger = logging.getLogger(f"{NAMESPACE}.{__name__.split('.')[-1]}")
-        self.download_accelerator = DownloadAccelerator(workspace_manager)
+        self.download_accelerator = DownloadAccelerator()
         self._nala_available = None  # Cache nala availability check
         self._is_docker = None  # Cache Docker environment detection
 

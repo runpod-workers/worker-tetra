@@ -2,10 +2,8 @@
 
 import base64
 import cloudpickle
-from unittest.mock import Mock
 
 from function_executor import FunctionExecutor
-from workspace_manager import WorkspaceManager
 from remote_execution import FunctionRequest
 
 
@@ -14,8 +12,7 @@ class TestFunctionExecution:
 
     def setup_method(self):
         """Setup for each test method."""
-        self.workspace_manager = Mock(spec=WorkspaceManager)
-        self.executor = FunctionExecutor(self.workspace_manager)
+        self.executor = FunctionExecutor()
 
     def encode_args(self, *args):
         """Helper to encode arguments."""
@@ -133,13 +130,12 @@ def output_func():
         assert "log message" in response.stdout
 
 
-class TestWorkspaceIntegration:
-    """Test integration with workspace manager."""
+class TestErrorHandling:
+    """Test error handling in function execution."""
 
     def setup_method(self):
         """Setup for each test method."""
-        self.workspace_manager = Mock(spec=WorkspaceManager)
-        self.executor = FunctionExecutor(self.workspace_manager)
+        self.executor = FunctionExecutor()
 
     def test_execute_function_handles_errors(self):
         """Test that function execution properly handles errors."""

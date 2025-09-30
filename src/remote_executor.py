@@ -1,6 +1,7 @@
 import logging
 import asyncio
-from typing import List, Any
+from typing import List, Any, Optional
+from huggingface_accelerator import HuggingFaceAccelerator
 from remote_execution import FunctionRequest, FunctionResponse, RemoteExecutorStub
 from workspace_manager import WorkspaceManager
 from dependency_installer import DependencyInstaller
@@ -22,9 +23,21 @@ class RemoteExecutor(RemoteExecutorStub):
 
         # Initialize components using composition
         self.workspace_manager = WorkspaceManager()
-        self.dependency_installer = DependencyInstaller(self.workspace_manager)
-        self.function_executor = FunctionExecutor(self.workspace_manager)
-        self.class_executor = ClassExecutor(self.workspace_manager)
+        self.dependency_installer = DependencyInstaller()
+        self.function_executor = FunctionExecutor()
+        self.class_executor = ClassExecutor()
+
+        # Lazy-loaded HuggingFace accelerator
+        self._hf_accelerator: Optional["HuggingFaceAccelerator"] = None
+
+    @property
+    def hf_accelerator(self) -> "HuggingFaceAccelerator":
+        """Lazy-loaded HuggingFace accelerator for model downloads."""
+        if self._hf_accelerator is None:
+            from huggingface_accelerator import HuggingFaceAccelerator
+
+            self._hf_accelerator = HuggingFaceAccelerator()
+        return self._hf_accelerator
 
     async def ExecuteFunction(self, request: FunctionRequest) -> FunctionResponse:
         """
@@ -51,7 +64,7 @@ class RemoteExecutor(RemoteExecutorStub):
         )
 
         try:
-            # Install dependencies and cache models
+            # Install dependencies
             if request.accelerate_downloads:
                 # Run installations in parallel when acceleration is enabled
                 dep_result = await self._install_dependencies_parallel(request)
@@ -112,8 +125,6 @@ class RemoteExecutor(RemoteExecutorStub):
 
         acceleration_enabled = request.accelerate_downloads
         has_volume = self.workspace_manager.has_runpod_volume
-        hf_transfer_available = self.dependency_installer.download_accelerator.hf_transfer_downloader.hf_transfer_available
-        nala_available = self.dependency_installer._check_nala_available()
 
         # Build summary message
         summary_parts = []
@@ -125,12 +136,13 @@ class RemoteExecutor(RemoteExecutorStub):
                 summary_parts.append(
                     f"✓ Volume workspace: {self.workspace_manager.workspace_path}"
                 )
-                summary_parts.append("✓ Persistent caching enabled")
+                summary_parts.append("✓ Network Volume caching enabled")
             else:
-                summary_parts.append("ℹ No persistent volume - using temporary cache")
+                summary_parts.append("ℹ No Network Volume - using container cache")
 
             # System package acceleration status
             if request.system_dependencies:
+                nala_available = self.dependency_installer._check_nala_available()
                 large_system_packages = (
                     self.dependency_installer._identify_large_system_packages(
                         request.system_dependencies
@@ -143,16 +155,16 @@ class RemoteExecutor(RemoteExecutorStub):
                 elif request.system_dependencies:
                     summary_parts.append("→ System packages using standard apt-get")
 
-            if request.hf_models_to_cache:
+            # Python package installation status
+            if request.dependencies:
                 summary_parts.append(
-                    f"✓ HF models pre-cached: {len(request.hf_models_to_cache)}"
+                    f"→ Installing {len(request.dependencies)} Python package(s)"
                 )
 
-        elif acceleration_enabled and not (hf_transfer_available or nala_available):
+        elif acceleration_enabled:
             summary_parts.append(
-                "⚠ Download acceleration REQUESTED but no accelerators available"
+                "⚠ Download acceleration REQUESTED but no dependencies to install"
             )
-            summary_parts.append("→ Using standard downloads")
 
         elif not acceleration_enabled:
             summary_parts.append("- Download acceleration DISABLED")
@@ -199,7 +211,7 @@ class RemoteExecutor(RemoteExecutorStub):
         # Add HF model caching tasks
         if request.hf_models_to_cache:
             for model_id in request.hf_models_to_cache:
-                task = self.workspace_manager.accelerate_model_download_async(model_id)
+                task = self._hf_accelerator.accelerate_model_download_async(model_id)
                 tasks.append(task)
                 task_names.append(f"hf_model_{model_id}")
 
@@ -241,9 +253,7 @@ class RemoteExecutor(RemoteExecutorStub):
         if request.accelerate_downloads and request.hf_models_to_cache:
             for model_id in request.hf_models_to_cache:
                 self.logger.info(f"Pre-caching HuggingFace model: {model_id}")
-                cache_result = self.workspace_manager.accelerate_model_download(
-                    model_id
-                )
+                cache_result = self.hf_accelerator.accelerate_model_download(model_id)
                 if cache_result.success:
                     self.logger.info(
                         f"Successfully cached model {model_id}: {cache_result.stdout}"
@@ -317,12 +327,6 @@ class RemoteExecutor(RemoteExecutorStub):
                 + "\n".join(stdout_parts),
             )
         else:
-            # All tasks succeeded
-            return FunctionResponse(
-                success=True,
-                stdout=f"Parallel installation: {success_count}/{len(results)} tasks completed successfully\n"
-                + "\n".join(stdout_parts),
-            )
             # All tasks succeeded
             return FunctionResponse(
                 success=True,

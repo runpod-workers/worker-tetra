@@ -13,14 +13,6 @@ from src.remote_execution import FunctionResponse
 
 
 @pytest.fixture
-def mock_workspace_manager():
-    """Mock workspace manager."""
-    workspace_manager = Mock()
-    workspace_manager.hf_cache_path = "/tmp/test_cache"
-    return workspace_manager
-
-
-@pytest.fixture
 def mock_download_accelerator():
     """Mock download accelerator."""
     accelerator = Mock()
@@ -59,30 +51,30 @@ class TestHFStrategyFactory:
         strategy = HFStrategyFactory.get_configured_strategy()
         assert strategy == HFStrategyFactory.DEFAULT_STRATEGY
 
-    def test_create_tetra_strategy(self, mock_workspace_manager):
+    def test_create_tetra_strategy(self):
         """Test creating tetra strategy."""
         with patch("src.hf_strategy_factory.TetraHFDownloader") as mock_tetra:
             mock_instance = Mock()
             mock_tetra.return_value = mock_instance
 
             strategy = HFStrategyFactory.create_strategy(
-                mock_workspace_manager, HFStrategyFactory.TETRA_STRATEGY
+                HFStrategyFactory.TETRA_STRATEGY
             )
 
-            mock_tetra.assert_called_once_with(mock_workspace_manager)
+            mock_tetra.assert_called_once_with()
             assert strategy == mock_instance
 
-    def test_create_native_strategy(self, mock_workspace_manager):
+    def test_create_native_strategy(self):
         """Test creating native strategy."""
         with patch("src.hf_strategy_factory.NativeHFDownloader") as mock_native:
             mock_instance = Mock()
             mock_native.return_value = mock_instance
 
             strategy = HFStrategyFactory.create_strategy(
-                mock_workspace_manager, HFStrategyFactory.NATIVE_STRATEGY
+                HFStrategyFactory.NATIVE_STRATEGY
             )
 
-            mock_native.assert_called_once_with(mock_workspace_manager)
+            mock_native.assert_called_once_with()
             assert strategy == mock_instance
 
     def test_set_strategy(self):
@@ -112,17 +104,17 @@ class TestHFStrategyFactory:
 class TestTetraHFDownloader:
     """Tests for Tetra HF downloader strategy."""
 
-    def test_init(self, mock_workspace_manager):
+    def test_init(self):
         """Test TetraHFDownloader initialization."""
         with patch(
             "src.hf_downloader_tetra.DownloadAccelerator"
         ) as mock_accelerator_class:
-            downloader = TetraHFDownloader(mock_workspace_manager)
+            downloader = TetraHFDownloader()
 
-            assert downloader.workspace_manager == mock_workspace_manager
-            mock_accelerator_class.assert_called_once_with(mock_workspace_manager)
+            assert downloader.download_accelerator is not None
+            mock_accelerator_class.assert_called_once_with()
 
-    def test_should_accelerate_with_hf_transfer(self, mock_workspace_manager):
+    def test_should_accelerate_with_hf_transfer(self):
         """Test should_accelerate when hf_transfer is available."""
         with patch(
             "src.hf_downloader_tetra.DownloadAccelerator"
@@ -131,7 +123,7 @@ class TestTetraHFDownloader:
             mock_accelerator.hf_transfer_downloader.hf_transfer_available = True
             mock_accelerator_class.return_value = mock_accelerator
 
-            downloader = TetraHFDownloader(mock_workspace_manager)
+            downloader = TetraHFDownloader()
 
             # Should accelerate large models
             assert downloader.should_accelerate("gpt-3.5-turbo")
@@ -140,7 +132,7 @@ class TestTetraHFDownloader:
             # Should not accelerate small models
             assert not downloader.should_accelerate("prajjwal1/bert-tiny")
 
-    def test_should_accelerate_without_hf_transfer(self, mock_workspace_manager):
+    def test_should_accelerate_without_hf_transfer(self):
         """Test should_accelerate when hf_transfer is not available."""
         with patch(
             "src.hf_downloader_tetra.DownloadAccelerator"
@@ -149,14 +141,14 @@ class TestTetraHFDownloader:
             mock_accelerator.hf_transfer_downloader.hf_transfer_available = False
             mock_accelerator_class.return_value = mock_accelerator
 
-            downloader = TetraHFDownloader(mock_workspace_manager)
+            downloader = TetraHFDownloader()
 
             # Should not accelerate any models without hf_transfer
             assert not downloader.should_accelerate("gpt-3.5-turbo")
             assert not downloader.should_accelerate("llama")
 
     @patch("src.hf_downloader_tetra.Path.mkdir")
-    def test_download_model_success(self, mock_mkdir, mock_workspace_manager):
+    def test_download_model_success(self, mock_mkdir):
         """Test successful model download."""
         with patch(
             "src.hf_downloader_tetra.DownloadAccelerator"
@@ -165,7 +157,7 @@ class TestTetraHFDownloader:
             mock_accelerator.hf_transfer_downloader.hf_transfer_available = True
             mock_accelerator_class.return_value = mock_accelerator
 
-            downloader = TetraHFDownloader(mock_workspace_manager)
+            downloader = TetraHFDownloader()
 
             # Mock get_model_files to return test files
             downloader.get_model_files = Mock(
@@ -188,7 +180,7 @@ class TestTetraHFDownloader:
             assert result.success
             assert "Successfully pre-downloaded" in result.stdout
 
-    def test_download_model_no_acceleration_needed(self, mock_workspace_manager):
+    def test_download_model_no_acceleration_needed(self):
         """Test download when no acceleration is needed."""
         with patch(
             "src.hf_downloader_tetra.DownloadAccelerator"
@@ -197,7 +189,7 @@ class TestTetraHFDownloader:
             mock_accelerator.hf_transfer_downloader.hf_transfer_available = False
             mock_accelerator_class.return_value = mock_accelerator
 
-            downloader = TetraHFDownloader(mock_workspace_manager)
+            downloader = TetraHFDownloader()
 
             result = downloader.download_model("prajjwal1/bert-tiny")
 
@@ -208,14 +200,14 @@ class TestTetraHFDownloader:
 class TestNativeHFDownloader:
     """Tests for Native HF downloader strategy."""
 
-    def test_init(self, mock_workspace_manager):
+    def test_init(self):
         """Test NativeHFDownloader initialization."""
-        downloader = NativeHFDownloader(mock_workspace_manager)
-        assert downloader.workspace_manager == mock_workspace_manager
+        downloader = NativeHFDownloader()
+        assert downloader.api is not None
 
-    def test_should_accelerate(self, mock_workspace_manager):
+    def test_should_accelerate(self):
         """Test should_accelerate logic."""
-        downloader = NativeHFDownloader(mock_workspace_manager)
+        downloader = NativeHFDownloader()
 
         # Should accelerate large models
         assert downloader.should_accelerate("gpt-3.5-turbo")
@@ -225,13 +217,11 @@ class TestNativeHFDownloader:
         assert not downloader.should_accelerate("prajjwal1/bert-tiny")
 
     @patch("src.hf_downloader_native.snapshot_download")
-    def test_download_model_success(
-        self, mock_snapshot_download, mock_workspace_manager
-    ):
+    def test_download_model_success(self, mock_snapshot_download):
         """Test successful model download."""
         mock_snapshot_download.return_value = "/cache/models/gpt2"
 
-        downloader = NativeHFDownloader(mock_workspace_manager)
+        downloader = NativeHFDownloader()
         result = downloader.download_model("gpt2")
 
         assert result.success
@@ -239,21 +229,19 @@ class TestNativeHFDownloader:
         mock_snapshot_download.assert_called_once_with(repo_id="gpt2", revision="main")
 
     @patch("src.hf_downloader_native.snapshot_download")
-    def test_download_model_failure(
-        self, mock_snapshot_download, mock_workspace_manager
-    ):
+    def test_download_model_failure(self, mock_snapshot_download):
         """Test failed model download."""
         mock_snapshot_download.side_effect = Exception("Download failed")
 
-        downloader = NativeHFDownloader(mock_workspace_manager)
+        downloader = NativeHFDownloader()
         result = downloader.download_model("gpt2")
 
         assert not result.success
         assert "Failed to pre-cache model gpt2" in result.error
 
-    def test_download_model_no_acceleration_needed(self, mock_workspace_manager):
+    def test_download_model_no_acceleration_needed(self):
         """Test download when no acceleration is needed."""
-        downloader = NativeHFDownloader(mock_workspace_manager)
+        downloader = NativeHFDownloader()
         result = downloader.download_model("prajjwal1/bert-tiny")
 
         assert result.success

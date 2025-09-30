@@ -171,8 +171,7 @@ class DownloadAccelerator:
     when using hf_hub_download() or snapshot_download() functions.
     """
 
-    def __init__(self, workspace_manager=None):
-        self.workspace_manager = workspace_manager
+    def __init__(self):
         self.logger = logging.getLogger(__name__)
         self.hf_transfer_downloader = HfTransferDownloader()
 

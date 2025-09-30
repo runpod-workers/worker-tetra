@@ -6,22 +6,20 @@ from contextlib import redirect_stdout, redirect_stderr
 from datetime import datetime
 from typing import Dict, Any, Tuple
 
-from base_executor import BaseExecutor
 from remote_execution import FunctionRequest, FunctionResponse
 from serialization_utils import SerializationUtils
 
 
-class ClassExecutor(BaseExecutor):
+class ClassExecutor:
     """Handles execution of class methods with instance management."""
 
-    def __init__(self, workspace_manager):
-        super().__init__(workspace_manager)
+    def __init__(self):
         # Instance registry for persistent class instances
         self.class_instances: Dict[str, Any] = {}
         self.instance_metadata: Dict[str, Dict[str, Any]] = {}
 
     def execute(self, request: FunctionRequest) -> FunctionResponse:
-        """Execute class method - required by BaseExecutor interface."""
+        """Execute class method."""
         return self.execute_class_method(request)
 
     def execute_class_method(self, request: FunctionRequest) -> FunctionResponse:
@@ -33,13 +31,13 @@ class ClassExecutor(BaseExecutor):
         log_io = io.StringIO()
 
         with redirect_stdout(stdout_io), redirect_stderr(stderr_io):
-            try:
-                # Setup logging
-                log_handler = logging.StreamHandler(log_io)
-                log_handler.setLevel(logging.DEBUG)
-                logger = logging.getLogger()
-                logger.addHandler(log_handler)
+            # Setup logging
+            log_handler = logging.StreamHandler(log_io)
+            log_handler.setLevel(logging.DEBUG)
+            logger = logging.getLogger()
+            logger.addHandler(log_handler)
 
+            try:
                 # Get or create class instance
                 instance, instance_id = self._get_or_create_instance(request)
 

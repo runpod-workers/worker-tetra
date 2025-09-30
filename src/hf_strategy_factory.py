@@ -24,8 +24,8 @@ class HFStrategyFactory:
     TETRA_STRATEGY = "tetra"
     NATIVE_STRATEGY = "native"
 
-    # Default strategy
-    DEFAULT_STRATEGY = TETRA_STRATEGY
+    # Default strategy - use native for correct HF cache structure
+    DEFAULT_STRATEGY = NATIVE_STRATEGY
 
     @classmethod
     def get_available_strategies(cls) -> list[str]:
@@ -53,14 +53,11 @@ class HFStrategyFactory:
         return strategy
 
     @classmethod
-    def create_strategy(
-        cls, workspace_manager, strategy: Optional[str] = None
-    ) -> HFDownloadStrategy:
+    def create_strategy(cls, strategy: Optional[str] = None) -> HFDownloadStrategy:
         """
         Create HF download strategy instance.
 
         Args:
-            workspace_manager: Workspace manager instance
             strategy: Optional strategy override (defaults to environment configuration)
 
         Returns:
@@ -73,13 +70,13 @@ class HFStrategyFactory:
         logger.info(f"Creating HF download strategy: {strategy}")
 
         if strategy == cls.TETRA_STRATEGY:
-            return TetraHFDownloader(workspace_manager)
+            return TetraHFDownloader()
         elif strategy == cls.NATIVE_STRATEGY:
-            return NativeHFDownloader(workspace_manager)
+            return NativeHFDownloader()
         else:
             # Fallback to native
             logger.warning(f"Unknown strategy '{strategy}', using native")
-            return NativeHFDownloader(workspace_manager)
+            return NativeHFDownloader()
 
     @classmethod
     def set_strategy(cls, strategy: str) -> None:

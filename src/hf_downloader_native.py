@@ -1,8 +1,8 @@
 """
 Native HuggingFace downloader strategy.
 
-This strategy implements the current simplified approach using HF Hub's
-native snapshot_download() with built-in acceleration support.
+This strategy uses HF Hub's native snapshot_download() with built-in acceleration support.
+Files are cached to the default HF cache location (~/.cache/huggingface).
 """
 
 import logging
@@ -17,13 +17,9 @@ from constants import LARGE_HF_MODEL_PATTERNS, BYTES_PER_MB
 class NativeHFDownloader(HFDownloadStrategy):
     """Native HuggingFace downloader using HF Hub's built-in acceleration."""
 
-    def __init__(self, workspace_manager):
-        self.workspace_manager = workspace_manager
+    def __init__(self):
         self.logger = logging.getLogger(__name__)
         self.api = HfApi()
-
-        # HF will automatically use HF_HOME environment variable set by workspace_manager
-        # No need to manually manage cache directories
 
     def should_accelerate(self, model_id: str) -> bool:
         """
