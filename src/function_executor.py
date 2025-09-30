@@ -24,80 +24,70 @@ class FunctionExecutor(BaseExecutor):
         Returns:
             FunctionResponse object with execution result
         """
-        original_cwd = self.workspace_manager.change_to_workspace()
-
         stdout_io = io.StringIO()
         stderr_io = io.StringIO()
         log_io = io.StringIO()
 
-        try:
-            # Capture all stdout, stderr, and logs
-            with redirect_stdout(stdout_io), redirect_stderr(stderr_io):
-                try:
-                    # Setup logging capture
-                    log_handler = logging.StreamHandler(log_io)
-                    log_handler.setLevel(logging.DEBUG)
-                    logger = logging.getLogger()
-                    logger.addHandler(log_handler)
+        # Capture all stdout, stderr, and logs
+        with redirect_stdout(stdout_io), redirect_stderr(stderr_io):
+            # Setup logging capture
+            log_handler = logging.StreamHandler(log_io)
+            log_handler.setLevel(logging.DEBUG)
+            logger = logging.getLogger()
+            logger.addHandler(log_handler)
 
-                    # Execute function code in namespace
-                    namespace: Dict[str, Any] = {}
-                    if request.function_code:
-                        exec(request.function_code, namespace)
+            try:
+                # Execute function code in namespace
+                namespace: Dict[str, Any] = {}
+                if request.function_code:
+                    exec(request.function_code, namespace)
 
-                    if request.function_name not in namespace:
-                        return FunctionResponse(
-                            success=False,
-                            result=f"Function '{request.function_name}' not found in the provided code",
-                        )
-
-                    func = namespace[request.function_name]
-
-                    # Deserialize arguments
-                    args = SerializationUtils.deserialize_args(request.args)
-                    kwargs = SerializationUtils.deserialize_kwargs(request.kwargs)
-
-                    # Execute the function
-                    result = func(*args, **kwargs)
-
-                except Exception as e:
-                    # Combine output streams
-                    combined_output = (
-                        stdout_io.getvalue() + stderr_io.getvalue() + log_io.getvalue()
-                    )
-
-                    # Capture full traceback
-                    traceback_str = traceback.format_exc()
-                    error_message = f"{str(e)}\n{traceback_str}"
-
+                if request.function_name not in namespace:
                     return FunctionResponse(
                         success=False,
-                        error=error_message,
-                        stdout=combined_output,
+                        result=f"Function '{request.function_name}' not found in the provided code",
                     )
 
-                finally:
-                    # Clean up logging handler
-                    if "logger" in locals() and "log_handler" in locals():
-                        logger.removeHandler(log_handler)
+                func = namespace[request.function_name]
 
-            # Serialize result
-            serialized_result = SerializationUtils.serialize_result(result)
+                # Deserialize arguments
+                args = SerializationUtils.deserialize_args(request.args)
+                kwargs = SerializationUtils.deserialize_kwargs(request.kwargs)
 
-            # Combine output streams
-            combined_output = (
-                stdout_io.getvalue() + stderr_io.getvalue() + log_io.getvalue()
-            )
+                # Execute the function
+                result = func(*args, **kwargs)
 
-            return FunctionResponse(
-                success=True,
-                result=serialized_result,
-                stdout=combined_output,
-            )
+            except Exception as e:
+                # Combine output streams
+                combined_output = (
+                    stdout_io.getvalue() + stderr_io.getvalue() + log_io.getvalue()
+                )
 
-        finally:
-            # Restore original working directory
-            if original_cwd:
-                import os
+                # Capture full traceback
+                traceback_str = traceback.format_exc()
+                error_message = f"{str(e)}\n{traceback_str}"
 
-                os.chdir(original_cwd)
+                return FunctionResponse(
+                    success=False,
+                    error=error_message,
+                    stdout=combined_output,
+                )
+
+            finally:
+                # Clean up logging handler
+                if "logger" in locals() and "log_handler" in locals():
+                    logger.removeHandler(log_handler)
+
+        # Serialize result
+        serialized_result = SerializationUtils.serialize_result(result)
+
+        # Combine output streams
+        combined_output = (
+            stdout_io.getvalue() + stderr_io.getvalue() + log_io.getvalue()
+        )
+
+        return FunctionResponse(
+            success=True,
+            result=serialized_result,
+            stdout=combined_output,
+        )

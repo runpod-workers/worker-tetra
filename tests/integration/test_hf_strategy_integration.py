@@ -134,22 +134,19 @@ class TestStrategyEnvironmentIntegration:
 class TestWorkspaceManagerIntegration:
     """Test integration with workspace manager."""
 
-    def test_strategy_uses_workspace_cache_path(self):
-        """Test that strategies use workspace manager's cache path."""
-        import tempfile
+    def test_strategy_uses_standard_cache_path(self):
+        """Test that strategies use standard HF cache path."""
+        workspace_manager = Mock()
 
-        with tempfile.TemporaryDirectory() as temp_dir:
-            workspace_manager = Mock()
-            workspace_manager.hf_cache_path = temp_dir
+        # Test tetra strategy - now uses standard HF cache location
+        with patch("src.hf_downloader_tetra.DownloadAccelerator"):
+            tetra_strategy = TetraHFDownloader(workspace_manager)
+            # Should use standard HF cache location
+            assert "huggingface" in str(tetra_strategy.cache_dir)
 
-            # Test tetra strategy
-            with patch("src.hf_downloader_tetra.DownloadAccelerator"):
-                tetra_strategy = TetraHFDownloader(workspace_manager)
-                assert str(tetra_strategy.cache_dir) == temp_dir
-
-            # Test native strategy (doesn't use cache_dir directly but should store workspace_manager)
-            native_strategy = NativeHFDownloader(workspace_manager)
-            assert native_strategy.workspace_manager == workspace_manager
+        # Test native strategy (doesn't use cache_dir directly but should store workspace_manager)
+        native_strategy = NativeHFDownloader(workspace_manager)
+        assert native_strategy.workspace_manager == workspace_manager
 
     def test_strategy_with_no_cache_path(self):
         """Test strategy behavior when workspace manager has no cache path."""

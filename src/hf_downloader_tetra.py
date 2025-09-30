@@ -26,11 +26,8 @@ class TetraHFDownloader(HFDownloadStrategy):
         self.download_accelerator = DownloadAccelerator(workspace_manager)
         self.api = HfApi()
 
-        # Use workspace manager's HF cache if available
-        if workspace_manager and workspace_manager.hf_cache_path:
-            self.cache_dir = Path(workspace_manager.hf_cache_path)
-        else:
-            self.cache_dir = Path.home() / ".cache" / "huggingface"
+        # Use standard HF cache location
+        self.cache_dir = Path.home() / ".cache" / "huggingface"
 
         self.cache_dir.mkdir(parents=True, exist_ok=True)
 

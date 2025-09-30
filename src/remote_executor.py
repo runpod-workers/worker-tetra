@@ -51,21 +51,6 @@ class RemoteExecutor(RemoteExecutorStub):
         )
 
         try:
-            # Initialize workspace if using volume
-            if self.workspace_manager.has_runpod_volume:
-                workspace_init = self.workspace_manager.initialize_workspace()
-                if not workspace_init.success:
-                    # Add any buffered logs to the failed response
-                    logs = get_streamed_logs(clear_buffer=True)
-                    if logs:
-                        if workspace_init.stdout:
-                            workspace_init.stdout += "\n" + logs
-                        else:
-                            workspace_init.stdout = logs
-                    return workspace_init
-                if workspace_init.stdout:
-                    self.logger.info(workspace_init.stdout)
-
             # Install dependencies and cache models
             if request.accelerate_downloads:
                 # Run installations in parallel when acceleration is enabled
