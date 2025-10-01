@@ -9,6 +9,7 @@ import asyncio
 import logging
 
 from huggingface_hub import snapshot_download, scan_cache_dir
+from huggingface_hub.errors import CacheNotFound
 from remote_execution import FunctionResponse
 
 
@@ -50,8 +51,6 @@ class HuggingFaceCacheAhead:
         Returns:
             FunctionResponse with download results
         """
-        self.logger.info(f"Pre-caching model: {model_id}")
-
         try:
             # Check if model is already cached
             cache_hit = self._is_model_cached(model_id, revision)
@@ -74,9 +73,12 @@ class HuggingFaceCacheAhead:
                 # and applies hf_transfer acceleration when available
             )
 
+            success_message = f"Successfully cached model {model_id} to {snapshot_path}"
+            self.logger.info(success_message)
+
             return FunctionResponse(
                 success=True,
-                stdout=f"Successfully cache-ahead model {model_id} to {snapshot_path}",
+                stdout=success_message,
             )
 
         except Exception as e:
@@ -105,7 +107,7 @@ class HuggingFaceCacheAhead:
                         if rev.commit_hash == revision or revision == "main":
                             return True
             return False
-        except (FileNotFoundError, ValueError):
+        except CacheNotFound:
             # Cache directory doesn't exist yet - this is expected on first use
             self.logger.debug(
                 f"Cache directory not found for {model_id}, will be created on download"
