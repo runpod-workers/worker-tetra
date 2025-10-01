@@ -2,16 +2,6 @@
 NAMESPACE = "tetra"
 """Application logger namespace for all components."""
 
-# RunPod Volume Paths
-RUNPOD_VOLUME_PATH = "/runpod-volume"
-"""Path to the RunPod persistent volume mount point."""
-
-DEFAULT_WORKSPACE_PATH = "/app"
-"""Default workspace path when no persistent volume is available."""
-
-RUNTIMES_DIR_NAME = "runtimes"
-"""Name of the runtimes directory containing per-endpoint workspaces."""
-
 # System Package Acceleration with Nala
 LARGE_SYSTEM_PACKAGES = [
     "build-essential",

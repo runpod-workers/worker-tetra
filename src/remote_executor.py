@@ -3,7 +3,6 @@ import asyncio
 from typing import List, Any
 from huggingface_cache import HuggingFaceCacheAhead
 from remote_execution import FunctionRequest, FunctionResponse, RemoteExecutorStub
-from workspace_manager import WorkspaceManager
 from dependency_installer import DependencyInstaller
 from function_executor import FunctionExecutor
 from class_executor import ClassExecutor
@@ -22,7 +21,6 @@ class RemoteExecutor(RemoteExecutorStub):
         self.logger = logging.getLogger(f"{NAMESPACE}.{__name__.split('.')[-1]}")
 
         # Initialize components using composition
-        self.workspace_manager = WorkspaceManager()
         self.dependency_installer = DependencyInstaller()
         self.function_executor = FunctionExecutor()
         self.class_executor = ClassExecutor()
@@ -110,21 +108,12 @@ class RemoteExecutor(RemoteExecutorStub):
     ):
         """Log acceleration impact summary for performance visibility."""
         acceleration_enabled = request.accelerate_downloads
-        has_volume = self.workspace_manager.has_runpod_volume
 
         # Build summary message
         summary_parts = []
 
         if acceleration_enabled:
             summary_parts.append("✓ Download acceleration ENABLED")
-
-            if has_volume:
-                summary_parts.append(
-                    f"✓ Volume workspace: {self.workspace_manager.workspace_path}"
-                )
-                summary_parts.append("✓ Network Volume caching enabled")
-            else:
-                summary_parts.append("ℹ No Network Volume - using container cache")
 
             # System package acceleration status
             if request.system_dependencies:

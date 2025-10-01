@@ -30,13 +30,11 @@ class TestRemoteExecutor:
     def test_executor_composition_initialization(self):
         """Test RemoteExecutor initializes all component dependencies correctly."""
         # Test that all components are created
-        assert hasattr(self.executor, "workspace_manager")
         assert hasattr(self.executor, "dependency_installer")
         assert hasattr(self.executor, "function_executor")
         assert hasattr(self.executor, "class_executor")
 
         # Test that components are properly initialized
-        assert self.executor.workspace_manager is not None
         assert self.executor.dependency_installer is not None
         assert self.executor.function_executor is not None
         assert self.executor.class_executor is not None
@@ -184,14 +182,9 @@ class TestRemoteExecutor:
     def test_component_attribute_exposure(self):
         """Test that component attributes are properly exposed."""
         # Test that components are properly accessible
-        assert hasattr(self.executor, "workspace_manager")
         assert hasattr(self.executor, "dependency_installer")
         assert hasattr(self.executor, "function_executor")
         assert hasattr(self.executor, "class_executor")
-
-        # Test workspace manager attributes through component
-        assert hasattr(self.executor.workspace_manager, "has_runpod_volume")
-        assert hasattr(self.executor.workspace_manager, "workspace_path")
 
         # Test class executor attributes through component
         assert hasattr(self.executor.class_executor, "class_instances")
