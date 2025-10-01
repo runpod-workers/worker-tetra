@@ -86,9 +86,6 @@ class RemoteExecutor(RemoteExecutorStub):
             else:
                 result = self.function_executor.execute(request)
 
-            # Add acceleration summary to the result
-            self._log_acceleration_summary(request, result)
-
             # Add all captured system logs to the result
             system_logs = get_streamed_logs(clear_buffer=True)
             if system_logs:
@@ -102,55 +99,6 @@ class RemoteExecutor(RemoteExecutorStub):
         finally:
             # Always stop log streaming to clean up
             stop_log_streaming()
-
-    def _log_acceleration_summary(
-        self, request: FunctionRequest, result: FunctionResponse
-    ):
-        """Log acceleration impact summary for performance visibility."""
-        acceleration_enabled = request.accelerate_downloads
-
-        # Build summary message
-        summary_parts = []
-
-        if acceleration_enabled:
-            summary_parts.append("✓ Download acceleration ENABLED")
-
-            # System package acceleration status
-            if request.system_dependencies:
-                nala_available = self.dependency_installer._check_nala_available()
-                large_system_packages = (
-                    self.dependency_installer._identify_large_system_packages(
-                        request.system_dependencies
-                    )
-                )
-                if large_system_packages and nala_available:
-                    summary_parts.append(
-                        f"✓ System packages with nala: {len(large_system_packages)}"
-                    )
-                elif request.system_dependencies:
-                    summary_parts.append("→ System packages using standard apt-get")
-
-            # Python package installation status
-            if request.dependencies:
-                summary_parts.append(
-                    f"→ Installing {len(request.dependencies)} Python package(s)"
-                )
-
-        elif acceleration_enabled:
-            summary_parts.append(
-                "⚠ Download acceleration REQUESTED but no dependencies to install"
-            )
-
-        elif not acceleration_enabled:
-            summary_parts.append("- Download acceleration DISABLED")
-            summary_parts.append("→ Using standard downloads")
-
-        # Log the summary
-        if summary_parts:
-            self.logger.debug("=== DOWNLOAD ACCELERATION SUMMARY ===")
-            for part in summary_parts:
-                self.logger.debug(part)
-            self.logger.debug("=====================================")
 
     async def _install_dependencies_parallel(
         self, request: FunctionRequest
