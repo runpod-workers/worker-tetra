@@ -1,9 +1,8 @@
 """Tests for DependencyInstaller component."""
 
-from unittest.mock import Mock, patch
+from unittest.mock import patch
 
 from dependency_installer import DependencyInstaller
-from workspace_manager import WorkspaceManager
 from remote_execution import FunctionResponse
 
 
@@ -12,8 +11,7 @@ class TestSystemDependencies:
 
     def setup_method(self):
         """Setup for each test method."""
-        self.workspace_manager = Mock(spec=WorkspaceManager)
-        self.installer = DependencyInstaller(self.workspace_manager)
+        self.installer = DependencyInstaller()
 
     @patch("platform.system")
     @patch("dependency_installer.run_logged_subprocess")
@@ -67,8 +65,7 @@ class TestSystemPackageAcceleration:
 
     def setup_method(self):
         """Setup for each test method."""
-        self.workspace_manager = Mock(spec=WorkspaceManager)
-        self.installer = DependencyInstaller(self.workspace_manager)
+        self.installer = DependencyInstaller()
 
     @patch("dependency_installer.run_logged_subprocess")
     def test_nala_availability_check_available(self, mock_subprocess):
@@ -207,10 +204,7 @@ class TestPythonDependencies:
 
     def setup_method(self):
         """Setup for each test method."""
-        self.workspace_manager = Mock(spec=WorkspaceManager)
-        self.workspace_manager.has_runpod_volume = False
-        self.workspace_manager.cache_path = None
-        self.installer = DependencyInstaller(self.workspace_manager)
+        self.installer = DependencyInstaller()
 
     @patch("dependency_installer.run_logged_subprocess")
     def test_install_dependencies_success(self, mock_subprocess):

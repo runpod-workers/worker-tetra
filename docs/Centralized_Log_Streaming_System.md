@@ -35,14 +35,11 @@ sequenceDiagram
     participant RE as RemoteExecutor
     participant LS as LogStreamer
     participant DI as DependencyInstaller
-    participant WM as WorkspaceManager
 
     C->>RE: Execute Function
     RE->>LS: Start Log Streaming
     RE->>DI: Install Dependencies
     DI-->>LS: Log installation progress
-    RE->>WM: Setup Workspace
-    WM-->>LS: Log workspace operations
     RE->>RE: Execute Function
     RE-->>LS: Capture execution logs
     LS->>RE: Streamed logs

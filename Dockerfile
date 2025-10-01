@@ -2,6 +2,9 @@ FROM pytorch/pytorch:2.8.0-cuda12.8-cudnn9-runtime
 
 WORKDIR /app
 
+# Enable HuggingFace transfer acceleration
+ENV HF_HUB_ENABLE_HF_TRANSFER=1
+
 # Install system dependencies and uv
 RUN apt-get update && apt-get install -y --no-install-recommends \
     curl ca-certificates nala \
@@ -12,7 +15,8 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
  && rm -rf /var/lib/apt/lists/*
 
 # Copy app code and install dependencies
-COPY README.md src/* pyproject.toml uv.lock ./
+COPY README.md pyproject.toml uv.lock ./
+COPY src/ ./
 RUN uv export --format requirements-txt --no-dev --no-hashes > requirements.txt \
  && uv pip install --system -r requirements.txt
 

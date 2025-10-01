@@ -6,7 +6,7 @@ failed_tests=""
 test_count=0
 passed_count=0
 
-for test_file in test_*.json; do
+for test_file in tests/test_*.json; do
     if [ ! -f "$test_file" ]; then
         echo "No test_*.json files found"
         exit 1
