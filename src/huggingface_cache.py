@@ -105,6 +105,12 @@ class HuggingFaceCacheAhead:
                         if rev.commit_hash == revision or revision == "main":
                             return True
             return False
+        except (FileNotFoundError, ValueError):
+            # Cache directory doesn't exist yet - this is expected on first use
+            self.logger.debug(
+                f"Cache directory not found for {model_id}, will be created on download"
+            )
+            return False
         except Exception as e:
             self.logger.debug(f"Cache check failed for {model_id}: {e}")
             return False
