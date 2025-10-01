@@ -1,7 +1,7 @@
 import logging
 import asyncio
-from typing import List, Any, Optional
-from huggingface_accelerator import HuggingFaceAccelerator
+from typing import List, Any
+from huggingface_cache import HuggingFaceCacheAhead
 from remote_execution import FunctionRequest, FunctionResponse, RemoteExecutorStub
 from workspace_manager import WorkspaceManager
 from dependency_installer import DependencyInstaller
@@ -26,18 +26,7 @@ class RemoteExecutor(RemoteExecutorStub):
         self.dependency_installer = DependencyInstaller()
         self.function_executor = FunctionExecutor()
         self.class_executor = ClassExecutor()
-
-        # Lazy-loaded HuggingFace accelerator
-        self._hf_accelerator: Optional["HuggingFaceAccelerator"] = None
-
-    @property
-    def hf_accelerator(self) -> "HuggingFaceAccelerator":
-        """Lazy-loaded HuggingFace accelerator for model downloads."""
-        if self._hf_accelerator is None:
-            from huggingface_accelerator import HuggingFaceAccelerator
-
-            self._hf_accelerator = HuggingFaceAccelerator()
-        return self._hf_accelerator
+        self.hf_cache = HuggingFaceCacheAhead()
 
     async def ExecuteFunction(self, request: FunctionRequest) -> FunctionResponse:
         """
@@ -120,9 +109,6 @@ class RemoteExecutor(RemoteExecutorStub):
         self, request: FunctionRequest, result: FunctionResponse
     ):
         """Log acceleration impact summary for performance visibility."""
-        if not hasattr(self.dependency_installer, "download_accelerator"):
-            return
-
         acceleration_enabled = request.accelerate_downloads
         has_volume = self.workspace_manager.has_runpod_volume
 
@@ -208,10 +194,10 @@ class RemoteExecutor(RemoteExecutorStub):
             tasks.append(task)
             task_names.append("python_dependencies")
 
-        # Add HF model caching tasks
+        # Add HF model cache-ahead tasks
         if request.hf_models_to_cache:
             for model_id in request.hf_models_to_cache:
-                task = self._hf_accelerator.accelerate_model_download_async(model_id)
+                task = self.hf_cache.cache_model_download_async(model_id)
                 tasks.append(task)
                 task_names.append(f"hf_model_{model_id}")
 
@@ -249,11 +235,11 @@ class RemoteExecutor(RemoteExecutorStub):
                 return sys_installed
             self.logger.info(sys_installed.stdout)
 
-        # Pre-cache HuggingFace models if requested (should not happen when acceleration disabled)
+        # Cache-ahead HuggingFace models if requested (should not happen when acceleration disabled)
         if request.accelerate_downloads and request.hf_models_to_cache:
             for model_id in request.hf_models_to_cache:
-                self.logger.info(f"Pre-caching HuggingFace model: {model_id}")
-                cache_result = self.hf_accelerator.accelerate_model_download(model_id)
+                self.logger.info(f"Cache-ahead HuggingFace model: {model_id}")
+                cache_result = self.hf_cache.cache_model_download(model_id)
                 if cache_result.success:
                     self.logger.info(
                         f"Successfully cached model {model_id}: {cache_result.stdout}"

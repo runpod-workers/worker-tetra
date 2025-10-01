@@ -5,7 +5,6 @@ import platform
 from typing import List
 
 from remote_execution import FunctionResponse
-from download_accelerator import DownloadAccelerator
 from constants import LARGE_SYSTEM_PACKAGES, NAMESPACE
 from subprocess_utils import run_logged_subprocess
 
@@ -15,7 +14,6 @@ class DependencyInstaller:
 
     def __init__(self):
         self.logger = logging.getLogger(f"{NAMESPACE}.{__name__.split('.')[-1]}")
-        self.download_accelerator = DownloadAccelerator()
         self._nala_available = None  # Cache nala availability check
         self._is_docker = None  # Cache Docker environment detection
 

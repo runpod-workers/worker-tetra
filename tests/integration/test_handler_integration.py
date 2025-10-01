@@ -1,8 +1,10 @@
+import os
 import pytest
 import json
 import base64
 import cloudpickle
 from pathlib import Path
+from unittest.mock import patch
 
 from handler import handler, RemoteExecutor
 from remote_execution import FunctionRequest
@@ -462,3 +464,268 @@ def process_data(data):
         assert decoded_result["sum"] == 15
         assert decoded_result["name"] == "test"
         assert decoded_result["processed"] is True
+
+    @pytest.mark.integration
+    @pytest.mark.asyncio
+    async def test_hf_cache_ahead_basic(self):
+        """Test basic HuggingFace model cache-ahead functionality."""
+        event = {
+            "input": {
+                "function_name": "test_model_usage",
+                "function_code": """
+def test_model_usage():
+    from transformers import AutoTokenizer
+
+    # Use the pre-cached model
+    tokenizer = AutoTokenizer.from_pretrained("gpt2")
+    result = tokenizer("Hello world")
+
+    return {
+        "tokens": len(result["input_ids"]),
+        "model": "gpt2"
+    }
+""",
+                "dependencies": ["transformers"],
+                "hf_models_to_cache": ["gpt2"],
+                "accelerate_downloads": True,
+                "args": [],
+                "kwargs": {},
+            }
+        }
+
+        result = await handler(event)
+
+        assert result["success"] is True
+        decoded_result = cloudpickle.loads(base64.b64decode(result["result"]))
+        assert decoded_result["model"] == "gpt2"
+        assert decoded_result["tokens"] > 0
+
+    @pytest.mark.integration
+    @pytest.mark.asyncio
+    @patch("huggingface_cache.HuggingFaceCacheAhead._is_model_cached")
+    async def test_hf_cache_hit_scenario(self, mock_is_cached):
+        """Test cache hit detection prevents redundant downloads."""
+        # First call: simulate cache miss
+        mock_is_cached.return_value = False
+
+        event = {
+            "input": {
+                "function_name": "first_call",
+                "function_code": """
+def first_call():
+    return "first"
+""",
+                "hf_models_to_cache": ["gpt2"],
+                "accelerate_downloads": True,
+                "args": [],
+                "kwargs": {},
+            }
+        }
+
+        result1 = await handler(event)
+        assert result1["success"] is True
+
+        # Second call: simulate cache hit
+        mock_is_cached.return_value = True
+
+        result2 = await handler(event)
+        assert result2["success"] is True
+        # Verify cache hit message in stdout
+        assert "already cached" in result2["stdout"] or "cache hit" in result2["stdout"]
+
+    @pytest.mark.integration
+    @pytest.mark.asyncio
+    async def test_hf_multiple_models_parallel(self):
+        """Test downloading multiple HF models in parallel."""
+        event = {
+            "input": {
+                "function_name": "multi_model_test",
+                "function_code": """
+def multi_model_test():
+    return "models cached"
+""",
+                "hf_models_to_cache": ["gpt2", "distilbert-base-uncased"],
+                "accelerate_downloads": True,
+                "args": [],
+                "kwargs": {},
+            }
+        }
+
+        result = await handler(event)
+
+        assert result["success"] is True
+        # Both models should be mentioned in stdout
+        stdout_lower = result["stdout"].lower()
+        assert "gpt2" in stdout_lower or "model" in stdout_lower
+
+    @pytest.mark.integration
+    @pytest.mark.asyncio
+    @patch.dict(os.environ, {"HF_TOKEN": "test_token_value"})
+    @patch("huggingface_cache.snapshot_download")
+    @patch("huggingface_cache.HuggingFaceCacheAhead._is_model_cached")
+    async def test_hf_authentication_with_token(
+        self, mock_is_cached, mock_snapshot_download
+    ):
+        """Test HF_TOKEN is used for authentication."""
+        mock_is_cached.return_value = False
+        mock_snapshot_download.return_value = "/cache/path/private-model"
+
+        event = {
+            "input": {
+                "function_name": "private_model_test",
+                "function_code": """
+def private_model_test():
+    return "authenticated"
+""",
+                "hf_models_to_cache": ["private/model"],
+                "accelerate_downloads": True,
+                "args": [],
+                "kwargs": {},
+            }
+        }
+
+        result = await handler(event)
+
+        assert result["success"] is True
+        # Verify token was passed to snapshot_download
+        mock_snapshot_download.assert_called()
+        call_kwargs = mock_snapshot_download.call_args.kwargs
+        assert call_kwargs["token"] == "test_token_value"
+
+    @pytest.mark.integration
+    @pytest.mark.asyncio
+    @patch("huggingface_cache.snapshot_download")
+    @patch("huggingface_cache.HuggingFaceCacheAhead._is_model_cached")
+    async def test_hf_cache_failure_continues_execution(
+        self, mock_is_cached, mock_snapshot_download
+    ):
+        """Test that cache failures don't block function execution."""
+        mock_is_cached.return_value = False
+        mock_snapshot_download.side_effect = Exception("Network error")
+
+        event = {
+            "input": {
+                "function_name": "resilient_test",
+                "function_code": """
+def resilient_test():
+    return "execution continues despite cache failure"
+""",
+                "hf_models_to_cache": ["invalid-model"],
+                "accelerate_downloads": True,
+                "args": [],
+                "kwargs": {},
+            }
+        }
+
+        result = await handler(event)
+
+        # Execution should fail at dependency installation stage
+        # since cache-ahead failed
+        assert result["success"] is False
+        assert (
+            "Network error" in result["error"] or "Failed to cache" in result["error"]
+        )
+
+    @pytest.mark.integration
+    @pytest.mark.asyncio
+    async def test_hf_cache_with_custom_revision(self):
+        """Test caching specific model revisions."""
+        event = {
+            "input": {
+                "function_name": "revision_test",
+                "function_code": """
+def revision_test():
+    return "revision cached"
+""",
+                "hf_models_to_cache": ["gpt2"],  # Default revision (main)
+                "accelerate_downloads": True,
+                "args": [],
+                "kwargs": {},
+            }
+        }
+
+        result = await handler(event)
+
+        assert result["success"] is True
+
+    @pytest.mark.integration
+    @pytest.mark.asyncio
+    async def test_hf_cache_ahead_prevents_redownload(self):
+        """
+        Test that cache-ahead prevents re-downloads when user code references the model.
+
+        This is the critical test: User's code doesn't know model was pre-cached,
+        but should use cached version instead of downloading from network.
+        """
+        import time
+
+        # Step 1: Cache-ahead the model WITHOUT using it
+        cache_event = {
+            "input": {
+                "function_name": "just_cache",
+                "function_code": """
+def just_cache():
+    return "model should be cached now"
+""",
+                "hf_models_to_cache": ["gpt2"],
+                "accelerate_downloads": True,
+                "args": [],
+                "kwargs": {},
+            }
+        }
+
+        cache_result = await handler(cache_event)
+        assert cache_result["success"] is True
+
+        # Step 2: User code loads the model (doesn't know it's cached)
+        # If cache works, this should be FAST (< 1 second)
+        # If cache fails, this downloads from network (> 5 seconds)
+        use_event = {
+            "input": {
+                "function_name": "use_cached_model",
+                "function_code": """
+def use_cached_model():
+    import time
+    from transformers import AutoTokenizer
+
+    start = time.time()
+
+    # User code doesn't know model was pre-cached
+    tokenizer = AutoTokenizer.from_pretrained("gpt2")
+
+    load_time = time.time() - start
+
+    return {
+        "load_time_seconds": round(load_time, 2),
+        "vocab_size": tokenizer.vocab_size,
+        "cache_was_used": load_time < 5.0  # Cache hit should be < 5s
+    }
+""",
+                "dependencies": ["transformers"],
+                "accelerate_downloads": True,
+                "args": [],
+                "kwargs": {},
+            }
+        }
+
+        start_time = time.time()
+        use_result = await handler(use_event)
+        total_time = time.time() - start_time
+
+        assert use_result["success"] is True
+        decoded_result = cloudpickle.loads(base64.b64decode(use_result["result"]))
+
+        # Verify model loaded successfully
+        assert decoded_result["vocab_size"] == 50257  # GPT2 vocab size
+
+        # Critical assertion: model load was fast (cache hit)
+        assert decoded_result["cache_was_used"] is True, (
+            f"Model took {decoded_result['load_time_seconds']}s to load. "
+            f"Expected < 5s (cache hit), suggesting re-download occurred."
+        )
+
+        # Total execution should also be fast
+        assert total_time < 30, (
+            f"Total execution took {total_time:.2f}s. "
+            f"Should be < 30s with cached model."
+        )
