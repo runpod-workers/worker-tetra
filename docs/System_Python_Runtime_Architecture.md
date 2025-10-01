@@ -19,7 +19,6 @@ graph TD
     F --> H[Function Execution]
     G --> H
 
-    I[WorkspaceManager] --> C
     J[DependencyInstaller] --> C
     K[FunctionExecutor] --> C
 ```
@@ -43,7 +42,6 @@ flowchart LR
 ```mermaid
 graph TB
     A[handler.py] --> B[RemoteExecutor]
-    B --> C[WorkspaceManager]
     B --> D[DependencyInstaller]
     B --> E[FunctionExecutor]
     B --> F[ClassExecutor]
@@ -52,7 +50,6 @@ graph TB
     G --> E
     G --> F
 
-    H[download_accelerator] --> D
     I[serialization_utils] --> E
     I --> F
 ```
