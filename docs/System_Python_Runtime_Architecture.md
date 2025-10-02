@@ -71,7 +71,7 @@ graph TB
 ### System Installation Strategy
 ```python
 # Docker environment
-command = ["uv", "pip", "install", "--system", "--no-cache"] + packages
+command = ["uv", "pip", "install", "--system"] + packages
 
 # Local environment
 command = ["uv", "pip", "install", "--python-preference=managed"] + packages
