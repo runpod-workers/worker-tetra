@@ -53,6 +53,15 @@ class RemoteExecutor(RemoteExecutorStub):
         )
 
         try:
+            # Hydrate cache from volume if needed (before any installations)
+            has_installations = (
+                request.dependencies
+                or request.system_dependencies
+                or request.hf_models_to_cache
+            )
+            if has_installations:
+                await self.cache_sync.hydrate_from_volume()
+
             # Mark cache baseline before installation if sync is needed
             self.cache_sync.mark_baseline()
 

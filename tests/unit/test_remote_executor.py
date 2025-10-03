@@ -189,3 +189,119 @@ class TestRemoteExecutor:
         # Test class executor attributes through component
         assert hasattr(self.executor.class_executor, "class_instances")
         assert hasattr(self.executor.class_executor, "instance_metadata")
+
+    @pytest.mark.asyncio
+    async def test_hydration_before_installation_with_dependencies(self):
+        """Test that hydrate_from_volume is called before installations when there are dependencies."""
+        request = FunctionRequest(
+            function_name="test_func",
+            function_code="def test_func(): return 'test'",
+            dependencies=["requests"],
+            args=[],
+            kwargs={},
+        )
+
+        with (
+            patch.object(
+                self.executor.cache_sync,
+                "hydrate_from_volume",
+                new_callable=AsyncMock,
+            ) as mock_hydrate,
+            patch.object(
+                self.executor.cache_sync,
+                "mark_baseline",
+            ) as mock_baseline,
+            patch.object(
+                self.executor.dependency_installer,
+                "install_dependencies_async",
+                new_callable=AsyncMock,
+            ) as mock_deps,
+            patch.object(self.executor.function_executor, "execute") as mock_execute,
+            patch.object(
+                self.executor.cache_sync,
+                "sync_to_volume",
+                new_callable=AsyncMock,
+            ) as mock_sync,
+        ):
+            from remote_execution import FunctionResponse
+
+            mock_deps.return_value = FunctionResponse(
+                success=True, stdout="Deps installed"
+            )
+            mock_execute.return_value = Mock(success=True, result="encoded_result")
+
+            await self.executor.ExecuteFunction(request)
+
+            # Verify hydration was called
+            mock_hydrate.assert_called_once()
+            # Verify baseline was marked
+            mock_baseline.assert_called_once()
+            # Verify sync was called after installation
+            mock_sync.assert_called_once()
+
+    @pytest.mark.asyncio
+    async def test_no_hydration_without_dependencies(self):
+        """Test that hydrate_from_volume is not called when there are no dependencies."""
+        request = FunctionRequest(
+            function_name="test_func",
+            function_code="def test_func(): return 'test'",
+            args=[],
+            kwargs={},
+        )
+
+        with (
+            patch.object(
+                self.executor.cache_sync,
+                "hydrate_from_volume",
+                new_callable=AsyncMock,
+            ) as mock_hydrate,
+            patch.object(self.executor.function_executor, "execute") as mock_execute,
+        ):
+            mock_execute.return_value = Mock(success=True, result="encoded_result")
+
+            await self.executor.ExecuteFunction(request)
+
+            # Verify hydration was NOT called (no dependencies)
+            mock_hydrate.assert_not_called()
+
+    @pytest.mark.asyncio
+    async def test_hydration_with_hf_models(self):
+        """Test that hydrate_from_volume is called when hf_models_to_cache is present."""
+        request = FunctionRequest(
+            function_name="test_func",
+            function_code="def test_func(): return 'test'",
+            hf_models_to_cache=["bert-base-uncased"],
+            args=[],
+            kwargs={},
+        )
+
+        with (
+            patch.object(
+                self.executor.cache_sync,
+                "hydrate_from_volume",
+                new_callable=AsyncMock,
+            ) as mock_hydrate,
+            patch.object(
+                self.executor.cache_sync,
+                "mark_baseline",
+            ) as mock_baseline,
+            patch.object(
+                self.executor.hf_cache,
+                "cache_model_download_async",
+                new_callable=AsyncMock,
+            ) as mock_hf_cache,
+            patch.object(self.executor.function_executor, "execute") as mock_execute,
+        ):
+            from remote_execution import FunctionResponse
+
+            mock_hf_cache.return_value = FunctionResponse(
+                success=True, stdout="Model cached"
+            )
+            mock_execute.return_value = Mock(success=True, result="encoded_result")
+
+            await self.executor.ExecuteFunction(request)
+
+            # Verify hydration was called (hf_models present)
+            mock_hydrate.assert_called_once()
+            # Verify baseline was marked
+            mock_baseline.assert_called_once()

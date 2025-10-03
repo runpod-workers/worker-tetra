@@ -278,3 +278,193 @@ class TestCollectAndTarball:
 
             # Baseline should still be cleaned up
             mock_remove.assert_called_once_with("/tmp/.cache-baseline-123")
+
+
+class TestShouldHydrate:
+    def test_should_hydrate_when_should_sync_false(self, cache_sync):
+        """Test that hydration skips when should_sync returns False."""
+        with patch.object(cache_sync, "should_sync", return_value=False):
+            assert cache_sync.should_hydrate() is False
+
+    def test_should_hydrate_when_no_tarball(self, cache_sync, mock_env):
+        """Test that hydration skips when tarball doesn't exist."""
+        with (
+            patch.object(cache_sync, "should_sync", return_value=True),
+            patch("os.path.exists", return_value=False),
+        ):
+            assert cache_sync.should_hydrate() is False
+
+    def test_should_hydrate_when_no_marker(self, cache_sync, mock_env):
+        """Test that hydration proceeds when no marker exists."""
+        cache_sync._endpoint_id = "test-endpoint-123"
+
+        with (
+            patch.object(cache_sync, "should_sync", return_value=True),
+            patch("os.path.exists") as mock_exists,
+        ):
+
+            def exists_side_effect(path):
+                if "cache-test-endpoint-123.tar" in path:
+                    return True
+                return False
+
+            mock_exists.side_effect = exists_side_effect
+            assert cache_sync.should_hydrate() is True
+
+    def test_should_hydrate_when_tarball_newer(self, cache_sync, mock_env):
+        """Test that hydration proceeds when tarball is newer than marker."""
+        cache_sync._endpoint_id = "test-endpoint-123"
+
+        with (
+            patch.object(cache_sync, "should_sync", return_value=True),
+            patch("os.path.exists", return_value=True),
+            patch("os.path.getmtime") as mock_getmtime,
+        ):
+
+            def getmtime_side_effect(path):
+                if "cache-test-endpoint-123.tar" in path:
+                    return 2000.0
+                return 1000.0
+
+            mock_getmtime.side_effect = getmtime_side_effect
+            assert cache_sync.should_hydrate() is True
+
+    def test_should_hydrate_when_tarball_older(self, cache_sync, mock_env):
+        """Test that hydration skips when tarball is older than marker."""
+        cache_sync._endpoint_id = "test-endpoint-123"
+
+        with (
+            patch.object(cache_sync, "should_sync", return_value=True),
+            patch("os.path.exists", return_value=True),
+            patch("os.path.getmtime") as mock_getmtime,
+        ):
+
+            def getmtime_side_effect(path):
+                if "cache-test-endpoint-123.tar" in path:
+                    return 1000.0
+                return 2000.0
+
+            mock_getmtime.side_effect = getmtime_side_effect
+            assert cache_sync.should_hydrate() is False
+
+    def test_should_hydrate_handles_exception(self, cache_sync, mock_env):
+        """Test that should_hydrate handles exceptions gracefully."""
+        cache_sync._endpoint_id = "test-endpoint-123"
+
+        with (
+            patch.object(cache_sync, "should_sync", return_value=True),
+            patch("os.path.exists", return_value=True),
+            patch("os.path.getmtime", side_effect=OSError("Permission denied")),
+        ):
+            # Should return True on exception (safe default)
+            assert cache_sync.should_hydrate() is True
+
+
+class TestHydrateFromVolume:
+    @pytest.mark.asyncio
+    async def test_hydrate_skips_when_should_not_hydrate(self, cache_sync):
+        """Test that hydrate_from_volume skips when should_hydrate returns False."""
+        with (
+            patch.object(cache_sync, "should_hydrate", return_value=False),
+            patch("asyncio.to_thread") as mock_to_thread,
+        ):
+            await cache_sync.hydrate_from_volume()
+            mock_to_thread.assert_not_called()
+
+    @pytest.mark.asyncio
+    async def test_hydrate_success(self, cache_sync, mock_env):
+        """Test successful cache hydration from tarball."""
+        cache_sync._endpoint_id = "test-endpoint-123"
+
+        mock_tar_result = FunctionResponse(success=True, stdout="")
+
+        with (
+            patch.object(cache_sync, "should_hydrate", return_value=True),
+            patch("os.makedirs") as mock_makedirs,
+            patch.object(Path, "glob", return_value=[]),
+            patch("asyncio.to_thread", return_value=mock_tar_result) as mock_to_thread,
+            patch.object(cache_sync, "mark_last_hydrated") as mock_mark,
+        ):
+            await cache_sync.hydrate_from_volume()
+
+            # Cache dir should be created
+            mock_makedirs.assert_called_once_with("/root/.cache", exist_ok=True)
+            # Tar extraction should be called
+            assert mock_to_thread.call_count == 1
+            # Hydration marker should be set
+            mock_mark.assert_called_once()
+
+    @pytest.mark.asyncio
+    async def test_hydrate_tar_failure(self, cache_sync, mock_env):
+        """Test handling of tar extraction failure."""
+        cache_sync._endpoint_id = "test-endpoint-123"
+
+        mock_tar_result = FunctionResponse(success=False, error="Extraction failed")
+
+        with (
+            patch.object(cache_sync, "should_hydrate", return_value=True),
+            patch("os.makedirs"),
+            patch.object(Path, "glob", return_value=[]),
+            patch("asyncio.to_thread", return_value=mock_tar_result),
+            patch.object(cache_sync, "mark_last_hydrated") as mock_mark,
+        ):
+            await cache_sync.hydrate_from_volume()
+
+            # Marker should NOT be set on failure
+            mock_mark.assert_not_called()
+
+    @pytest.mark.asyncio
+    async def test_hydrate_makedirs_failure(self, cache_sync, mock_env):
+        """Test handling of cache directory creation failure."""
+        cache_sync._endpoint_id = "test-endpoint-123"
+
+        with (
+            patch.object(cache_sync, "should_hydrate", return_value=True),
+            patch("os.makedirs", side_effect=OSError("Permission denied")),
+            patch("asyncio.to_thread") as mock_to_thread,
+        ):
+            await cache_sync.hydrate_from_volume()
+
+            # Tar should not be attempted if mkdir fails
+            mock_to_thread.assert_not_called()
+
+    @pytest.mark.asyncio
+    async def test_hydrate_handles_exception(self, cache_sync, mock_env):
+        """Test that hydrate_from_volume handles unexpected exceptions."""
+        cache_sync._endpoint_id = "test-endpoint-123"
+
+        with (
+            patch.object(cache_sync, "should_hydrate", return_value=True),
+            patch("os.makedirs", side_effect=Exception("Unexpected error")),
+        ):
+            # Should not raise exception
+            await cache_sync.hydrate_from_volume()
+
+
+class TestMarkLastHydrated:
+    def test_mark_last_hydrated_skips_when_should_not_sync(self, cache_sync):
+        """Test that mark_last_hydrated skips when should_sync returns False."""
+        with patch.object(cache_sync, "should_sync", return_value=False):
+            cache_sync.mark_last_hydrated()
+            assert cache_sync._last_hydrated_path is None
+
+    def test_mark_last_hydrated_creates_marker(self, cache_sync, mock_env):
+        """Test that mark_last_hydrated creates a marker file."""
+        with (
+            patch.object(cache_sync, "should_sync", return_value=True),
+            patch.object(Path, "touch") as mock_touch,
+        ):
+            cache_sync.mark_last_hydrated()
+
+            assert cache_sync._last_hydrated_path is not None
+            assert cache_sync._last_hydrated_path == "/root/.cache/.cache-last-hydrated"
+            mock_touch.assert_called_once()
+
+    def test_mark_last_hydrated_handles_exception(self, cache_sync, mock_env):
+        """Test that mark_last_hydrated handles exceptions gracefully."""
+        with (
+            patch.object(cache_sync, "should_sync", return_value=True),
+            patch.object(Path, "touch", side_effect=OSError("Permission denied")),
+        ):
+            cache_sync.mark_last_hydrated()
+            assert cache_sync._last_hydrated_path is None

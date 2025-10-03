@@ -14,6 +14,7 @@ class CacheSyncManager:
     def __init__(self):
         self.logger = logging.getLogger(f"{NAMESPACE}.{__name__.split('.')[-1]}")
         self._baseline_path: Optional[str] = None
+        self._last_hydrated_path: Optional[str] = None
         self._should_sync_cached: Optional[bool] = None
         self._endpoint_id = os.environ.get("RUNPOD_ENDPOINT_ID")
 
@@ -210,3 +211,95 @@ class CacheSyncManager:
                     os.remove(self._baseline_path)
                 except Exception as e:
                     self.logger.debug(f"Failed to clean up baseline file: {e}")
+
+    def should_hydrate(self) -> bool:
+        """
+        Check if cache hydration should run.
+
+        Returns:
+            True if tarball exists and is newer than last hydration, False otherwise
+        """
+        if not self.should_sync():
+            return False
+
+        tarball_path = f"{VOLUME_CACHE_PATH}/cache-{self._endpoint_id}.tar"
+        if not os.path.exists(tarball_path):
+            self.logger.debug(
+                f"Tarball {tarball_path} does not exist, skipping hydration"
+            )
+            return False
+
+        # Check last hydrated marker
+        marker_path = f"{CACHE_DIR}/.cache-last-hydrated"
+        if not os.path.exists(marker_path):
+            self.logger.debug("No hydration marker found, hydration needed")
+            return True
+
+        try:
+            tarball_mtime = os.path.getmtime(tarball_path)
+            marker_mtime = os.path.getmtime(marker_path)
+
+            if tarball_mtime > marker_mtime:
+                self.logger.debug(
+                    "Tarball is newer than last hydration, hydration needed"
+                )
+                return True
+            else:
+                self.logger.debug(
+                    "Tarball is older than last hydration, skipping hydration"
+                )
+                return False
+        except Exception as e:
+            self.logger.warning(f"Failed to check hydration status: {e}")
+            return True
+
+    def mark_last_hydrated(self) -> None:
+        """Mark timestamp of last hydration."""
+        if not self.should_sync():
+            return
+
+        self._last_hydrated_path = f"{CACHE_DIR}/.cache-last-hydrated"
+
+        try:
+            Path(self._last_hydrated_path).touch()
+            self.logger.debug(
+                f"Marked cache last hydrated at {self._last_hydrated_path}"
+            )
+        except Exception as e:
+            self.logger.warning(f"Failed to mark cache last hydrated: {e}")
+            self._last_hydrated_path = None
+
+    async def hydrate_from_volume(self) -> None:
+        """Extract tarball from volume to hydrate local cache."""
+        if not self.should_hydrate():
+            return
+
+        try:
+            tarball_path = f"{VOLUME_CACHE_PATH}/cache-{self._endpoint_id}.tar"
+            self.logger.debug(f"Hydrating cache from {tarball_path} to {CACHE_DIR}")
+
+            # Ensure cache directory exists
+            try:
+                os.makedirs(CACHE_DIR, exist_ok=True)
+            except Exception as e:
+                self.logger.warning(
+                    f"Failed to create cache directory {CACHE_DIR}: {e}"
+                )
+                return
+
+            # Extract tarball to cache directory
+            tar_result = await asyncio.to_thread(
+                run_logged_subprocess,
+                command=["tar", "xf", tarball_path, "-C", "/"],
+                logger=self.logger,
+                operation_name="Extracting cache tarball",
+            )
+
+            if tar_result.success:
+                self.logger.info(f"Successfully hydrated cache from {tarball_path}")
+                self.mark_last_hydrated()
+            else:
+                self.logger.warning(f"Failed to extract tarball: {tar_result.error}")
+
+        except Exception as e:
+            self.logger.error(f"Unexpected error during hydration: {e}", exc_info=True)
