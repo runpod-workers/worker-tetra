@@ -22,6 +22,7 @@ def run_logged_subprocess(
     capture_output: bool = True,
     text: bool = True,
     env: Optional[dict[str, str]] = None,
+    stdin_input: Optional[str] = None,
     **popen_kwargs,
 ) -> FunctionResponse:
     """
@@ -38,6 +39,8 @@ def run_logged_subprocess(
         timeout: Timeout in seconds for subprocess execution
         capture_output: Whether to capture stdout/stderr
         text: Whether to return strings instead of bytes
+        env: Environment variables to pass to subprocess
+        stdin_input: Data to pass to stdin of the subprocess
         **popen_kwargs: Additional arguments passed to subprocess.Popen
 
     Returns:
@@ -67,7 +70,7 @@ def run_logged_subprocess(
         process = subprocess.Popen(command, **popen_kwargs)
 
         try:
-            stdout, stderr = process.communicate(timeout=timeout)
+            stdout, stderr = process.communicate(input=stdin_input, timeout=timeout)
         except subprocess.TimeoutExpired:
             process.kill()
             error_msg = f"Command timed out after {timeout} seconds"

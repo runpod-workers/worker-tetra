@@ -7,6 +7,7 @@ from dependency_installer import DependencyInstaller
 from function_executor import FunctionExecutor
 from class_executor import ClassExecutor
 from log_streamer import start_log_streaming, stop_log_streaming, get_streamed_logs
+from cache_sync_manager import CacheSyncManager
 from constants import NAMESPACE
 
 
@@ -25,6 +26,7 @@ class RemoteExecutor(RemoteExecutorStub):
         self.function_executor = FunctionExecutor()
         self.class_executor = ClassExecutor()
         self.hf_cache = HuggingFaceCacheAhead()
+        self.cache_sync = CacheSyncManager()
 
     async def ExecuteFunction(self, request: FunctionRequest) -> FunctionResponse:
         """
@@ -51,6 +53,9 @@ class RemoteExecutor(RemoteExecutorStub):
         )
 
         try:
+            # Mark cache baseline before installation if sync is needed
+            self.cache_sync.mark_baseline()
+
             # Install dependencies
             if request.accelerate_downloads:
                 # Run installations in parallel when acceleration is enabled
@@ -76,6 +81,9 @@ class RemoteExecutor(RemoteExecutorStub):
                         else:
                             dep_result.stdout = logs
                     return dep_result
+
+            # cache sync after installation
+            await self.cache_sync.sync_to_volume_async()
 
             # Route to appropriate execution method based on type
             execution_type = getattr(request, "execution_type", "function")
