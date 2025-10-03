@@ -68,7 +68,7 @@ class CacheSyncManager:
             self.logger.warning(f"Failed to mark cache baseline: {e}")
             self._baseline_path = None
 
-    async def sync_to_volume_async(self) -> None:
+    async def sync_to_volume(self) -> None:
         """Background worker to collect delta and create tarball."""
         if not self.should_sync() or not self._baseline_path:
             return

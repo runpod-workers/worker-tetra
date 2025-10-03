@@ -83,7 +83,7 @@ class RemoteExecutor(RemoteExecutorStub):
                     return dep_result
 
             # cache sync after installation
-            await self.cache_sync.sync_to_volume_async()
+            await self.cache_sync.sync_to_volume()
 
             # Route to appropriate execution method based on type
             execution_type = getattr(request, "execution_type", "function")

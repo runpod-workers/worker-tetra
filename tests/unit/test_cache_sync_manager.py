@@ -109,43 +109,43 @@ class TestMarkBaseline:
 class TestSyncToVolumeAsync:
     @pytest.mark.asyncio
     async def test_sync_skips_when_should_not_sync(self, cache_sync):
-        """Test that sync_to_volume_async skips when should_sync returns False."""
+        """Test that sync_to_volume skips when should_sync returns False."""
         with (
             patch.object(cache_sync, "should_sync", return_value=False),
             patch("asyncio.to_thread") as mock_to_thread,
         ):
-            await cache_sync.sync_to_volume_async()
+            await cache_sync.sync_to_volume()
             # Verify no subprocess operations were attempted
             mock_to_thread.assert_not_called()
 
     @pytest.mark.asyncio
     async def test_sync_skips_when_no_baseline(self, cache_sync, mock_env):
-        """Test that sync_to_volume_async skips when no baseline is set."""
+        """Test that sync_to_volume skips when no baseline is set."""
         with (
             patch.object(cache_sync, "should_sync", return_value=True),
             patch("asyncio.to_thread") as mock_to_thread,
         ):
             cache_sync._baseline_path = None
-            await cache_sync.sync_to_volume_async()
+            await cache_sync.sync_to_volume()
             # Verify no subprocess operations were attempted
             mock_to_thread.assert_not_called()
 
     @pytest.mark.asyncio
-    async def test_sync_callssync_to_volume_async(self, cache_sync, mock_env):
-        """Test that sync_to_volume_async calls sync_to_volume_async."""
+    async def test_sync_callssync_to_volume(self, cache_sync, mock_env):
+        """Test that sync_to_volume calls sync_to_volume."""
         with (
             patch.object(cache_sync, "should_sync", return_value=True),
-            patch.object(cache_sync, "sync_to_volume_async") as mock_collect,
+            patch.object(cache_sync, "sync_to_volume") as mock_collect,
         ):
             cache_sync._baseline_path = "/tmp/.cache-baseline-123"
-            await cache_sync.sync_to_volume_async()
+            await cache_sync.sync_to_volume()
             mock_collect.assert_called_once()
 
 
 class TestCollectAndTarball:
     @pytest.mark.asyncio
-    async def testsync_to_volume_async_no_new_files(self, cache_sync, mock_env):
-        """Test that sync_to_volume_async handles no new files."""
+    async def testsync_to_volume_no_new_files(self, cache_sync, mock_env):
+        """Test that sync_to_volume handles no new files."""
         cache_sync._endpoint_id = "test-endpoint-123"
         cache_sync._baseline_path = "/tmp/.cache-baseline-123"
 
@@ -154,13 +154,13 @@ class TestCollectAndTarball:
         with patch(
             "asyncio.to_thread", side_effect=[mock_find_result]
         ) as mock_to_thread:
-            await cache_sync.sync_to_volume_async()
+            await cache_sync.sync_to_volume()
 
             # Only find command should be called, tar should be skipped
             assert mock_to_thread.call_count == 1
 
     @pytest.mark.asyncio
-    async def testsync_to_volume_async_success_new(self, cache_sync, mock_env):
+    async def testsync_to_volume_success_new(self, cache_sync, mock_env):
         """Test successful tarball creation when no tarball exists."""
         cache_sync._endpoint_id = "test-endpoint-123"
         cache_sync._baseline_path = "/tmp/.cache-baseline-123"
@@ -190,7 +190,7 @@ class TestCollectAndTarball:
 
             mock_exists.side_effect = exists_side_effect
 
-            await cache_sync.sync_to_volume_async()
+            await cache_sync.sync_to_volume()
 
             # find, tar, and mv should be called
             assert mock_to_thread.call_count == 3
@@ -200,7 +200,7 @@ class TestCollectAndTarball:
             assert mock_remove.call_count == 2
 
     @pytest.mark.asyncio
-    async def testsync_to_volume_async_success_append(self, cache_sync, mock_env):
+    async def testsync_to_volume_success_append(self, cache_sync, mock_env):
         """Test successful tarball append when tarball already exists."""
         cache_sync._endpoint_id = "test-endpoint-123"
         cache_sync._baseline_path = "/tmp/.cache-baseline-123"
@@ -238,7 +238,7 @@ class TestCollectAndTarball:
 
             mock_exists.side_effect = exists_side_effect
 
-            await cache_sync.sync_to_volume_async()
+            await cache_sync.sync_to_volume()
 
             # find, cp, tar, and mv should be called
             assert mock_to_thread.call_count == 4
@@ -248,7 +248,7 @@ class TestCollectAndTarball:
             assert mock_remove.call_count == 2
 
     @pytest.mark.asyncio
-    async def testsync_to_volume_async_find_failure(self, cache_sync, mock_env):
+    async def testsync_to_volume_find_failure(self, cache_sync, mock_env):
         """Test handling of find command failure."""
         cache_sync._endpoint_id = "test-endpoint-123"
         cache_sync._baseline_path = "/tmp/.cache-baseline-123"
@@ -258,13 +258,13 @@ class TestCollectAndTarball:
         with patch(
             "asyncio.to_thread", side_effect=[mock_find_result]
         ) as mock_to_thread:
-            await cache_sync.sync_to_volume_async()
+            await cache_sync.sync_to_volume()
 
             # Only find should be attempted, tar should be skipped
             assert mock_to_thread.call_count == 1
 
     @pytest.mark.asyncio
-    async def testsync_to_volume_async_cleanup_on_exception(self, cache_sync, mock_env):
+    async def testsync_to_volume_cleanup_on_exception(self, cache_sync, mock_env):
         """Test that baseline is cleaned up even on exception."""
         cache_sync._endpoint_id = "test-endpoint-123"
         cache_sync._baseline_path = "/tmp/.cache-baseline-123"
@@ -274,7 +274,7 @@ class TestCollectAndTarball:
             patch("os.path.exists", return_value=True),
             patch("os.remove") as mock_remove,
         ):
-            await cache_sync.sync_to_volume_async()
+            await cache_sync.sync_to_volume()
 
             # Baseline should still be cleaned up
             mock_remove.assert_called_once_with("/tmp/.cache-baseline-123")
