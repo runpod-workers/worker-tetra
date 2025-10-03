@@ -93,7 +93,7 @@ class HuggingFaceCacheAhead:
 
         Args:
             model_id: HuggingFace model identifier
-            revision: Model revision/branch
+            revision: Model revision/branch/commit hash
 
         Returns:
             True if model is cached, False otherwise
@@ -102,9 +102,15 @@ class HuggingFaceCacheAhead:
             cache_info = scan_cache_dir()
             for repo in cache_info.repos:
                 if repo.repo_id == model_id:
-                    # Check if the specific revision is cached
+                    # If revision is "main", accept any cached version of the model
+                    if revision == "main":
+                        return len(repo.revisions) > 0
+
+                    # Check for specific revision by commit hash
                     for rev in repo.revisions:
-                        if rev.commit_hash == revision or revision == "main":
+                        if rev.commit_hash.startswith(revision) or revision.startswith(
+                            rev.commit_hash
+                        ):
                             return True
             return False
         except CacheNotFound:
