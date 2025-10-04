@@ -22,7 +22,7 @@ def run_logged_subprocess(
     capture_output: bool = True,
     text: bool = True,
     env: Optional[dict[str, str]] = None,
-    stdin_input: Optional[str] = None,
+    suppress_output: bool = False,
     **popen_kwargs,
 ) -> FunctionResponse:
     """
@@ -40,7 +40,7 @@ def run_logged_subprocess(
         capture_output: Whether to capture stdout/stderr
         text: Whether to return strings instead of bytes
         env: Environment variables to pass to subprocess
-        stdin_input: Data to pass to stdin of the subprocess
+        suppress_output: If True, only log command execution, not output
         **popen_kwargs: Additional arguments passed to subprocess.Popen
 
     Returns:
@@ -70,21 +70,22 @@ def run_logged_subprocess(
         process = subprocess.Popen(command, **popen_kwargs)
 
         try:
-            stdout, stderr = process.communicate(input=stdin_input, timeout=timeout)
+            stdout, stderr = process.communicate(timeout=timeout)
         except subprocess.TimeoutExpired:
             process.kill()
             error_msg = f"Command timed out after {timeout} seconds"
             logger.debug(f"{log_prefix}Error: {error_msg}")
             return FunctionResponse(success=False, error=error_msg)
 
-        # Log subprocess output
-        if stdout:
-            logger.debug(f"{log_prefix}Output: {stdout.strip()}")
-        if stderr:
-            if process.returncode == 0:
-                logger.debug(f"{log_prefix}Warnings: {stderr.strip()}")
-            else:
-                logger.debug(f"{log_prefix}Errors: {stderr.strip()}")
+        # Log subprocess output (unless suppressed)
+        if not suppress_output:
+            if stdout:
+                logger.debug(f"{log_prefix}Output: {stdout.strip()}")
+            if stderr:
+                if process.returncode == 0:
+                    logger.debug(f"{log_prefix}Warnings: {stderr.strip()}")
+                else:
+                    logger.debug(f"{log_prefix}Errors: {stderr.strip()}")
 
         # Return appropriate response based on exit code
         if process.returncode == 0:

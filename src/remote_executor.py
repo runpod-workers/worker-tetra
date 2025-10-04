@@ -62,7 +62,7 @@ class RemoteExecutor(RemoteExecutorStub):
             if has_installations:
                 await self.cache_sync.hydrate_from_volume()
 
-            # Mark cache baseline before installation if sync is needed
+            # Mark cache baseline before installation
             self.cache_sync.mark_baseline()
 
             # Install dependencies
@@ -192,16 +192,11 @@ class RemoteExecutor(RemoteExecutorStub):
         # Cache-ahead HuggingFace models if requested (should not happen when acceleration disabled)
         if request.accelerate_downloads and request.hf_models_to_cache:
             for model_id in request.hf_models_to_cache:
-                self.logger.info(f"Cache-ahead HuggingFace model: {model_id}")
                 cache_result = self.hf_cache.cache_model_download(model_id)
                 if cache_result.success:
-                    self.logger.info(
-                        f"Successfully cached model {model_id}: {cache_result.stdout}"
-                    )
+                    self.logger.info(cache_result.stdout)
                 else:
-                    self.logger.warning(
-                        f"Failed to cache model {model_id}: {cache_result.error}"
-                    )
+                    self.logger.warning(cache_result.stdout)
 
         # Install Python dependencies next
         if request.dependencies:

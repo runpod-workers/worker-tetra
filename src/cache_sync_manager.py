@@ -1,7 +1,8 @@
 import os
 import logging
 import asyncio
-import time
+import tempfile
+from datetime import datetime
 from pathlib import Path
 from typing import Optional
 from constants import NAMESPACE, CACHE_DIR, VOLUME_CACHE_PATH
@@ -13,10 +14,27 @@ class CacheSyncManager:
 
     def __init__(self):
         self.logger = logging.getLogger(f"{NAMESPACE}.{__name__.split('.')[-1]}")
-        self._baseline_path: Optional[str] = None
-        self._last_hydrated_path: Optional[str] = None
         self._should_sync_cached: Optional[bool] = None
         self._endpoint_id = os.environ.get("RUNPOD_ENDPOINT_ID")
+        self._baseline_time: Optional[float] = None
+
+    @property
+    def _tarball_path(self) -> str:
+        """Get the path to the cache tarball for this endpoint."""
+        return f"{VOLUME_CACHE_PATH}/cache-{self._endpoint_id}.tar"
+
+    @property
+    def _hydration_marker_path(self) -> str:
+        """Get the path to the cache hydration marker file."""
+        return f"{CACHE_DIR}/.cache-last-hydrated"
+
+    def _cleanup_temp_file(self, path: str, description: str) -> None:
+        """Clean up a temporary file, logging any errors at debug level."""
+        if os.path.exists(path):
+            try:
+                os.remove(path)
+            except Exception as e:
+                self.logger.debug(f"Failed to clean up {description}: {e}")
 
     def should_sync(self) -> bool:
         """
@@ -59,51 +77,66 @@ class CacheSyncManager:
         if not self.should_sync():
             return
 
-        timestamp = int(time.time() * 1000)
-        self._baseline_path = f"/tmp/.cache-baseline-{timestamp}"
-
         try:
-            Path(self._baseline_path).touch()
-            self.logger.debug(f"Marked cache baseline at {self._baseline_path}")
+            tarball_path = self._tarball_path
+            if os.path.exists(tarball_path):
+                # Subsequent run: use tarball mtime as baseline
+                self._baseline_time = os.path.getmtime(tarball_path)
+                baseline_source = "tarball"
+            else:
+                # First run: use current time as baseline
+                self._baseline_time = datetime.now().timestamp()
+                baseline_source = "current time"
+
+            self.logger.debug(
+                f"Baseline ({baseline_source}): {datetime.fromtimestamp(self._baseline_time).strftime('%Y-%m-%d %H:%M:%S')}"
+            )
         except Exception as e:
             self.logger.warning(f"Failed to mark cache baseline: {e}")
-            self._baseline_path = None
+            self._baseline_time = None
 
     async def sync_to_volume(self) -> None:
         """Background worker to collect delta and create tarball."""
-        if not self.should_sync() or not self._baseline_path:
+        if not self.should_sync() or not self._baseline_time:
             return
 
         try:
-            tarball_path = f"{VOLUME_CACHE_PATH}/cache-{self._endpoint_id}.tar"
+            baseline_time = self._baseline_time
+            tarball_path = self._tarball_path
             tarball_exists = os.path.exists(tarball_path)
 
             self.logger.debug(
-                f"Starting background cache sync from {CACHE_DIR} to {tarball_path}"
+                f"Sync cache to persist from {CACHE_DIR} to {tarball_path}"
             )
 
-            # Ensure baseline path is set
-            if not self._baseline_path:
-                self.logger.warning("No baseline path set, skipping cache sync")
-                return
+            # Format timestamp for find -newermt
+            baseline_str = datetime.fromtimestamp(baseline_time).strftime(
+                "%Y-%m-%d %H:%M:%S"
+            )
 
-            # Find files newer than baseline (suppress verbose output logging)
-            # Create a temporary logger that only logs warnings/errors
-            temp_logger = logging.getLogger(f"{self.logger.name}.quiet")
-            temp_logger.setLevel(logging.WARNING)
-
+            # Find files newer than baseline
             find_result = await asyncio.to_thread(
                 run_logged_subprocess,
                 command=[
                     "find",
                     CACHE_DIR,
-                    "-newer",
-                    self._baseline_path,
+                    "-newermt",
+                    baseline_str,
                     "-type",
                     "f",
+                    "-not",
+                    "-path",
+                    "*/refs/*",
+                    "-not",
+                    "-path",
+                    "*/.no_exist/*",
+                    "-not",
+                    "-name",
+                    ".cache-last-hydrated",
                 ],
-                logger=temp_logger,
+                logger=self.logger,
                 operation_name="Finding new cache files",
+                suppress_output=False,
             )
 
             if not find_result.success:
@@ -120,97 +153,110 @@ class CacheSyncManager:
             file_count = len(new_files.split("\n"))
             self.logger.debug(f"Found {file_count} new cache files to sync")
 
-            # Write file list to temporary file (tar -r doesn't work well with stdin)
-            file_list_path = (
-                f"/tmp/.cache-files-{self._endpoint_id}-{int(time.time() * 1000)}"
+            # Write file list to temporary file
+            file_list_fd = tempfile.NamedTemporaryFile(
+                prefix=".cache-files-", dir="/tmp", delete=False, mode="w"
             )
+            file_list_path = file_list_fd.name
             try:
-                with open(file_list_path, "w") as f:
-                    f.write(new_files)
+                file_list_fd.write(new_files)
+                file_list_fd.close()
             except Exception as e:
                 self.logger.warning(f"Failed to write file list: {e}")
+                file_list_fd.close()
                 return
 
-            try:
-                # Choose tar operation: append to existing or create new
-                if tarball_exists:
-                    # Append to existing tarball
-                    temp_tarball = f"{tarball_path}.tmp"
-                    tar_command = ["tar", "rf", temp_tarball, "-T", file_list_path]
-                    operation_name = "Appending to cache tarball"
+            # Always create tarball of new files first
+            new_tarball = f"{tarball_path}.new"
+            temp_tarball = f"{tarball_path}.tmp"
 
-                    # Copy existing tarball to temp location first
-                    copy_result = await asyncio.to_thread(
+            try:
+                # Create tarball containing only new files
+                create_result = await asyncio.to_thread(
+                    run_logged_subprocess,
+                    command=["tar", "cf", new_tarball, "-T", file_list_path],
+                    logger=self.logger,
+                    operation_name="Creating tarball of new files",
+                )
+
+                if not create_result.success:
+                    self.logger.warning(
+                        f"Failed to create new files tarball: {create_result.error}"
+                    )
+                    return
+
+                if tarball_exists:
+                    # Move existing tarball to temp location
+                    move_to_temp_result = await asyncio.to_thread(
                         run_logged_subprocess,
-                        command=["cp", tarball_path, temp_tarball],
+                        command=["mv", tarball_path, temp_tarball],
                         logger=self.logger,
-                        operation_name="Copying existing tarball",
+                        operation_name="Moving existing tarball to temp",
                     )
 
-                    if not copy_result.success:
+                    if not move_to_temp_result.success:
                         self.logger.warning(
-                            f"Failed to copy tarball: {copy_result.error}"
+                            f"Failed to move tarball to temp: {move_to_temp_result.error}"
                         )
                         return
-                else:
-                    # Create new tarball
-                    temp_tarball = f"{tarball_path}.tmp"
-                    tar_command = ["tar", "cf", temp_tarball, "-T", file_list_path]
-                    operation_name = "Creating cache tarball"
 
-                # Create/append tarball from file list
-                tar_result = await asyncio.to_thread(
-                    run_logged_subprocess,
-                    command=tar_command,
-                    logger=self.logger,
-                    operation_name=operation_name,
-                )
+                    # Concatenate new tarball into temp (faster than append)
+                    concat_result = await asyncio.to_thread(
+                        run_logged_subprocess,
+                        command=["tar", "-A", "-f", temp_tarball, new_tarball],
+                        logger=self.logger,
+                        operation_name="Concatenating new files to tarball",
+                    )
+
+                    if not concat_result.success:
+                        self.logger.warning(
+                            f"Failed to concatenate tarball: {concat_result.error}"
+                        )
+                        return
+
+                    # Atomically move temp to final location
+                    rename_result = await asyncio.to_thread(
+                        run_logged_subprocess,
+                        command=["mv", temp_tarball, tarball_path],
+                        logger=self.logger,
+                        operation_name="Moving tarball to final location",
+                    )
+
+                    if rename_result.success:
+                        self.logger.info(
+                            f"Successfully concatenated cache tarball at {tarball_path}"
+                        )
+                        self.mark_last_hydrated()
+                    else:
+                        self.logger.warning(
+                            f"Failed to move tarball: {rename_result.error}"
+                        )
+                else:
+                    # No existing tarball, just move new one to final location
+                    rename_result = await asyncio.to_thread(
+                        run_logged_subprocess,
+                        command=["mv", new_tarball, tarball_path],
+                        logger=self.logger,
+                        operation_name="Moving tarball to final location",
+                    )
+
+                    if rename_result.success:
+                        self.logger.info(
+                            f"Successfully created cache tarball at {tarball_path}"
+                        )
+                        self.mark_last_hydrated()
+                    else:
+                        self.logger.warning(
+                            f"Failed to move tarball: {rename_result.error}"
+                        )
             finally:
-                # Clean up file list
-                if os.path.exists(file_list_path):
-                    try:
-                        os.remove(file_list_path)
-                    except Exception as e:
-                        self.logger.debug(f"Failed to clean up file list: {e}")
-
-            if tar_result.success:
-                # Atomically replace old tarball with new one
-                rename_result = await asyncio.to_thread(
-                    run_logged_subprocess,
-                    command=["mv", temp_tarball, tarball_path],
-                    logger=self.logger,
-                    operation_name="Moving tarball to final location",
-                )
-
-                if rename_result.success:
-                    action = "appended to" if tarball_exists else "created"
-                    self.logger.info(
-                        f"Successfully {action} cache tarball at {tarball_path}"
-                    )
-                else:
-                    self.logger.warning(
-                        f"Failed to move tarball: {rename_result.error}"
-                    )
-            else:
-                self.logger.warning(
-                    f"Failed to create cache tarball: {tar_result.error}"
-                )
-                # Clean up temp file on failure
-                if os.path.exists(temp_tarball):
-                    try:
-                        os.remove(temp_tarball)
-                    except Exception as e:
-                        self.logger.debug(f"Failed to clean up temp tarball: {e}")
+                # Clean up temporary files
+                self._cleanup_temp_file(file_list_path, "file list")
+                self._cleanup_temp_file(new_tarball, "new files tarball")
+                self._cleanup_temp_file(temp_tarball, "temp tarball")
 
         except Exception as e:
             self.logger.error(f"Unexpected error in cache sync: {e}", exc_info=True)
-        finally:
-            # Clean up baseline file
-            if self._baseline_path and os.path.exists(self._baseline_path):
-                try:
-                    os.remove(self._baseline_path)
-                except Exception as e:
-                    self.logger.debug(f"Failed to clean up baseline file: {e}")
 
     def should_hydrate(self) -> bool:
         """
@@ -222,7 +268,7 @@ class CacheSyncManager:
         if not self.should_sync():
             return False
 
-        tarball_path = f"{VOLUME_CACHE_PATH}/cache-{self._endpoint_id}.tar"
+        tarball_path = self._tarball_path
         if not os.path.exists(tarball_path):
             self.logger.debug(
                 f"Tarball {tarball_path} does not exist, skipping hydration"
@@ -230,7 +276,7 @@ class CacheSyncManager:
             return False
 
         # Check last hydrated marker
-        marker_path = f"{CACHE_DIR}/.cache-last-hydrated"
+        marker_path = self._hydration_marker_path
         if not os.path.exists(marker_path):
             self.logger.debug("No hydration marker found, hydration needed")
             return True
@@ -258,16 +304,13 @@ class CacheSyncManager:
         if not self.should_sync():
             return
 
-        self._last_hydrated_path = f"{CACHE_DIR}/.cache-last-hydrated"
-
         try:
-            Path(self._last_hydrated_path).touch()
+            Path(self._hydration_marker_path).touch()
             self.logger.debug(
-                f"Marked cache last hydrated at {self._last_hydrated_path}"
+                f"Marked cache last hydrated at {self._hydration_marker_path}"
             )
         except Exception as e:
             self.logger.warning(f"Failed to mark cache last hydrated: {e}")
-            self._last_hydrated_path = None
 
     async def hydrate_from_volume(self) -> None:
         """Extract tarball from volume to hydrate local cache."""
@@ -275,7 +318,7 @@ class CacheSyncManager:
             return
 
         try:
-            tarball_path = f"{VOLUME_CACHE_PATH}/cache-{self._endpoint_id}.tar"
+            tarball_path = self._tarball_path
             self.logger.debug(f"Hydrating cache from {tarball_path} to {CACHE_DIR}")
 
             # Ensure cache directory exists

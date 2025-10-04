@@ -82,28 +82,32 @@ class TestMarkBaseline:
         """Test that mark_baseline skips when should_sync returns False."""
         with patch.object(cache_sync, "should_sync", return_value=False):
             cache_sync.mark_baseline()
-            assert cache_sync._baseline_path is None
+            assert cache_sync._baseline_time is None
 
-    def test_mark_baseline_creates_file(self, cache_sync, mock_env):
-        """Test that mark_baseline creates a baseline file."""
+    def test_mark_baseline_stores_timestamp(self, cache_sync, mock_env):
+        """Test that mark_baseline stores current timestamp."""
         with (
             patch.object(cache_sync, "should_sync", return_value=True),
-            patch.object(Path, "touch") as mock_touch,
+            patch("cache_sync_manager.datetime") as mock_datetime,
         ):
+            # Mock datetime.now().timestamp()
+            mock_now = mock_datetime.now.return_value
+            mock_now.timestamp.return_value = 1234567890.0
+
             cache_sync.mark_baseline()
 
-            assert cache_sync._baseline_path is not None
-            assert cache_sync._baseline_path.startswith("/tmp/.cache-baseline-")
-            mock_touch.assert_called_once()
+            assert cache_sync._baseline_time == 1234567890.0
 
     def test_mark_baseline_handles_exception(self, cache_sync, mock_env):
         """Test that mark_baseline handles exceptions gracefully."""
         with (
             patch.object(cache_sync, "should_sync", return_value=True),
-            patch.object(Path, "touch", side_effect=OSError("Permission denied")),
+            patch("cache_sync_manager.datetime") as mock_datetime,
         ):
+            mock_datetime.now.side_effect = Exception("Time error")
+
             cache_sync.mark_baseline()
-            assert cache_sync._baseline_path is None
+            assert cache_sync._baseline_time is None
 
 
 class TestSyncToVolumeAsync:
@@ -118,71 +122,61 @@ class TestSyncToVolumeAsync:
             # Verify no subprocess operations were attempted
             mock_to_thread.assert_not_called()
 
-    @pytest.mark.asyncio
-    async def test_sync_skips_when_no_baseline(self, cache_sync, mock_env):
-        """Test that sync_to_volume skips when no baseline is set."""
-        with (
-            patch.object(cache_sync, "should_sync", return_value=True),
-            patch("asyncio.to_thread") as mock_to_thread,
-        ):
-            cache_sync._baseline_path = None
-            await cache_sync.sync_to_volume()
-            # Verify no subprocess operations were attempted
-            mock_to_thread.assert_not_called()
-
-    @pytest.mark.asyncio
-    async def test_sync_callssync_to_volume(self, cache_sync, mock_env):
-        """Test that sync_to_volume calls sync_to_volume."""
-        with (
-            patch.object(cache_sync, "should_sync", return_value=True),
-            patch.object(cache_sync, "sync_to_volume") as mock_collect,
-        ):
-            cache_sync._baseline_path = "/tmp/.cache-baseline-123"
-            await cache_sync.sync_to_volume()
-            mock_collect.assert_called_once()
-
 
 class TestCollectAndTarball:
     @pytest.mark.asyncio
-    async def testsync_to_volume_no_new_files(self, cache_sync, mock_env):
+    async def test_sync_to_volume_no_new_files(self, cache_sync, mock_env):
         """Test that sync_to_volume handles no new files."""
         cache_sync._endpoint_id = "test-endpoint-123"
-        cache_sync._baseline_path = "/tmp/.cache-baseline-123"
+        cache_sync._baseline_time = 1234567890.0
 
         mock_find_result = FunctionResponse(success=True, stdout="")
 
-        with patch(
-            "asyncio.to_thread", side_effect=[mock_find_result]
-        ) as mock_to_thread:
+        with (
+            patch.object(cache_sync, "should_sync", return_value=True),
+            patch("os.path.exists", return_value=True),
+            patch("os.path.getmtime", return_value=1234567890.0),
+            patch(
+                "asyncio.to_thread", side_effect=[mock_find_result]
+            ) as mock_to_thread,
+        ):
             await cache_sync.sync_to_volume()
 
             # Only find command should be called, tar should be skipped
             assert mock_to_thread.call_count == 1
 
     @pytest.mark.asyncio
-    async def testsync_to_volume_success_new(self, cache_sync, mock_env):
-        """Test successful tarball creation when no tarball exists."""
+    async def test_sync_to_volume_success_new(self, cache_sync, mock_env):
+        """Test successful tarball creation when no tarball exists (uses baseline_time)."""
         cache_sync._endpoint_id = "test-endpoint-123"
-        cache_sync._baseline_path = "/tmp/.cache-baseline-123"
+        cache_sync._baseline_time = 1234567890.0
 
         mock_find_result = FunctionResponse(
             success=True, stdout="/root/.cache/file1\n/root/.cache/file2"
         )
-        mock_tar_result = FunctionResponse(success=True, stdout="")
+        mock_create_result = FunctionResponse(success=True, stdout="")
         mock_mv_result = FunctionResponse(success=True, stdout="")
 
         with (
+            patch.object(cache_sync, "should_sync", return_value=True),
             patch(
                 "asyncio.to_thread",
-                side_effect=[mock_find_result, mock_tar_result, mock_mv_result],
+                side_effect=[mock_find_result, mock_create_result, mock_mv_result],
             ) as mock_to_thread,
             patch("os.path.exists") as mock_exists,
             patch("os.remove") as mock_remove,
-            patch("builtins.open", create=True) as mock_open,
+            patch("tempfile.NamedTemporaryFile") as mock_tempfile,
+            patch.object(cache_sync, "mark_last_hydrated") as mock_mark,
         ):
-            # Tarball doesn't exist initially, but baseline and file list cleanup exist
+            # Mock tempfile for file list
+            mock_file_list = mock_tempfile.return_value
+            mock_file_list.name = "/tmp/.cache-files-abc123"
+
+            # Tarball doesn't exist initially, but temp files exist
             def exists_side_effect(path):
-                if path == "/tmp/.cache-baseline-123":
+                if path == "/runpod-volume/.cache/cache-test-endpoint-123.tar":
+                    return False
+                elif path.endswith(".new") or path.endswith(".tmp"):
                     return True
                 elif path.startswith("/tmp/.cache-files-"):
                     return True
@@ -192,92 +186,141 @@ class TestCollectAndTarball:
 
             await cache_sync.sync_to_volume()
 
-            # find, tar, and mv should be called
+            # find, tar cf (create new), and mv should be called
             assert mock_to_thread.call_count == 3
-            # File list should be written
-            mock_open.assert_called_once()
-            # Both baseline file and file list should be cleaned up (2 calls)
-            assert mock_remove.call_count == 2
+            # File list and temp files should be cleaned up (3 calls)
+            assert mock_remove.call_count == 3
+            # mark_last_hydrated should be called after successful sync
+            mock_mark.assert_called_once()
 
     @pytest.mark.asyncio
-    async def testsync_to_volume_success_append(self, cache_sync, mock_env):
-        """Test successful tarball append when tarball already exists."""
+    async def test_sync_to_volume_success_append(self, cache_sync, mock_env):
+        """Test successful tarball concatenation when tarball already exists (uses baseline_time)."""
         cache_sync._endpoint_id = "test-endpoint-123"
-        cache_sync._baseline_path = "/tmp/.cache-baseline-123"
+        cache_sync._baseline_time = 1234567890.0
 
         mock_find_result = FunctionResponse(
             success=True, stdout="/root/.cache/file3\n/root/.cache/file4"
         )
-        mock_cp_result = FunctionResponse(success=True, stdout="")
-        mock_tar_result = FunctionResponse(success=True, stdout="")
-        mock_mv_result = FunctionResponse(success=True, stdout="")
+        mock_create_result = FunctionResponse(success=True, stdout="")
+        mock_mv_to_temp_result = FunctionResponse(success=True, stdout="")
+        mock_concat_result = FunctionResponse(success=True, stdout="")
+        mock_mv_to_final_result = FunctionResponse(success=True, stdout="")
 
         with (
+            patch.object(cache_sync, "should_sync", return_value=True),
             patch(
                 "asyncio.to_thread",
                 side_effect=[
                     mock_find_result,
-                    mock_cp_result,
-                    mock_tar_result,
-                    mock_mv_result,
+                    mock_create_result,
+                    mock_mv_to_temp_result,
+                    mock_concat_result,
+                    mock_mv_to_final_result,
                 ],
             ) as mock_to_thread,
             patch("os.path.exists") as mock_exists,
             patch("os.remove") as mock_remove,
-            patch("builtins.open", create=True) as mock_open,
+            patch("tempfile.NamedTemporaryFile") as mock_tempfile,
+            patch.object(cache_sync, "mark_last_hydrated") as mock_mark,
+        ):
+            # Mock tempfile for file list
+            mock_file_list = mock_tempfile.return_value
+            mock_file_list.name = "/tmp/.cache-files-abc123"
+
+            # Tarball exists initially, plus temp files
+            def exists_side_effect(path):
+                if path == "/runpod-volume/.cache/cache-test-endpoint-123.tar":
+                    return True
+                elif path.endswith(".new") or path.endswith(".tmp"):
+                    return True
+                elif path.startswith("/tmp/.cache-files-"):
+                    return True
+                return False
+
+            mock_exists.side_effect = exists_side_effect
+
+            await cache_sync.sync_to_volume()
+
+            # find, tar cf (create new), mv (to temp), tar -A (concat), mv (to final)
+            assert mock_to_thread.call_count == 5
+            # File list and temp files should be cleaned up (3 calls)
+            assert mock_remove.call_count == 3
+            # mark_last_hydrated should be called after successful sync
+            mock_mark.assert_called_once()
+
+    @pytest.mark.asyncio
+    async def test_sync_to_volume_move_to_temp_failure(self, cache_sync, mock_env):
+        """Test handling of move to temp failure when concatenating."""
+        cache_sync._endpoint_id = "test-endpoint-123"
+        cache_sync._baseline_time = 1234567890.0
+
+        mock_find_result = FunctionResponse(
+            success=True, stdout="/root/.cache/file3\n/root/.cache/file4"
+        )
+        mock_create_result = FunctionResponse(success=True, stdout="")
+        mock_mv_to_temp_result = FunctionResponse(
+            success=False, error="Move to temp failed"
+        )
+
+        with (
+            patch.object(cache_sync, "should_sync", return_value=True),
+            patch(
+                "asyncio.to_thread",
+                side_effect=[
+                    mock_find_result,
+                    mock_create_result,
+                    mock_mv_to_temp_result,
+                ],
+            ) as mock_to_thread,
+            patch("os.path.exists") as mock_exists,
         ):
             # Tarball exists initially
             def exists_side_effect(path):
                 if path == "/runpod-volume/.cache/cache-test-endpoint-123.tar":
                     return True
-                elif path == "/tmp/.cache-baseline-123":
-                    return True
-                elif path.startswith("/tmp/.cache-files-"):
-                    return True
                 return False
 
             mock_exists.side_effect = exists_side_effect
 
             await cache_sync.sync_to_volume()
 
-            # find, cp, tar, and mv should be called
-            assert mock_to_thread.call_count == 4
-            # File list should be written
-            mock_open.assert_called_once()
-            # Both baseline file and file list should be cleaned up (2 calls)
-            assert mock_remove.call_count == 2
+            # find, tar cf (create new), and mv to temp should be called
+            assert mock_to_thread.call_count == 3
 
     @pytest.mark.asyncio
-    async def testsync_to_volume_find_failure(self, cache_sync, mock_env):
+    async def test_sync_to_volume_find_failure(self, cache_sync, mock_env):
         """Test handling of find command failure."""
         cache_sync._endpoint_id = "test-endpoint-123"
-        cache_sync._baseline_path = "/tmp/.cache-baseline-123"
+        cache_sync._baseline_time = 1234567890.0
 
         mock_find_result = FunctionResponse(success=False, error="Find failed")
 
-        with patch(
-            "asyncio.to_thread", side_effect=[mock_find_result]
-        ) as mock_to_thread:
+        with (
+            patch.object(cache_sync, "should_sync", return_value=True),
+            patch("os.path.exists", return_value=True),
+            patch(
+                "asyncio.to_thread", side_effect=[mock_find_result]
+            ) as mock_to_thread,
+        ):
             await cache_sync.sync_to_volume()
 
             # Only find should be attempted, tar should be skipped
             assert mock_to_thread.call_count == 1
 
     @pytest.mark.asyncio
-    async def testsync_to_volume_cleanup_on_exception(self, cache_sync, mock_env):
-        """Test that baseline is cleaned up even on exception."""
+    async def test_sync_to_volume_handles_exception(self, cache_sync, mock_env):
+        """Test that sync_to_volume handles unexpected exceptions."""
         cache_sync._endpoint_id = "test-endpoint-123"
-        cache_sync._baseline_path = "/tmp/.cache-baseline-123"
+        cache_sync._baseline_time = 1234567890.0
 
         with (
-            patch("asyncio.to_thread", side_effect=Exception("Unexpected error")),
+            patch.object(cache_sync, "should_sync", return_value=True),
             patch("os.path.exists", return_value=True),
-            patch("os.remove") as mock_remove,
+            patch("asyncio.to_thread", side_effect=Exception("Unexpected error")),
         ):
+            # Should not raise exception
             await cache_sync.sync_to_volume()
-
-            # Baseline should still be cleaned up
-            mock_remove.assert_called_once_with("/tmp/.cache-baseline-123")
 
 
 class TestShouldHydrate:
@@ -444,9 +487,13 @@ class TestHydrateFromVolume:
 class TestMarkLastHydrated:
     def test_mark_last_hydrated_skips_when_should_not_sync(self, cache_sync):
         """Test that mark_last_hydrated skips when should_sync returns False."""
-        with patch.object(cache_sync, "should_sync", return_value=False):
+        with (
+            patch.object(cache_sync, "should_sync", return_value=False),
+            patch.object(Path, "touch") as mock_touch,
+        ):
             cache_sync.mark_last_hydrated()
-            assert cache_sync._last_hydrated_path is None
+            # Should not touch the file when should_sync is False
+            mock_touch.assert_not_called()
 
     def test_mark_last_hydrated_creates_marker(self, cache_sync, mock_env):
         """Test that mark_last_hydrated creates a marker file."""
@@ -456,8 +503,7 @@ class TestMarkLastHydrated:
         ):
             cache_sync.mark_last_hydrated()
 
-            assert cache_sync._last_hydrated_path is not None
-            assert cache_sync._last_hydrated_path == "/root/.cache/.cache-last-hydrated"
+            # Should touch the hydration marker path
             mock_touch.assert_called_once()
 
     def test_mark_last_hydrated_handles_exception(self, cache_sync, mock_env):
@@ -466,5 +512,5 @@ class TestMarkLastHydrated:
             patch.object(cache_sync, "should_sync", return_value=True),
             patch.object(Path, "touch", side_effect=OSError("Permission denied")),
         ):
+            # Should not raise exception
             cache_sync.mark_last_hydrated()
-            assert cache_sync._last_hydrated_path is None

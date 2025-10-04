@@ -61,6 +61,8 @@ class HuggingFaceCacheAhead:
                     stdout=f"Model {model_id} already cached (cache hit)",
                 )
 
+            self.logger.info(f"Started downloading model {model_id}")
+
             # Get HF authentication token if available
             hf_token = os.environ.get("HF_TOKEN")
 
