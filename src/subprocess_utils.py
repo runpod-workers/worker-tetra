@@ -22,6 +22,7 @@ def run_logged_subprocess(
     capture_output: bool = True,
     text: bool = True,
     env: Optional[dict[str, str]] = None,
+    suppress_output: bool = False,
     **popen_kwargs,
 ) -> FunctionResponse:
     """
@@ -38,6 +39,8 @@ def run_logged_subprocess(
         timeout: Timeout in seconds for subprocess execution
         capture_output: Whether to capture stdout/stderr
         text: Whether to return strings instead of bytes
+        env: Environment variables to pass to subprocess
+        suppress_output: If True, only log command execution, not output
         **popen_kwargs: Additional arguments passed to subprocess.Popen
 
     Returns:
@@ -74,14 +77,15 @@ def run_logged_subprocess(
             logger.debug(f"{log_prefix}Error: {error_msg}")
             return FunctionResponse(success=False, error=error_msg)
 
-        # Log subprocess output
-        if stdout:
-            logger.debug(f"{log_prefix}Output: {stdout.strip()}")
-        if stderr:
-            if process.returncode == 0:
-                logger.debug(f"{log_prefix}Warnings: {stderr.strip()}")
-            else:
-                logger.debug(f"{log_prefix}Errors: {stderr.strip()}")
+        # Log subprocess output (unless suppressed)
+        if not suppress_output:
+            if stdout:
+                logger.debug(f"{log_prefix}Output: {stdout.strip()}")
+            if stderr:
+                if process.returncode == 0:
+                    logger.debug(f"{log_prefix}Warnings: {stderr.strip()}")
+                else:
+                    logger.debug(f"{log_prefix}Errors: {stderr.strip()}")
 
         # Return appropriate response based on exit code
         if process.returncode == 0:

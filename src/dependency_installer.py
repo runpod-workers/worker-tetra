@@ -37,7 +37,7 @@ class DependencyInstaller:
         if self._is_docker_environment():
             if accelerate_downloads:
                 # Packages are installed to the system location where they can be imported
-                command = ["uv", "pip", "install", "--system", "--no-cache"] + packages
+                command = ["uv", "pip", "install", "--system"] + packages
             else:
                 # Use full path to system python
                 command = ["pip", "install"] + packages
@@ -47,21 +47,13 @@ class DependencyInstaller:
 
         operation_name = f"Installing Python packages ({'accelerated' if accelerate_downloads else 'standard'})"
 
-        # Set environment variables to avoid UV cache issues in read-only volumes
-        env = None
-        if self._is_docker_environment():
-            env = os.environ.copy()
-            # Disable UV cache completely in Docker environments
-            env["UV_NO_CACHE"] = "1"
-            env["UV_CACHE_DIR"] = "/tmp/uv-cache"  # Use writable temp directory
-
         try:
             return run_logged_subprocess(
                 command=command,
                 logger=self.logger,
                 operation_name=operation_name,
                 timeout=300,
-                env=env,
+                env=os.environ.copy(),
             )
         except Exception as e:
             return FunctionResponse(success=False, error=str(e))
