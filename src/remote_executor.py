@@ -196,7 +196,7 @@ class RemoteExecutor(RemoteExecutorStub):
                 if cache_result.success:
                     self.logger.info(cache_result.stdout)
                 else:
-                    self.logger.warning(cache_result.stdout)
+                    self.logger.warning(cache_result.error)
 
         # Install Python dependencies next
         if request.dependencies:
