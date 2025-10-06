@@ -1,12 +1,13 @@
 import logging
 import asyncio
 from typing import List, Any
+from huggingface_cache import HuggingFaceCacheAhead
 from remote_execution import FunctionRequest, FunctionResponse, RemoteExecutorStub
-from workspace_manager import WorkspaceManager
 from dependency_installer import DependencyInstaller
 from function_executor import FunctionExecutor
 from class_executor import ClassExecutor
 from log_streamer import start_log_streaming, stop_log_streaming, get_streamed_logs
+from constants import NAMESPACE
 
 
 class RemoteExecutor(RemoteExecutorStub):
@@ -17,13 +18,13 @@ class RemoteExecutor(RemoteExecutorStub):
 
     def __init__(self):
         super().__init__()
-        self.logger = logging.getLogger(f"worker_tetra.{__name__.split('.')[-1]}")
+        self.logger = logging.getLogger(f"{NAMESPACE}.{__name__.split('.')[-1]}")
 
         # Initialize components using composition
-        self.workspace_manager = WorkspaceManager()
-        self.dependency_installer = DependencyInstaller(self.workspace_manager)
-        self.function_executor = FunctionExecutor(self.workspace_manager)
-        self.class_executor = ClassExecutor(self.workspace_manager)
+        self.dependency_installer = DependencyInstaller()
+        self.function_executor = FunctionExecutor()
+        self.class_executor = ClassExecutor()
+        self.hf_cache = HuggingFaceCacheAhead()
 
     async def ExecuteFunction(self, request: FunctionRequest) -> FunctionResponse:
         """
@@ -50,22 +51,7 @@ class RemoteExecutor(RemoteExecutorStub):
         )
 
         try:
-            # Initialize workspace if using volume
-            if self.workspace_manager.has_runpod_volume:
-                workspace_init = self.workspace_manager.initialize_workspace()
-                if not workspace_init.success:
-                    # Add any buffered logs to the failed response
-                    logs = get_streamed_logs(clear_buffer=True)
-                    if logs:
-                        if workspace_init.stdout:
-                            workspace_init.stdout += "\n" + logs
-                        else:
-                            workspace_init.stdout = logs
-                    return workspace_init
-                if workspace_init.stdout:
-                    self.logger.info(workspace_init.stdout)
-
-            # Install dependencies and cache models
+            # Install dependencies
             if request.accelerate_downloads:
                 # Run installations in parallel when acceleration is enabled
                 dep_result = await self._install_dependencies_parallel(request)
@@ -100,9 +86,6 @@ class RemoteExecutor(RemoteExecutorStub):
             else:
                 result = self.function_executor.execute(request)
 
-            # Add acceleration summary to the result
-            self._log_acceleration_summary(request, result)
-
             # Add all captured system logs to the result
             system_logs = get_streamed_logs(clear_buffer=True)
             if system_logs:
@@ -116,68 +99,6 @@ class RemoteExecutor(RemoteExecutorStub):
         finally:
             # Always stop log streaming to clean up
             stop_log_streaming()
-
-    def _log_acceleration_summary(
-        self, request: FunctionRequest, result: FunctionResponse
-    ):
-        """Log acceleration impact summary for performance visibility."""
-        if not hasattr(self.dependency_installer, "download_accelerator"):
-            return
-
-        acceleration_enabled = request.accelerate_downloads
-        has_volume = self.workspace_manager.has_runpod_volume
-        hf_transfer_available = self.dependency_installer.download_accelerator.hf_transfer_downloader.hf_transfer_available
-        nala_available = self.dependency_installer._check_nala_available()
-
-        # Build summary message
-        summary_parts = []
-
-        if acceleration_enabled:
-            summary_parts.append("✓ Download acceleration ENABLED")
-
-            if has_volume:
-                summary_parts.append(
-                    f"✓ Volume workspace: {self.workspace_manager.workspace_path}"
-                )
-                summary_parts.append("✓ Persistent caching enabled")
-            else:
-                summary_parts.append("ℹ No persistent volume - using temporary cache")
-
-            # System package acceleration status
-            if request.system_dependencies:
-                large_system_packages = (
-                    self.dependency_installer._identify_large_system_packages(
-                        request.system_dependencies
-                    )
-                )
-                if large_system_packages and nala_available:
-                    summary_parts.append(
-                        f"✓ System packages with nala: {len(large_system_packages)}"
-                    )
-                elif request.system_dependencies:
-                    summary_parts.append("→ System packages using standard apt-get")
-
-            if request.hf_models_to_cache:
-                summary_parts.append(
-                    f"✓ HF models pre-cached: {len(request.hf_models_to_cache)}"
-                )
-
-        elif acceleration_enabled and not (hf_transfer_available or nala_available):
-            summary_parts.append(
-                "⚠ Download acceleration REQUESTED but no accelerators available"
-            )
-            summary_parts.append("→ Using standard downloads")
-
-        elif not acceleration_enabled:
-            summary_parts.append("- Download acceleration DISABLED")
-            summary_parts.append("→ Using standard downloads")
-
-        # Log the summary
-        if summary_parts:
-            self.logger.debug("=== DOWNLOAD ACCELERATION SUMMARY ===")
-            for part in summary_parts:
-                self.logger.debug(part)
-            self.logger.debug("=====================================")
 
     async def _install_dependencies_parallel(
         self, request: FunctionRequest
@@ -210,10 +131,10 @@ class RemoteExecutor(RemoteExecutorStub):
             tasks.append(task)
             task_names.append("python_dependencies")
 
-        # Add HF model caching tasks
+        # Add HF model cache-ahead tasks
         if request.hf_models_to_cache:
             for model_id in request.hf_models_to_cache:
-                task = self.workspace_manager.accelerate_model_download_async(model_id)
+                task = self.hf_cache.cache_model_download_async(model_id)
                 tasks.append(task)
                 task_names.append(f"hf_model_{model_id}")
 
@@ -251,13 +172,11 @@ class RemoteExecutor(RemoteExecutorStub):
                 return sys_installed
             self.logger.info(sys_installed.stdout)
 
-        # Pre-cache HuggingFace models if requested (should not happen when acceleration disabled)
+        # Cache-ahead HuggingFace models if requested (should not happen when acceleration disabled)
         if request.accelerate_downloads and request.hf_models_to_cache:
             for model_id in request.hf_models_to_cache:
-                self.logger.info(f"Pre-caching HuggingFace model: {model_id}")
-                cache_result = self.workspace_manager.accelerate_model_download(
-                    model_id
-                )
+                self.logger.info(f"Cache-ahead HuggingFace model: {model_id}")
+                cache_result = self.hf_cache.cache_model_download(model_id)
                 if cache_result.success:
                     self.logger.info(
                         f"Successfully cached model {model_id}: {cache_result.stdout}"
@@ -330,16 +249,10 @@ class RemoteExecutor(RemoteExecutorStub):
                 stdout=f"Parallel installation: {success_count}/{len(results)} tasks succeeded\n"
                 + "\n".join(stdout_parts),
             )
-        else:
-            # All tasks succeeded
-            return FunctionResponse(
-                success=True,
-                stdout=f"Parallel installation: {success_count}/{len(results)} tasks completed successfully\n"
-                + "\n".join(stdout_parts),
-            )
-            # All tasks succeeded
-            return FunctionResponse(
-                success=True,
-                stdout=f"Parallel installation: {success_count}/{len(results)} tasks completed successfully\n"
-                + "\n".join(stdout_parts),
-            )
+
+        # All tasks succeeded
+        return FunctionResponse(
+            success=True,
+            stdout=f"Parallel installation: {success_count}/{len(results)} tasks completed successfully\n"
+            + "\n".join(stdout_parts),
+        )

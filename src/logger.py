@@ -9,9 +9,6 @@ import os
 import sys
 from typing import Union, Optional
 
-# Application logger namespace
-APP_LOGGER_NAME = "tetra"
-
 
 def get_log_level() -> int:
     """Get log level from environment variable, defaulting to INFO."""
@@ -34,7 +31,7 @@ def setup_logging(
 ) -> None:
     """
     Setup logging configuration for worker-tetra.
-    Only shows DEBUG logs from worker_tetra namespace when LOG_LEVEL=DEBUG.
+    Only shows DEBUG logs from tetra namespace when LOG_LEVEL=DEBUG.
 
     Args:
         level: Log level (defaults to LOG_LEVEL env var or INFO)
