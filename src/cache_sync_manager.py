@@ -38,10 +38,17 @@ class CacheSyncManager:
 
     def should_sync(self) -> bool:
         """
-        Check if cache sync should run.
+        Determine if cache sync functionality is available.
+
+        Checks if all prerequisites for cache synchronization are met:
+        - RUNPOD_ENDPOINT_ID is set
+        - Network volume is mounted
+        - Volume cache directory exists or can be created
+
+        Result is cached after first check.
 
         Returns:
-            True if tarball doesn't exist and volume is mounted, False otherwise
+            True if sync functionality is available, False otherwise
         """
         if self._should_sync_cached is not None:
             return self._should_sync_cached
