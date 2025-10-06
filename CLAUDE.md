@@ -17,14 +17,7 @@ This is `worker-tetra`, a RunPod Serverless worker template that provides dynami
 - **Function Executor** (`src/function_executor.py:12`): Handles individual function execution with full output capture (stdout, stderr, logs)
 - **Class Executor** (`src/class_executor.py:14`): Manages class instantiation and method execution with instance persistence and metadata tracking
 
-### 2. HuggingFace Model Cache-Ahead (`src/huggingface_cache.py`)
-- **Model Pre-Caching**: Downloads HuggingFace models before user code execution
-- **Cache Validation**: Checks if models are already cached to avoid redundant downloads
-- **Authentication**: Supports HF_TOKEN for private/gated model access
-- **Transfer Acceleration**: Uses hf_transfer when HF_HUB_ENABLE_HF_TRANSFER=1 is set
-- **Transparent Caching**: User code references models without knowing they're pre-cached
-
-### 3. Dependency Management System (`src/dependency_installer.py:14`)
+### 2. Dependency Management System (`src/dependency_installer.py:14`)
 - **Python Package Installation**: UV-based package management with environment-aware configuration (Docker vs local)
 - **System Package Installation**: APT/Nala-based system dependency handling with acceleration support
 - **Differential Installation**: Optimized package installation that skips already-installed packages
@@ -32,25 +25,25 @@ This is `worker-tetra`, a RunPod Serverless worker template that provides dynami
 - **System Package Filtering**: Intelligent detection of system-available packages to avoid redundant installation
 - **Universal Subprocess Integration**: All subprocess operations use centralized logging utility
 
-### 4. Universal Subprocess Utility (`src/subprocess_utils.py`)
+### 3. Universal Subprocess Utility (`src/subprocess_utils.py`)
 - **Centralized Subprocess Operations**: All subprocess calls use `run_logged_subprocess` for consistency
 - **Automatic Logging Integration**: All subprocess output flows through log streamer at DEBUG level
 - **Environment-Aware Execution**: Handles Docker vs local environment differences automatically
 - **Standardized Error Handling**: Consistent FunctionResponse pattern for all subprocess operations
 - **Timeout Management**: Configurable timeouts with proper cleanup on timeout/cancellation
 
-### 5. Serialization & Protocol Management
+### 4. Serialization & Protocol Management
 - **Protocol Definitions** (`src/remote_execution.py:13`): Pydantic models for request/response with validation
 - **Serialization Utils** (`src/serialization_utils.py`): CloudPickle-based data serialization for function arguments and results
 - **Base Executor** (`src/base_executor.py`): Common execution interface and environment setup
 
-### 6. Tetra SDK Integration (`tetra-rp/` submodule)
+### 5. Tetra SDK Integration (`tetra-rp/` submodule)
 - **Client Interface**: `@remote` decorator for marking functions for remote execution
 - **Resource Management**: GPU/CPU configuration and provisioning through LiveServerless objects
 - **Live Serverless**: Dynamic infrastructure provisioning with auto-scaling
 - **Protocol Buffers**: Communication protocol definitions for distributed execution
 
-### 7. Testing Infrastructure (`tests/`)
+### 6. Testing Infrastructure (`tests/`)
 - **Unit Tests** (`tests/unit/`): Component-level testing for individual modules with mocking
 - **Integration Tests** (`tests/integration/`): End-to-end workflow testing with real execution
 - **Test Fixtures** (`tests/conftest.py:1`): Shared test data, mock objects, and utility functions
@@ -58,15 +51,15 @@ This is `worker-tetra`, a RunPod Serverless worker template that provides dynami
   - **Full Coverage**: All handler tests pass with environment-aware dependency installation
   - **Cross-Platform**: Works correctly in both Docker containers and local macOS/Linux environments
 
-### 8. Build & Deployment Pipeline
+### 7. Build & Deployment Pipeline
 - **Docker Containerization**: GPU (`Dockerfile`) and CPU (`Dockerfile-cpu`) image builds
 - **CI/CD Pipeline**: Automated testing, linting, and releases (`.github/workflows/`)
 - **Quality Gates** (`Makefile:104`): Format checking, type checking, test coverage requirements
 - **Release Management**: Automated semantic versioning and Docker Hub deployment
 
-### 9. Configuration & Constants
+### 8. Configuration & Constants
 - **Constants** (`src/constants.py`): System-wide configuration values (NAMESPACE, LARGE_SYSTEM_PACKAGES)
-- **Environment Configuration**: RunPod API integration and HuggingFace cache settings
+- **Environment Configuration**: RunPod API integration
 
 ## Architecture
 
@@ -90,13 +83,12 @@ This is `worker-tetra`, a RunPod Serverless worker template that provides dynami
 ### Key Patterns
 
 1. **Remote Function Execution**: Functions decorated with `@remote` are automatically executed on RunPod GPU workers
-2. **Composition Pattern**: RemoteExecutor uses specialized components (DependencyInstaller, HuggingFaceCacheAhead, Executors)
+2. **Composition Pattern**: RemoteExecutor uses specialized components (DependencyInstaller, Executors)
 3. **Dynamic Dependency Management**: Dependencies specified in decorators are installed at runtime with differential updates
-4. **HuggingFace Cache-Ahead**: Models specified in `hf_models_to_cache` are pre-downloaded before execution
-5. **Universal Subprocess Operations**: All subprocess calls use centralized `run_logged_subprocess` for consistent logging and error handling
-6. **Environment-Aware Configuration**: Automatic Docker vs local environment detection for appropriate installation methods
-7. **Serialization**: Uses cloudpickle + base64 encoding for function arguments and results
-8. **Resource Configuration**: `LiveServerless` objects define GPU requirements, scaling, and worker configuration
+4. **Universal Subprocess Operations**: All subprocess calls use centralized `run_logged_subprocess` for consistent logging and error handling
+5. **Environment-Aware Configuration**: Automatic Docker vs local environment detection for appropriate installation methods
+6. **Serialization**: Uses cloudpickle + base64 encoding for function arguments and results
+7. **Resource Configuration**: `LiveServerless` objects define GPU requirements, scaling, and worker configuration
 
 ## Development Commands
 
@@ -147,8 +139,6 @@ git submodule update --remote --rebase    # Update tetra-rp to latest
 - `HF_HUB_ENABLE_HF_TRANSFER`: Set to "1" in Dockerfile to enable accelerated HuggingFace downloads
 - `HF_TOKEN`: Optional authentication token for private/gated HuggingFace models
 - `DEBIAN_FRONTEND=noninteractive`: Set during system package installation
-- `UV_CACHE_DIR`: Package cache configuration
-- `VIRTUAL_ENV`: Virtual environment path configuration
 
 ### Resource Configuration
 Configure GPU resources using `LiveServerless` objects:
@@ -204,7 +194,6 @@ gpu_config = LiveServerless(
 │   ├── function_executor.py  # Function execution with output capture
 │   ├── class_executor.py     # Class execution with persistence
 │   ├── dependency_installer.py # Python and system dependency management
-│   ├── huggingface_cache.py  # HuggingFace model cache-ahead system
 │   ├── serialization_utils.py # CloudPickle serialization utilities
 │   ├── base_executor.py      # Common execution interface
 │   ├── constants.py          # System-wide configuration constants

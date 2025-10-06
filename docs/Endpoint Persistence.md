@@ -14,7 +14,7 @@
 
 - First container boots, and checks for volume presence and endpoint workspace. Create if not found.
 
-   1. Container will proceed to download any system, python or HF pre-cache instructed from the remote decorator.
+   1. Container will proceed to download any system or python dependencies in parallel as instructed from the remote decorator.
 
    2. Container runs its job.
 
@@ -45,7 +45,7 @@ graph TD
       H -->|No| J[Launch CDR Daemon<br/>Hydrate /app ← Workspace<br/>Then Monitor /app →
   Workspace]
 
-      G --> K[Download Dependencies<br/>System + Python + HF]
+      G --> K[Download Dependencies<br/>System + Python]
       I --> K
       J --> L[Skip Downloads<br/>Use Cached Data]
 

@@ -1,7 +1,6 @@
 import logging
 import asyncio
 from typing import List, Any
-from huggingface_cache import HuggingFaceCacheAhead
 from remote_execution import FunctionRequest, FunctionResponse, RemoteExecutorStub
 from dependency_installer import DependencyInstaller
 from function_executor import FunctionExecutor
@@ -25,7 +24,6 @@ class RemoteExecutor(RemoteExecutorStub):
         self.dependency_installer = DependencyInstaller()
         self.function_executor = FunctionExecutor()
         self.class_executor = ClassExecutor()
-        self.hf_cache = HuggingFaceCacheAhead()
         self.cache_sync = CacheSyncManager()
 
     async def ExecuteFunction(self, request: FunctionRequest) -> FunctionResponse:
@@ -54,11 +52,7 @@ class RemoteExecutor(RemoteExecutorStub):
 
         try:
             # Hydrate cache from volume if needed (before any installations)
-            has_installations = (
-                request.dependencies
-                or request.system_dependencies
-                or request.hf_models_to_cache
-            )
+            has_installations = request.dependencies or request.system_dependencies
             if has_installations:
                 await self.cache_sync.hydrate_from_volume()
 
@@ -148,13 +142,6 @@ class RemoteExecutor(RemoteExecutorStub):
             tasks.append(task)
             task_names.append("python_dependencies")
 
-        # Add HF model cache-ahead tasks
-        if request.hf_models_to_cache:
-            for model_id in request.hf_models_to_cache:
-                task = self.hf_cache.cache_model_download_async(model_id)
-                tasks.append(task)
-                task_names.append(f"hf_model_{model_id}")
-
         if not tasks:
             return FunctionResponse(success=True, stdout="No dependencies to install")
 
@@ -188,15 +175,6 @@ class RemoteExecutor(RemoteExecutorStub):
             if not sys_installed.success:
                 return sys_installed
             self.logger.info(sys_installed.stdout)
-
-        # Cache-ahead HuggingFace models if requested (should not happen when acceleration disabled)
-        if request.accelerate_downloads and request.hf_models_to_cache:
-            for model_id in request.hf_models_to_cache:
-                cache_result = self.hf_cache.cache_model_download(model_id)
-                if cache_result.success:
-                    self.logger.info(cache_result.stdout)
-                else:
-                    self.logger.warning(cache_result.stdout)
 
         # Install Python dependencies next
         if request.dependencies:
