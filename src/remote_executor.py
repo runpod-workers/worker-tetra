@@ -249,10 +249,10 @@ class RemoteExecutor(RemoteExecutorStub):
                 stdout=f"Parallel installation: {success_count}/{len(results)} tasks succeeded\n"
                 + "\n".join(stdout_parts),
             )
-        else:
-            # All tasks succeeded
-            return FunctionResponse(
-                success=True,
-                stdout=f"Parallel installation: {success_count}/{len(results)} tasks completed successfully\n"
-                + "\n".join(stdout_parts),
-            )
+
+        # All tasks succeeded
+        return FunctionResponse(
+            success=True,
+            stdout=f"Parallel installation: {success_count}/{len(results)} tasks completed successfully\n"
+            + "\n".join(stdout_parts),
+        )
