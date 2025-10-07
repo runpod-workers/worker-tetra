@@ -1,6 +1,6 @@
 import logging
 import asyncio
-from typing import List, Any
+from typing import List, Any, Optional
 from remote_execution import FunctionRequest, FunctionResponse, RemoteExecutorStub
 from workspace_manager import WorkspaceManager
 from dependency_installer import DependencyInstaller
@@ -12,6 +12,7 @@ class RemoteExecutor(RemoteExecutorStub):
     """
     RemoteExecutor orchestrates remote function and class execution.
     Uses composition pattern with specialized components.
+    Supports both dynamic (dev) and baked (production) execution modes.
     """
 
     def __init__(self):
@@ -24,6 +25,29 @@ class RemoteExecutor(RemoteExecutorStub):
         self.function_executor = FunctionExecutor(self.workspace_manager)
         self.class_executor = ClassExecutor(self.workspace_manager)
 
+        # Initialize baked executor if in production mode
+        self.baked_executor: Optional[Any] = None
+        self._initialize_baked_executor()
+
+    def _initialize_baked_executor(self):
+        """Initialize baked executor if running in production mode."""
+        try:
+            from baked_executor import BakedExecutor, is_baked_mode_enabled
+
+            if is_baked_mode_enabled():
+                self.baked_executor = BakedExecutor(self.workspace_manager)
+                self.logger.info(
+                    "✅ Baked execution mode ENABLED - using pre-installed code"
+                )
+            else:
+                self.logger.info(
+                    "ℹ️  Baked execution mode DISABLED - using dynamic code execution"
+                )
+        except ImportError:
+            self.logger.debug(
+                "BakedExecutor not available - running in development mode"
+            )
+
     async def ExecuteFunction(self, request: FunctionRequest) -> FunctionResponse:
         """
         Execute a function or class method on the remote resource.
@@ -34,6 +58,14 @@ class RemoteExecutor(RemoteExecutorStub):
         Returns:
             FunctionResponse object with execution result
         """
+        # Check if we should use baked execution
+        if self._should_use_baked_execution(request):
+            self.logger.info(
+                f"Using baked execution for {getattr(request, 'function_name', None) or getattr(request, 'class_name', 'unknown')}"
+            )
+            return self.baked_executor.execute(request)
+
+        # Standard dynamic execution flow
         # Initialize workspace if using volume
         if self.workspace_manager.has_runpod_volume:
             workspace_init = self.workspace_manager.initialize_workspace()
@@ -67,6 +99,46 @@ class RemoteExecutor(RemoteExecutorStub):
         self._log_acceleration_summary(request, result)
 
         return result
+
+    def _should_use_baked_execution(self, request: FunctionRequest) -> bool:
+        """
+        Determine if request should use baked execution.
+
+        Returns True if:
+        1. Baked executor is initialized (production mode)
+        2. Request has a callable name
+        3. Callable is available in baked registry
+        4. Request doesn't have custom code (function_code or class_code)
+        """
+        if not self.baked_executor:
+            return False
+
+        # Get callable name
+        callable_name = getattr(request, "function_name", None) or getattr(
+            request, "class_name", None
+        )
+        if not callable_name:
+            return False
+
+        # Check if callable is baked
+        if not self.baked_executor.is_baked(callable_name):
+            self.logger.debug(
+                f"Callable '{callable_name}' not found in baked registry, using dynamic execution"
+            )
+            return False
+
+        # If request has custom code, use dynamic execution
+        execution_type = getattr(request, "execution_type", "function")
+        if execution_type == "function" and getattr(request, "function_code", None):
+            self.logger.debug(
+                f"Request has custom function_code, using dynamic execution"
+            )
+            return False
+        elif execution_type == "class" and getattr(request, "class_code", None):
+            self.logger.debug(f"Request has custom class_code, using dynamic execution")
+            return False
+
+        return True
 
     def _log_acceleration_summary(
         self, request: FunctionRequest, result: FunctionResponse
