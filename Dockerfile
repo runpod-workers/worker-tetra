@@ -4,6 +4,8 @@ WORKDIR /app
 
 # Enable HuggingFace transfer acceleration
 ENV HF_HUB_ENABLE_HF_TRANSFER=1
+# Relocate HuggingFace cache outside /root/.cache to exclude from volume sync
+ENV HF_HOME=/hf-cache
 
 # Install system dependencies and uv
 RUN apt-get update && apt-get install -y --no-install-recommends \
