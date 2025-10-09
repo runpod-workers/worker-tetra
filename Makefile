@@ -23,7 +23,7 @@ dev: # Install development dependencies
 update: # Upgrade all dependencies
 	uv sync --upgrade --all-groups
 	uv lock --upgrade
-	cd tetra-rp && git checkout main && git pull
+	git submodule update --remote
 
 clean: # Remove build artifacts and cache files
 	rm -rf dist build *.egg-info
