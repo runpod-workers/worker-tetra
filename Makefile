@@ -31,8 +31,7 @@ clean: # Remove build artifacts and cache files
 	find . -type f -name "*.pkl" -delete
 
 setup: dev # Initialize project, sync deps, update submodules
-	git submodule init
-	git submodule update --remote --rebase
+	git submodule update --init --recursive
 	cp tetra-rp/src/tetra_rp/protos/remote_execution.py src/
 
 build: # Build both GPU and CPU Docker images
