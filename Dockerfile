@@ -7,9 +7,13 @@ ENV HF_HUB_ENABLE_HF_TRANSFER=1
 # Relocate HuggingFace cache outside /root/.cache to exclude from volume sync
 ENV HF_HOME=/hf-cache
 
+# Configure APT cache to persist under /root/.cache for volume sync
+RUN mkdir -p /root/.cache/apt/archives/partial \
+ && echo 'Dir::Cache "/root/.cache/apt";' > /etc/apt/apt.conf.d/01cache
+
 # Install system dependencies and uv
 RUN apt-get update && apt-get install -y --no-install-recommends \
-    curl ca-certificates nala \
+    build-essential curl ca-certificates nala \
  && curl -LsSf https://astral.sh/uv/install.sh | sh \
  && cp ~/.local/bin/uv /usr/local/bin/uv \
  && chmod +x /usr/local/bin/uv \
