@@ -2,6 +2,11 @@ FROM pytorch/pytorch:2.8.0-cuda12.8-cudnn9-runtime
 
 WORKDIR /app
 
+# Prevent interactive prompts during package installation
+ENV DEBIAN_FRONTEND=noninteractive
+# Set timezone to avoid tzdata prompts
+ENV TZ=Etc/UTC
+
 # Enable HuggingFace transfer acceleration
 ENV HF_HUB_ENABLE_HF_TRANSFER=1
 # Relocate HuggingFace cache outside /root/.cache to exclude from volume sync
@@ -12,7 +17,7 @@ RUN mkdir -p /root/.cache/apt/archives/partial \
  && echo 'Dir::Cache "/root/.cache/apt";' > /etc/apt/apt.conf.d/01cache
 
 # Install system dependencies and uv
-RUN DEBIAN_FRONTEND=noninteractive apt-get update && apt-get install -y --no-install-recommends \
+RUN apt-get update && apt-get install -y --no-install-recommends \
     build-essential curl ca-certificates nala \
  && curl -LsSf https://astral.sh/uv/install.sh | sh \
  && cp ~/.local/bin/uv /usr/local/bin/uv \
