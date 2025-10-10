@@ -2,6 +2,11 @@ FROM pytorch/pytorch:2.8.0-cuda12.8-cudnn9-runtime
 
 WORKDIR /app
 
+# Prevent interactive prompts during package installation
+ENV DEBIAN_FRONTEND=noninteractive
+# Set timezone to avoid tzdata prompts
+ENV TZ=Etc/UTC
+
 # Enable HuggingFace transfer acceleration
 ENV HF_HUB_ENABLE_HF_TRANSFER=1
 # Relocate HuggingFace cache outside /root/.cache to exclude from volume sync

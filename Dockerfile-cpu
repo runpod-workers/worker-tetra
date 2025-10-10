@@ -2,6 +2,11 @@ FROM python:3.12-slim
 
 WORKDIR /app
 
+# Prevent interactive prompts during package installation
+ENV DEBIAN_FRONTEND=noninteractive
+# Set timezone to avoid tzdata prompts
+ENV TZ=Etc/UTC
+
 # Configure APT cache to persist under /root/.cache for volume sync
 RUN mkdir -p /root/.cache/apt/archives/partial \
  && echo 'Dir::Cache "/root/.cache/apt";' > /etc/apt/apt.conf.d/01cache

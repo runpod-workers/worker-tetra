@@ -1,5 +1,13 @@
 # Changelog
 
+## [0.7.0](https://github.com/runpod-workers/worker-tetra/compare/v0.6.0...v0.7.0) (2025-10-10)
+
+
+### Features
+
+* Endpoint Persistence using Network Volume (phase 1) ([#25](https://github.com/runpod-workers/worker-tetra/issues/25)) ([f59bec2](https://github.com/runpod-workers/worker-tetra/commit/f59bec228a93f075a4009bf0b17a3002d496df6e))
+* Endpoint Persistence using Network Volume (phase 2) ([#31](https://github.com/runpod-workers/worker-tetra/issues/31)) ([657e89a](https://github.com/runpod-workers/worker-tetra/commit/657e89a91c9e36432d8720d8464179996b4f1e60))
+
 ## [0.6.0](https://github.com/runpod-workers/worker-tetra/compare/v0.5.0...v0.6.0) (2025-09-25)
 
 
