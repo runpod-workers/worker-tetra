@@ -143,7 +143,7 @@ class CacheSyncManager:
                 ],
                 logger=self.logger,
                 operation_name="Finding new cache files",
-                suppress_output=False,
+                suppress_output=True,
             )
 
             if not find_result.success:
@@ -159,6 +159,27 @@ class CacheSyncManager:
             # Log summary instead of full file list
             file_count = len(new_files.split("\n"))
             self.logger.debug(f"Found {file_count} new cache files to sync")
+
+            # Monitor tarball size if it exists
+            if tarball_exists:
+                try:
+                    tarball_size = os.path.getsize(tarball_path)
+                    tarball_mb = tarball_size / (1024 * 1024)
+                    self.logger.debug(f"Current tarball size: {tarball_mb:.1f}MB")
+
+                    # Check volume capacity and warn if tarball exceeds 50%
+                    volume_root = os.path.dirname(VOLUME_CACHE_PATH)
+                    stat = os.statvfs(volume_root)
+                    volume_total = stat.f_blocks * stat.f_frsize
+                    threshold = volume_total * 0.75
+
+                    if tarball_size > threshold:
+                        volume_total_gb = volume_total / (1024**3)
+                        self.logger.warning(
+                            f"Tarball size ({tarball_mb:.1f}MB) exceeds 75% of volume capacity ({volume_total_gb:.1f}GB)"
+                        )
+                except OSError as e:
+                    self.logger.debug(f"Failed to check tarball size: {e}")
 
             # Write file list to temporary file
             file_list_fd = tempfile.NamedTemporaryFile(
