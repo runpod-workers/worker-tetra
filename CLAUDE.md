@@ -146,6 +146,7 @@ git submodule update --remote --rebase    # Update tetra-rp to latest
 - `RUNPOD_ENDPOINT_ID`: Used for workspace isolation (automatically set by RunPod)
 - `HF_HUB_ENABLE_HF_TRANSFER`: Set to "1" in Dockerfile to enable accelerated HuggingFace downloads
 - `HF_TOKEN`: Optional authentication token for private/gated HuggingFace models
+- `HF_HOME=/hf-cache`: HuggingFace cache location, set outside `/root/.cache` to exclude from volume sync
 - `DEBIAN_FRONTEND=noninteractive`: Set during system package installation
 - `UV_CACHE_DIR`: Package cache configuration
 - `VIRTUAL_ENV`: Virtual environment path configuration

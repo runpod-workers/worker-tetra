@@ -84,8 +84,8 @@ jobs:
       - name: Setup dependencies
         run: |
           uv sync
-          git submodule update --remote --rebase
-          cp tetra-rp/src/tetra_rp/protos/remote_execution.py .
+          git submodule update
+          cp tetra-rp/src/tetra_rp/protos/remote_execution.py src/
 
       - name: Build and push GPU Docker image
         uses: docker/build-push-action@v6

@@ -7,6 +7,7 @@ from dependency_installer import DependencyInstaller
 from function_executor import FunctionExecutor
 from class_executor import ClassExecutor
 from log_streamer import start_log_streaming, stop_log_streaming, get_streamed_logs
+from cache_sync_manager import CacheSyncManager
 from constants import NAMESPACE
 
 
@@ -25,6 +26,7 @@ class RemoteExecutor(RemoteExecutorStub):
         self.function_executor = FunctionExecutor()
         self.class_executor = ClassExecutor()
         self.hf_cache = HuggingFaceCacheAhead()
+        self.cache_sync = CacheSyncManager()
 
     async def ExecuteFunction(self, request: FunctionRequest) -> FunctionResponse:
         """
@@ -51,6 +53,18 @@ class RemoteExecutor(RemoteExecutorStub):
         )
 
         try:
+            # Hydrate cache from volume if needed (before any installations)
+            has_installations = (
+                request.dependencies
+                or request.system_dependencies
+                or request.hf_models_to_cache
+            )
+            if has_installations:
+                await self.cache_sync.hydrate_from_volume()
+
+            # Mark cache baseline before installation
+            self.cache_sync.mark_baseline()
+
             # Install dependencies
             if request.accelerate_downloads:
                 # Run installations in parallel when acceleration is enabled
@@ -76,6 +90,9 @@ class RemoteExecutor(RemoteExecutorStub):
                         else:
                             dep_result.stdout = logs
                     return dep_result
+
+            # cache sync after installation
+            await self.cache_sync.sync_to_volume()
 
             # Route to appropriate execution method based on type
             execution_type = getattr(request, "execution_type", "function")
@@ -175,16 +192,11 @@ class RemoteExecutor(RemoteExecutorStub):
         # Cache-ahead HuggingFace models if requested (should not happen when acceleration disabled)
         if request.accelerate_downloads and request.hf_models_to_cache:
             for model_id in request.hf_models_to_cache:
-                self.logger.info(f"Cache-ahead HuggingFace model: {model_id}")
                 cache_result = self.hf_cache.cache_model_download(model_id)
                 if cache_result.success:
-                    self.logger.info(
-                        f"Successfully cached model {model_id}: {cache_result.stdout}"
-                    )
+                    self.logger.info(cache_result.stdout)
                 else:
-                    self.logger.warning(
-                        f"Failed to cache model {model_id}: {cache_result.error}"
-                    )
+                    self.logger.warning(cache_result.error)
 
         # Install Python dependencies next
         if request.dependencies:
