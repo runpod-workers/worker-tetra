@@ -4,7 +4,7 @@ import pytest
 import base64
 import cloudpickle
 from unittest.mock import patch, AsyncMock
-from handler import handler
+from live_serverless import handler
 from live_serverless.remote_execution import FunctionResponse
 
 

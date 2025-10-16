@@ -463,3 +463,152 @@ def process_data(data):
         assert decoded_result["sum"] == 15
         assert decoded_result["name"] == "test"
         assert decoded_result["processed"] is True
+
+
+class TestHandlerLoading:
+    """Integration tests for dynamic handler loading."""
+
+    @pytest.mark.integration
+    def test_handler_loading_with_default(self, capsys):
+        """Test that handler.py loads live_serverless by default."""
+        import os
+        from unittest.mock import patch
+        import importlib
+
+        # Reload handler module to test loading
+        with patch.dict(os.environ, {}, clear=True):
+            import handler
+
+            # Reimport to trigger load_handler()
+            importlib.reload(handler)
+
+            # Note: This test verifies the module can be imported
+            # The actual load happens in __main__
+
+    @pytest.mark.integration
+    @pytest.mark.asyncio
+    async def test_handler_execution_with_custom_handler_module(
+        self, tmp_path, monkeypatch
+    ):
+        """Test end-to-end execution with a dynamically loaded custom handler."""
+        import sys
+
+        # Create a temporary handler module
+        custom_handler_code = """
+from typing import Dict, Any
+
+async def handler(event: Dict[str, Any]) -> Dict[str, Any]:
+    '''Custom handler for testing.'''
+    return {
+        "success": True,
+        "result": "custom_handler_executed",
+        "error": None,
+        "stdout": "Custom handler stdout",
+    }
+"""
+
+        # Write the custom handler to temp directory
+        custom_module_path = tmp_path / "custom_test_handler.py"
+        custom_module_path.write_text(custom_handler_code)
+
+        # Add temp directory to Python path
+        sys.path.insert(0, str(tmp_path))
+
+        try:
+            # Set environment variable
+            monkeypatch.setenv("HANDLER_MODULE", "custom_test_handler")
+
+            # Import and use load_handler
+            from handler import load_handler
+
+            loaded_handler = load_handler()
+
+            # Execute the handler
+            event = {
+                "input": {
+                    "function_name": "test",
+                    "function_code": "def test(): return 'test'",
+                    "args": [],
+                    "kwargs": {},
+                }
+            }
+
+            result = await loaded_handler(event)
+
+            # Verify custom handler was executed
+            assert result["success"] is True
+            assert result["result"] == "custom_handler_executed"
+            assert result["stdout"] == "Custom handler stdout"
+
+        finally:
+            # Cleanup
+            sys.path.remove(str(tmp_path))
+            if "custom_test_handler" in sys.modules:
+                del sys.modules["custom_test_handler"]
+
+    @pytest.mark.integration
+    def test_handler_loading_failure_propagation(self, monkeypatch):
+        """Test that loading errors propagate correctly."""
+        import pytest
+        from handler import load_handler
+
+        # Set non-existent module
+        monkeypatch.setenv("HANDLER_MODULE", "totally_nonexistent_module_xyz")
+
+        # Should raise ImportError
+        with pytest.raises(ImportError) as exc_info:
+            load_handler()
+
+        # Verify error message contains module name
+        assert "totally_nonexistent_module_xyz" in str(exc_info.value)
+
+    @pytest.mark.integration
+    @pytest.mark.asyncio
+    async def test_handler_switch_between_modules(self, tmp_path, monkeypatch):
+        """Test switching between different handler modules."""
+        import sys
+        from handler import load_handler
+
+        # Create first custom handler
+        handler1_code = """
+from typing import Dict, Any
+
+async def handler(event: Dict[str, Any]) -> Dict[str, Any]:
+    return {"handler_id": "handler_1", "success": True}
+"""
+        handler1_path = tmp_path / "test_handler_1.py"
+        handler1_path.write_text(handler1_code)
+
+        # Create second custom handler
+        handler2_code = """
+from typing import Dict, Any
+
+async def handler(event: Dict[str, Any]) -> Dict[str, Any]:
+    return {"handler_id": "handler_2", "success": True}
+"""
+        handler2_path = tmp_path / "test_handler_2.py"
+        handler2_path.write_text(handler2_code)
+
+        sys.path.insert(0, str(tmp_path))
+
+        try:
+            # Load first handler
+            monkeypatch.setenv("HANDLER_MODULE", "test_handler_1")
+            handler1 = load_handler()
+            result1 = await handler1({})
+            assert result1["handler_id"] == "handler_1"
+
+            # Load second handler
+            monkeypatch.setenv("HANDLER_MODULE", "test_handler_2")
+            handler2 = load_handler()
+            result2 = await handler2({})
+            assert result2["handler_id"] == "handler_2"
+
+            # Verify they are different
+            assert result1["handler_id"] != result2["handler_id"]
+
+        finally:
+            sys.path.remove(str(tmp_path))
+            for mod in ["test_handler_1", "test_handler_2"]:
+                if mod in sys.modules:
+                    del sys.modules[mod]

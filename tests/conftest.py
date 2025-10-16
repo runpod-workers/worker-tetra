@@ -2,6 +2,8 @@ import pytest
 import base64
 import cloudpickle
 from unittest.mock import MagicMock
+from types import ModuleType
+from typing import Dict, Any
 from live_serverless.remote_execution import FunctionRequest
 from live_serverless.remote_executor import RemoteExecutor
 
@@ -18,6 +20,38 @@ def hello_world():
     print("going to say hello")
     return "hello world"
 """
+
+
+@pytest.fixture
+def mock_handler_module():
+    """Mock module with a valid handler function."""
+
+    async def mock_handler(event: Dict[str, Any]) -> Dict[str, Any]:
+        """Mock handler function."""
+        return {
+            "success": True,
+            "result": "mock_result",
+            "error": None,
+        }
+
+    module = ModuleType("mock_handler_module")
+    module.handler = mock_handler
+    return module
+
+
+@pytest.fixture
+def mock_invalid_module():
+    """Mock module without a handler attribute."""
+    module = ModuleType("mock_invalid_module")
+    return module
+
+
+@pytest.fixture
+def mock_non_callable_handler():
+    """Mock module with non-callable handler attribute."""
+    module = ModuleType("mock_non_callable_handler")
+    module.handler = "not_a_function"
+    return module
 
 
 @pytest.fixture
