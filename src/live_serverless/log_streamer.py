@@ -11,7 +11,7 @@ import threading
 from collections import deque
 from typing import Optional, Deque, Callable
 
-from logger import get_log_format
+from .logger import get_log_format
 
 
 class LogStreamer:

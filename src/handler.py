@@ -1,5 +1,5 @@
 import runpod
-from logger import setup_logging
+from live_serverless.logger import setup_logging
 from live_serverless import handler
 
 

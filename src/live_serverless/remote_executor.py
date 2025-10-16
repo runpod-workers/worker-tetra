@@ -38,7 +38,7 @@ class RemoteExecutor(RemoteExecutorStub):
         """
         # Start log streaming to capture all system logs
         # Use the requested log level, not the root logger level
-        from logger import get_log_level
+        from .logger import get_log_level
 
         requested_level = get_log_level()
         start_log_streaming(level=requested_level)
