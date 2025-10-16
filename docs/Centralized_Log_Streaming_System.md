@@ -6,7 +6,7 @@ This design implements a comprehensive log streaming architecture that captures 
 
 ## Key Components
 
-### 1. LogStreamer (`src/log_streamer.py`)
+### 1. LogStreamer (`src/live_serverless/log_streamer.py`)
 Thread-safe log capture system that buffers logs and streams them to the response output.
 
 ```mermaid
@@ -21,7 +21,7 @@ graph TB
     H[System Operations] --> B
 ```
 
-### 2. Centralized Logging (`src/logger.py`)
+### 2. Centralized Logging (`src/live_serverless/logger.py`)
 Unified logging configuration with:
 - **Debug Format**: `timestamp | level | name | file:line | message`
 - **Production Format**: `timestamp | level | message`
@@ -67,11 +67,11 @@ sequenceDiagram
 
 | Component | Purpose |
 |-----------|---------|
-| `src/log_streamer.py` | New centralized log streaming system |
-| `src/logger.py` | New unified logging configuration |
-| `src/remote_executor.py` | Integration with log streaming |
-| `src/dependency_installer.py` | Log capture during installation |
-| `src/test_log_streaming.json` | Test case for log visibility |
+| `src/live_serverless/log_streamer.py` | New centralized log streaming system |
+| `src/live_serverless/logger.py` | New unified logging configuration |
+| `src/live_serverless/remote_executor.py` | Integration with log streaming |
+| `src/live_serverless/dependency_installer.py` | Log capture during installation |
+| `src/tests/test_log_streaming.json` | Test case for log visibility |
 
 ## Benefits
 
