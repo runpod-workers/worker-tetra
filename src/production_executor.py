@@ -1,4 +1,4 @@
-"""Executor for baked (pre-installed) remote callables in production mode."""
+"""Executor for production worker code loaded from tarballs."""
 
 import importlib
 import io
@@ -17,26 +17,27 @@ from serialization_utils import SerializationUtils
 log = logging.getLogger(__name__)
 
 
-class BakedExecutor(BaseExecutor):
+class ProductionExecutor(BaseExecutor):
     """
-    Executes baked remote callables that are pre-installed in the container.
+    Executes production worker code loaded from tarballs.
 
-    This executor is used in production mode where code is baked into the
-    Docker image at build time, eliminating the need for dynamic code execution.
+    This executor is used in production mode where worker code is extracted from
+    tarballs at runtime, enabling fast deployments and proper code imports.
     """
 
     def __init__(self, workspace_manager, registry_path: Optional[Path] = None):
         """
-        Initialize baked executor.
+        Initialize production executor.
 
         Args:
             workspace_manager: Workspace manager instance
-            registry_path: Path to registry.json (default: /app/baked_code/registry.json)
+            registry_path: Path to registry.json
         """
         super().__init__(workspace_manager)
 
         if registry_path is None:
-            registry_path = Path("/app/baked_code/registry.json")
+            from constants import WORKERS_CODE_DIR
+            registry_path = Path(WORKERS_CODE_DIR) / "registry.json"
 
         self.registry_path = registry_path
         self.registry = self._load_registry()
@@ -44,15 +45,15 @@ class BakedExecutor(BaseExecutor):
         self.class_instances: Dict[str, Any] = {}  # Instance cache for classes
 
         log.info(
-            f"Initialized BakedExecutor with {len(self.registry)} registered callables"
+            f"Initialized ProductionExecutor with {len(self.registry)} registered workers"
         )
 
     def _load_registry(self) -> Dict:
-        """Load the baked callable registry."""
+        """Load the production worker registry."""
         if not self.registry_path.exists():
             log.warning(
                 f"Registry file not found at {self.registry_path}. "
-                "Baked execution will not be available."
+                "Production execution will not be available."
             )
             return {}
 
@@ -60,20 +61,20 @@ class BakedExecutor(BaseExecutor):
             with open(self.registry_path, "r") as f:
                 registry = json.load(f)
             log.info(
-                f"Loaded registry with {len(registry)} baked callables from {self.registry_path}"
+                f"Loaded registry with {len(registry)} production workers from {self.registry_path}"
             )
             return registry
         except Exception as e:
             log.error(f"Failed to load registry from {self.registry_path}: {e}")
             return {}
 
-    def is_baked(self, callable_name: str) -> bool:
-        """Check if a callable is available in baked form."""
+    def is_registered(self, callable_name: str) -> bool:
+        """Check if a worker is registered in production registry."""
         return callable_name in self.registry
 
     def execute(self, request: FunctionRequest) -> FunctionResponse:
         """
-        Execute a baked function or class method.
+        Execute a production worker function or class method.
 
         Args:
             request: FunctionRequest with callable name
@@ -89,7 +90,7 @@ class BakedExecutor(BaseExecutor):
             return self.execute_function(request)
 
     def execute_function(self, request: FunctionRequest) -> FunctionResponse:
-        """Execute a baked function."""
+        """Execute a production worker function."""
         stdout_io = io.StringIO()
         stderr_io = io.StringIO()
         log_io = io.StringIO()
@@ -109,13 +110,13 @@ class BakedExecutor(BaseExecutor):
                 if not request.function_name:
                     return FunctionResponse(
                         success=False,
-                        error="function_name is required for baked execution",
+                        error="function_name is required for production execution",
                     )
 
-                if not self.is_baked(request.function_name):
+                if not self.is_registered(request.function_name):
                     return FunctionResponse(
                         success=False,
-                        error=f"Function '{request.function_name}' not found in baked registry",
+                        error=f"Function '{request.function_name}' not found in production registry",
                     )
 
                 # Load the function
@@ -126,7 +127,7 @@ class BakedExecutor(BaseExecutor):
                 kwargs = SerializationUtils.deserialize_kwargs(request.kwargs)
 
                 # Execute
-                log.info(f"Executing baked function: {request.function_name}")
+                log.info(f"Executing production worker function: {request.function_name}")
                 result = func(*args, **kwargs)
 
             except Exception as e:
@@ -159,7 +160,7 @@ class BakedExecutor(BaseExecutor):
         )
 
     def execute_class_method(self, request: FunctionRequest) -> FunctionResponse:
-        """Execute a method on a baked class."""
+        """Execute a method on a production worker class."""
         stdout_io = io.StringIO()
         stderr_io = io.StringIO()
         log_io = io.StringIO()
@@ -179,13 +180,13 @@ class BakedExecutor(BaseExecutor):
                 if not request.class_name:
                     return FunctionResponse(
                         success=False,
-                        error="class_name is required for baked class execution",
+                        error="class_name is required for production class execution",
                     )
 
-                if not self.is_baked(request.class_name):
+                if not self.is_registered(request.class_name):
                     return FunctionResponse(
                         success=False,
-                        error=f"Class '{request.class_name}' not found in baked registry",
+                        error=f"Class '{request.class_name}' not found in production registry",
                     )
 
                 # Get or create instance
@@ -218,7 +219,7 @@ class BakedExecutor(BaseExecutor):
 
                     # Create instance
                     log.info(
-                        f"Creating new instance of baked class: {request.class_name}"
+                        f"Creating new instance of production worker: {request.class_name}"
                     )
                     instance = cls(*constructor_args, **constructor_kwargs)
                     self.class_instances[instance_id] = instance
@@ -239,7 +240,7 @@ class BakedExecutor(BaseExecutor):
 
                 # Execute
                 log.info(
-                    f"Executing baked class method: {request.class_name}.{method_name}"
+                    f"Executing production worker method: {request.class_name}.{method_name}"
                 )
                 result = method(*args, **kwargs)
 
@@ -275,7 +276,7 @@ class BakedExecutor(BaseExecutor):
 
     def _load_callable(self, callable_name: str) -> Any:
         """
-        Load a callable from baked modules.
+        Load a callable from production worker modules.
 
         Args:
             callable_name: Name of the callable to load
@@ -298,7 +299,7 @@ class BakedExecutor(BaseExecutor):
 
         # Import module
         try:
-            log.info(f"Importing baked module: {module_name}")
+            log.info(f"Importing production worker module: {module_name}")
             module = importlib.import_module(module_name)
 
             # Get callable from module
@@ -312,15 +313,15 @@ class BakedExecutor(BaseExecutor):
             # Cache it
             self.loaded_modules[cache_key] = callable_obj
 
-            log.info(f"Loaded baked callable: {callable_name} from {module_name}")
+            log.info(f"Loaded production worker: {callable_name} from {module_name}")
             return callable_obj
 
         except ImportError as e:
             raise ImportError(
-                f"Failed to import baked module '{module_name}': {e}"
+                f"Failed to import production module '{module_name}': {e}"
             ) from e
 
 
-def is_baked_mode_enabled() -> bool:
-    """Check if baked execution mode is enabled via environment variable."""
-    return os.getenv("TETRA_BAKED_MODE", "false").lower() in ("true", "1", "yes")
+def is_production_mode_enabled() -> bool:
+    """Check if production execution mode is enabled via environment variable."""
+    return os.getenv("TETRA_PRODUCTION_MODE", "false").lower() in ("true", "1", "yes")

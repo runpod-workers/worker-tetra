@@ -12,12 +12,15 @@ class RemoteExecutor(RemoteExecutorStub):
     """
     RemoteExecutor orchestrates remote function and class execution.
     Uses composition pattern with specialized components.
-    Supports both dynamic (dev) and baked (production) execution modes.
+    Supports both dynamic (dev) and production (tarball-based) execution modes.
     """
 
     def __init__(self):
         super().__init__()
         self.logger = logging.getLogger(__name__)
+
+        # Load tarball if specified (must happen before production executor init)
+        self._load_tarball_if_needed()
 
         # Initialize components using composition
         self.workspace_manager = WorkspaceManager()
@@ -25,27 +28,52 @@ class RemoteExecutor(RemoteExecutorStub):
         self.function_executor = FunctionExecutor(self.workspace_manager)
         self.class_executor = ClassExecutor(self.workspace_manager)
 
-        # Initialize baked executor if in production mode
-        self.baked_executor: Optional[Any] = None
-        self._initialize_baked_executor()
+        # Initialize production executor if in production mode
+        self.production_executor: Optional[Any] = None
+        self._initialize_production_executor()
 
-    def _initialize_baked_executor(self):
-        """Initialize baked executor if running in production mode."""
+    def _load_tarball_if_needed(self):
+        """Load production worker code tarball from network volume and add to Python path."""
         try:
-            from baked_executor import BakedExecutor, is_baked_mode_enabled
+            from tarball_loader import should_load_tarball, load_and_extract_tarball
+            from constants import WORKERS_CODE_DIR
+            import sys
+            from pathlib import Path
 
-            if is_baked_mode_enabled():
-                self.baked_executor = BakedExecutor(self.workspace_manager)
+            if should_load_tarball():
+                success = load_and_extract_tarball()
+
+                if success:
+                    # Add extracted workers code directory to Python path
+                    workers_code_path = Path(WORKERS_CODE_DIR)
+                    if workers_code_path.exists():
+                        workers_code_str = str(workers_code_path)
+                        if workers_code_str not in sys.path:
+                            sys.path.insert(0, workers_code_str)
+                            self.logger.info(f"Added {workers_code_path} to sys.path")
+                else:
+                    self.logger.error("Tarball loading failed, continuing with dynamic execution")
+
+        except ImportError:
+            self.logger.debug("Tarball loader not available, skipping")
+
+    def _initialize_production_executor(self):
+        """Initialize production executor if running in production mode."""
+        try:
+            from production_executor import ProductionExecutor, is_production_mode_enabled
+
+            if is_production_mode_enabled():
+                self.production_executor = ProductionExecutor(self.workspace_manager)
                 self.logger.info(
-                    "✅ Baked execution mode ENABLED - using pre-installed code"
+                    "Production execution mode ENABLED - using tarball-loaded code"
                 )
             else:
                 self.logger.info(
-                    "ℹ️  Baked execution mode DISABLED - using dynamic code execution"
+                    "Production execution mode DISABLED - using dynamic code execution"
                 )
         except ImportError:
             self.logger.debug(
-                "BakedExecutor not available - running in development mode"
+                "ProductionExecutor not available - running in development mode"
             )
 
     async def ExecuteFunction(self, request: FunctionRequest) -> FunctionResponse:
@@ -58,12 +86,12 @@ class RemoteExecutor(RemoteExecutorStub):
         Returns:
             FunctionResponse object with execution result
         """
-        # Check if we should use baked execution
-        if self._should_use_baked_execution(request):
+        # Check if we should use production execution
+        if self._should_use_production_execution(request):
             self.logger.info(
-                f"Using baked execution for {getattr(request, 'function_name', None) or getattr(request, 'class_name', 'unknown')}"
+                f"Using production execution for {getattr(request, 'function_name', None) or getattr(request, 'class_name', 'unknown')}"
             )
-            return self.baked_executor.execute(request)
+            return self.production_executor.execute(request)
 
         # Standard dynamic execution flow
         # Initialize workspace if using volume
@@ -100,17 +128,17 @@ class RemoteExecutor(RemoteExecutorStub):
 
         return result
 
-    def _should_use_baked_execution(self, request: FunctionRequest) -> bool:
+    def _should_use_production_execution(self, request: FunctionRequest) -> bool:
         """
-        Determine if request should use baked execution.
+        Determine if request should use production execution.
 
         Returns True if:
-        1. Baked executor is initialized (production mode)
+        1. Production executor is initialized (production mode enabled)
         2. Request has a callable name
-        3. Callable is available in baked registry
+        3. Callable is available in production registry
         4. Request doesn't have custom code (function_code or class_code)
         """
-        if not self.baked_executor:
+        if not self.production_executor:
             return False
 
         # Get callable name
@@ -120,10 +148,10 @@ class RemoteExecutor(RemoteExecutorStub):
         if not callable_name:
             return False
 
-        # Check if callable is baked
-        if not self.baked_executor.is_baked(callable_name):
+        # Check if callable is registered
+        if not self.production_executor.is_registered(callable_name):
             self.logger.debug(
-                f"Callable '{callable_name}' not found in baked registry, using dynamic execution"
+                f"Callable '{callable_name}' not found in production registry, using dynamic execution"
             )
             return False
 

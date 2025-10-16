@@ -89,6 +89,10 @@ LARGE_SYSTEM_PACKAGES = [
 NALA_CHECK_CMD = ["which", "nala"]
 """Command to check if nala is available."""
 
+# Production Code Configuration
+WORKERS_CODE_DIR = "/app/workers"
+"""Directory where production worker code is extracted from tarball."""
+
 # Logging Configuration
 LOG_FORMAT = "%(asctime)s - %(levelname)s - %(name)s - %(message)s"
 """Standard log format string used across the application."""
