@@ -1,7 +1,7 @@
 from typing import Dict, Any
 
-from live_serverless.remote_execution import FunctionRequest, FunctionResponse
-from remote_executor import RemoteExecutor
+from .remote_execution import FunctionRequest, FunctionResponse
+from .remote_executor import RemoteExecutor
 
 
 async def handler(event: Dict[str, Any]) -> Dict[str, Any]:

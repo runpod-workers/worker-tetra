@@ -1,6 +1,6 @@
 import pytest
 from unittest.mock import patch, AsyncMock
-from remote_executor import RemoteExecutor
+from live_serverless.remote_executor import RemoteExecutor
 from live_serverless.remote_execution import FunctionRequest, FunctionResponse
 
 

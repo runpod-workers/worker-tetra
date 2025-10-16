@@ -4,7 +4,7 @@ import base64
 import cloudpickle
 from pathlib import Path
 
-from remote_executor import RemoteExecutor
+from live_serverless.remote_executor import RemoteExecutor
 from live_serverless.remote_execution import FunctionRequest
 from live_serverless import handler
 
