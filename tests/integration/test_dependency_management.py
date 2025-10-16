@@ -12,7 +12,7 @@ class TestDependencyManagement:
         """Test Python dependency installation with mocked subprocess."""
         executor = RemoteExecutor()
 
-        with patch("dependency_installer.run_logged_subprocess") as mock_subprocess:
+        with patch("live_serverless.dependency_installer.run_logged_subprocess") as mock_subprocess:
             # Mock successful installation
             mock_subprocess.return_value = FunctionResponse(
                 success=True, stdout="Successfully installed package-1.0.0"
@@ -35,7 +35,7 @@ class TestDependencyManagement:
         mock_platform.return_value = "Linux"
         executor = RemoteExecutor()
 
-        with patch("dependency_installer.run_logged_subprocess") as mock_subprocess:
+        with patch("live_serverless.dependency_installer.run_logged_subprocess") as mock_subprocess:
             # Mock successful apt-get update and install
             mock_subprocess.side_effect = [
                 FunctionResponse(success=True, stdout="update success"),
@@ -121,7 +121,7 @@ def test_with_deps():
         """Test proper error handling when dependency installation fails."""
         executor = RemoteExecutor()
 
-        with patch("dependency_installer.run_logged_subprocess") as mock_subprocess:
+        with patch("live_serverless.dependency_installer.run_logged_subprocess") as mock_subprocess:
             # Mock failed installation
             mock_subprocess.return_value = FunctionResponse(
                 success=False, error="E: Unable to locate package nonexistent-package"
@@ -141,7 +141,7 @@ def test_with_deps():
         mock_platform.return_value = "Linux"
         executor = RemoteExecutor()
 
-        with patch("dependency_installer.run_logged_subprocess") as mock_subprocess:
+        with patch("live_serverless.dependency_installer.run_logged_subprocess") as mock_subprocess:
             # Mock failed update
             mock_subprocess.return_value = FunctionResponse(
                 success=False,
@@ -217,7 +217,7 @@ def test_with_deps():
         mock_platform.return_value = "Linux"
         executor = RemoteExecutor()
 
-        with patch("dependency_installer.run_logged_subprocess") as mock_subprocess:
+        with patch("live_serverless.dependency_installer.run_logged_subprocess") as mock_subprocess:
             mock_subprocess.return_value = FunctionResponse(
                 success=True, stdout="success"
             )
@@ -230,7 +230,7 @@ def test_with_deps():
             # Verify subprocess utility was called
             mock_subprocess.assert_called()
 
-        with patch("dependency_installer.run_logged_subprocess") as mock_subprocess:
+        with patch("live_serverless.dependency_installer.run_logged_subprocess") as mock_subprocess:
             # Mock successful update and install processes
             mock_subprocess.side_effect = [
                 FunctionResponse(success=True, stdout=""),
@@ -252,7 +252,7 @@ def test_with_deps():
         mock_platform.return_value = "Linux"
         executor = RemoteExecutor()
 
-        with patch("dependency_installer.run_logged_subprocess") as mock_subprocess:
+        with patch("live_serverless.dependency_installer.run_logged_subprocess") as mock_subprocess:
             # Mock nala availability check, update, and install
             mock_subprocess.side_effect = [
                 FunctionResponse(success=True, stdout="/usr/bin/nala"),
@@ -279,7 +279,7 @@ def test_with_deps():
         mock_platform.return_value = "Linux"
         executor = RemoteExecutor()
 
-        with patch("dependency_installer.run_logged_subprocess") as mock_subprocess:
+        with patch("live_serverless.dependency_installer.run_logged_subprocess") as mock_subprocess:
             # Mock nala not available, then successful apt-get operations
             mock_subprocess.side_effect = [
                 FunctionResponse(success=False, error="which: nala: not found"),
@@ -305,7 +305,7 @@ def test_with_deps():
         executor = RemoteExecutor()
 
         with patch(
-            "dependency_installer.run_logged_subprocess",
+            "live_serverless.dependency_installer.run_logged_subprocess",
             side_effect=Exception("Subprocess error"),
         ):
             # Test Python dependency exception

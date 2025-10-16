@@ -2,7 +2,7 @@
 
 from unittest.mock import patch
 
-from dependency_installer import DependencyInstaller
+from live_serverless.dependency_installer import DependencyInstaller
 from live_serverless.remote_execution import FunctionResponse
 
 
@@ -14,7 +14,7 @@ class TestSystemDependencies:
         self.installer = DependencyInstaller()
 
     @patch("platform.system")
-    @patch("dependency_installer.run_logged_subprocess")
+    @patch("live_serverless.dependency_installer.run_logged_subprocess")
     def test_install_system_dependencies_success(self, mock_subprocess, mock_platform):
         """Test successful system dependency installation with small packages (no nala acceleration)."""
         mock_platform.return_value = "Linux"
@@ -33,7 +33,7 @@ class TestSystemDependencies:
         assert mock_subprocess.call_count == 2
 
     @patch("platform.system")
-    @patch("dependency_installer.run_logged_subprocess")
+    @patch("live_serverless.dependency_installer.run_logged_subprocess")
     def test_install_system_dependencies_update_failure(
         self, mock_subprocess, mock_platform
     ):
@@ -67,7 +67,7 @@ class TestSystemPackageAcceleration:
         """Setup for each test method."""
         self.installer = DependencyInstaller()
 
-    @patch("dependency_installer.run_logged_subprocess")
+    @patch("live_serverless.dependency_installer.run_logged_subprocess")
     def test_nala_availability_check_available(self, mock_subprocess):
         """Test nala availability detection when nala is available."""
         mock_subprocess.return_value = FunctionResponse(
@@ -83,7 +83,7 @@ class TestSystemPackageAcceleration:
         # Should only call subprocess once due to caching
         assert mock_subprocess.call_count == 1
 
-    @patch("dependency_installer.run_logged_subprocess")
+    @patch("live_serverless.dependency_installer.run_logged_subprocess")
     def test_nala_availability_check_unavailable(self, mock_subprocess):
         """Test nala availability detection when nala is not available."""
         mock_subprocess.return_value = FunctionResponse(
@@ -92,7 +92,7 @@ class TestSystemPackageAcceleration:
 
         assert self.installer._check_nala_available() is False
 
-    @patch("dependency_installer.run_logged_subprocess")
+    @patch("live_serverless.dependency_installer.run_logged_subprocess")
     def test_nala_availability_check_exception(self, mock_subprocess):
         """Test nala availability detection when subprocess raises exception."""
         mock_subprocess.side_effect = Exception("Command failed")
@@ -114,7 +114,7 @@ class TestSystemPackageAcceleration:
 
         assert large_packages == []
 
-    @patch("dependency_installer.run_logged_subprocess")
+    @patch("live_serverless.dependency_installer.run_logged_subprocess")
     def test_install_system_with_nala_success(self, mock_subprocess):
         """Test successful system package installation with nala."""
         # Mock successful nala update and install
@@ -129,7 +129,7 @@ class TestSystemPackageAcceleration:
         assert "Installed with nala" in result.stdout
         assert mock_subprocess.call_count == 2
 
-    @patch("dependency_installer.run_logged_subprocess")
+    @patch("live_serverless.dependency_installer.run_logged_subprocess")
     def test_install_system_with_nala_update_failure_fallback(self, mock_subprocess):
         """Test nala installation fallback when update fails."""
         # Mock failed nala update, then successful apt-get operations for fallback
@@ -145,7 +145,7 @@ class TestSystemPackageAcceleration:
         assert "Installed with nala" not in result.stdout
 
     @patch("platform.system")
-    @patch("dependency_installer.run_logged_subprocess")
+    @patch("live_serverless.dependency_installer.run_logged_subprocess")
     def test_install_system_dependencies_with_acceleration(
         self, mock_subprocess, mock_platform
     ):
@@ -166,7 +166,7 @@ class TestSystemPackageAcceleration:
         assert result.success is True
         assert "Installed with nala" in result.stdout
 
-    @patch("dependency_installer.run_logged_subprocess")
+    @patch("live_serverless.dependency_installer.run_logged_subprocess")
     def test_install_system_dependencies_without_acceleration(self, mock_subprocess):
         """Test system dependency installation with acceleration disabled."""
         # Mock successful apt-get operations
@@ -182,7 +182,7 @@ class TestSystemPackageAcceleration:
         assert result.success is True
         assert "Installed with nala" not in result.stdout
 
-    @patch("dependency_installer.run_logged_subprocess")
+    @patch("live_serverless.dependency_installer.run_logged_subprocess")
     def test_install_system_dependencies_no_large_packages(self, mock_subprocess):
         """Test system dependency installation when no large packages are present."""
         # Mock successful apt-get operations (should fallback to standard)
@@ -206,7 +206,7 @@ class TestPythonDependencies:
         """Setup for each test method."""
         self.installer = DependencyInstaller()
 
-    @patch("dependency_installer.run_logged_subprocess")
+    @patch("live_serverless.dependency_installer.run_logged_subprocess")
     def test_install_dependencies_success(self, mock_subprocess):
         """Test successful Python dependency installation."""
         mock_subprocess.return_value = FunctionResponse(
@@ -220,7 +220,7 @@ class TestPythonDependencies:
         # Verify subprocess utility was called
         mock_subprocess.assert_called_once()
 
-    @patch("dependency_installer.run_logged_subprocess")
+    @patch("live_serverless.dependency_installer.run_logged_subprocess")
     def test_install_dependencies_failure(self, mock_subprocess):
         """Test Python dependency installation failure."""
         mock_subprocess.return_value = FunctionResponse(
@@ -239,7 +239,7 @@ class TestPythonDependencies:
         assert result.success is True
         assert "No packages to install" in result.stdout
 
-    @patch("dependency_installer.run_logged_subprocess")
+    @patch("live_serverless.dependency_installer.run_logged_subprocess")
     def test_install_dependencies_with_acceleration_enabled(self, mock_subprocess):
         """Test Python dependency installation with acceleration enabled (uses UV)."""
         mock_subprocess.return_value = FunctionResponse(
@@ -255,7 +255,7 @@ class TestPythonDependencies:
         # Verify subprocess utility was called
         mock_subprocess.assert_called_once()
 
-    @patch("dependency_installer.run_logged_subprocess")
+    @patch("live_serverless.dependency_installer.run_logged_subprocess")
     def test_install_dependencies_with_acceleration_disabled(self, mock_subprocess):
         """Test Python dependency installation with acceleration disabled (uses pip)."""
         mock_subprocess.return_value = FunctionResponse(
@@ -271,7 +271,7 @@ class TestPythonDependencies:
         # Verify subprocess utility was called
         mock_subprocess.assert_called_once()
 
-    @patch("dependency_installer.run_logged_subprocess")
+    @patch("live_serverless.dependency_installer.run_logged_subprocess")
     def test_install_dependencies_exception(self, mock_subprocess):
         """Test Python dependency installation exception handling."""
         mock_subprocess.side_effect = Exception("Subprocess error")
@@ -281,7 +281,7 @@ class TestPythonDependencies:
         assert result.success is False
         assert "Subprocess error" in result.error
 
-    @patch("dependency_installer.run_logged_subprocess")
+    @patch("live_serverless.dependency_installer.run_logged_subprocess")
     def test_install_dependencies_timeout(self, mock_subprocess):
         """Test Python dependency installation timeout handling."""
         mock_subprocess.return_value = FunctionResponse(
