@@ -4,8 +4,9 @@ import base64
 import cloudpickle
 from pathlib import Path
 
-from handler import handler, RemoteExecutor
+from remote_executor import RemoteExecutor
 from remote_execution import FunctionRequest
+from live_serverless import handler
 
 
 class TestHandlerIntegration:

@@ -23,7 +23,7 @@ class TestHandler:
             }
         }
 
-        with patch("handler.RemoteExecutor") as mock_executor_class:
+        with patch("live_serverless.RemoteExecutor") as mock_executor_class:
             mock_executor = AsyncMock()
             mock_executor_class.return_value = mock_executor
             mock_executor.ExecuteFunction.return_value = FunctionResponse(
@@ -76,7 +76,7 @@ class TestHandler:
             }
         }
 
-        with patch("handler.RemoteExecutor") as mock_executor_class:
+        with patch("live_serverless.RemoteExecutor") as mock_executor_class:
             mock_executor_class.side_effect = Exception(
                 "Executor initialization failed"
             )
@@ -100,7 +100,7 @@ class TestHandler:
         }
 
         test_data = {"data": "test"}
-        with patch("handler.RemoteExecutor") as mock_executor_class:
+        with patch("live_serverless.RemoteExecutor") as mock_executor_class:
             mock_executor = AsyncMock()
             mock_executor_class.return_value = mock_executor
             mock_executor.ExecuteFunction.return_value = FunctionResponse(
@@ -130,7 +130,7 @@ class TestHandler:
             }
         }
 
-        with patch("handler.RemoteExecutor") as mock_executor_class:
+        with patch("live_serverless.RemoteExecutor") as mock_executor_class:
             mock_executor = AsyncMock()
             mock_executor_class.return_value = mock_executor
             mock_executor.ExecuteFunction.return_value = FunctionResponse(
