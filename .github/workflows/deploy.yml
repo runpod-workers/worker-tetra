@@ -82,10 +82,7 @@ jobs:
           enable-cache: true
 
       - name: Setup dependencies
-        run: |
-          uv sync
-          git submodule update
-          cp tetra-rp/src/tetra_rp/protos/remote_execution.py src/
+        run: make setup
 
       - name: Build and push GPU Docker image
         uses: docker/build-push-action@v6
