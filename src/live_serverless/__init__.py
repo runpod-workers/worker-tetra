@@ -26,4 +26,3 @@ async def handler(event: Dict[str, Any]) -> Dict[str, Any]:
         )
 
     return output.model_dump()
-
