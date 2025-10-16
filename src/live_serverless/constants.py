@@ -1,5 +1,5 @@
 # Logger Configuration
-NAMESPACE = "tetra"
+NAMESPACE = "live_serverless"
 """Application logger namespace for all components."""
 
 # System Package Acceleration with Nala

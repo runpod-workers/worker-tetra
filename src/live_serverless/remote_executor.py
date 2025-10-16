@@ -1,13 +1,14 @@
 import logging
 import asyncio
 from typing import List, Any
-from live_serverless.remote_execution import FunctionRequest, FunctionResponse, RemoteExecutorStub
-from live_serverless.dependency_installer import DependencyInstaller
-from live_serverless.function_executor import FunctionExecutor
-from live_serverless.class_executor import ClassExecutor
-from live_serverless.log_streamer import start_log_streaming, stop_log_streaming, get_streamed_logs
-from live_serverless.cache_sync_manager import CacheSyncManager
-from live_serverless.constants import NAMESPACE
+
+from .remote_execution import FunctionRequest, FunctionResponse, RemoteExecutorStub
+from .dependency_installer import DependencyInstaller
+from .function_executor import FunctionExecutor
+from .class_executor import ClassExecutor
+from .log_streamer import start_log_streaming, stop_log_streaming, get_streamed_logs
+from .cache_sync_manager import CacheSyncManager
+from .constants import NAMESPACE
 
 
 class RemoteExecutor(RemoteExecutorStub):

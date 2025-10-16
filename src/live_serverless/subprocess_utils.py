@@ -11,7 +11,7 @@ import logging
 import inspect
 from typing import List, Optional, Any
 
-from live_serverless.remote_execution import FunctionResponse
+from .remote_execution import FunctionResponse
 
 
 def run_logged_subprocess(
