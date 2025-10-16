@@ -6,6 +6,7 @@
   "python.testing.pytestEnabled": true,
   "python.envFile": "${workspaceFolder}/.env",
   "python.analysis.extraPaths": [
-      "${workspaceFolder}/src"
+      "${workspaceFolder}/src",
+      "${workspaceFolder}/tetra-rp/src",
   ]
 }

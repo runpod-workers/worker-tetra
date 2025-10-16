@@ -2,7 +2,7 @@
 
 import base64
 import cloudpickle
-from serialization_utils import SerializationUtils
+from live_serverless.serialization_utils import SerializationUtils
 
 
 class TestSerializationUtils:
