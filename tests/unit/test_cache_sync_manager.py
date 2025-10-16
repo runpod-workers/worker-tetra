@@ -3,7 +3,7 @@ import pytest
 from unittest.mock import patch
 from pathlib import Path
 from cache_sync_manager import CacheSyncManager
-from remote_execution import FunctionResponse
+from live_serverless.remote_execution import FunctionResponse
 
 
 @pytest.fixture

@@ -5,7 +5,7 @@ import base64
 import cloudpickle
 from unittest.mock import patch, AsyncMock
 from handler import handler
-from remote_execution import FunctionResponse
+from live_serverless.remote_execution import FunctionResponse
 
 
 class TestHandler:

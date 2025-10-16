@@ -1,7 +1,7 @@
 import logging
 import asyncio
 from typing import List, Any
-from remote_execution import FunctionRequest, FunctionResponse, RemoteExecutorStub
+from live_serverless.remote_execution import FunctionRequest, FunctionResponse, RemoteExecutorStub
 from dependency_installer import DependencyInstaller
 from function_executor import FunctionExecutor
 from class_executor import ClassExecutor

@@ -2,7 +2,7 @@ import pytest
 import base64
 import cloudpickle
 from unittest.mock import MagicMock
-from remote_execution import FunctionRequest
+from live_serverless.remote_execution import FunctionRequest
 from remote_executor import RemoteExecutor
 
 

@@ -4,7 +4,7 @@ import asyncio
 import platform
 from typing import List
 
-from remote_execution import FunctionResponse
+from live_serverless.remote_execution import FunctionResponse
 from constants import LARGE_SYSTEM_PACKAGES, NAMESPACE
 from subprocess_utils import run_logged_subprocess
 

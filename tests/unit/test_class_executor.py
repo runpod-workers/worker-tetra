@@ -5,7 +5,7 @@ import cloudpickle
 from datetime import datetime
 
 from class_executor import ClassExecutor
-from remote_execution import FunctionRequest
+from live_serverless.remote_execution import FunctionRequest
 
 
 class TestClassExecution:

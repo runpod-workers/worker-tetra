@@ -5,7 +5,7 @@ import cloudpickle
 from pathlib import Path
 
 from remote_executor import RemoteExecutor
-from remote_execution import FunctionRequest
+from live_serverless.remote_execution import FunctionRequest
 from live_serverless import handler
 
 

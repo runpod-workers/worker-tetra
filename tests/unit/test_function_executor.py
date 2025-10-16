@@ -4,7 +4,7 @@ import base64
 import cloudpickle
 
 from function_executor import FunctionExecutor
-from remote_execution import FunctionRequest
+from live_serverless.remote_execution import FunctionRequest
 
 
 class TestFunctionExecution:

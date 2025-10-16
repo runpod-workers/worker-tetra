@@ -1,7 +1,7 @@
 import pytest
 from unittest.mock import patch, AsyncMock
 from remote_executor import RemoteExecutor
-from remote_execution import FunctionRequest, FunctionResponse
+from live_serverless.remote_execution import FunctionRequest, FunctionResponse
 
 
 class TestDependencyManagement:
@@ -89,7 +89,7 @@ def test_with_deps():
             patch.object(executor.function_executor, "execute") as mock_execute,
         ):
             # Mock successful dependency installations
-            from remote_execution import FunctionResponse
+            from live_serverless.remote_execution import FunctionResponse
 
             mock_sys_deps.return_value = FunctionResponse(
                 success=True, stdout="system deps installed"
@@ -176,7 +176,7 @@ def test_with_deps():
             patch.object(executor.function_executor, "execute") as mock_execute,
         ):
             # Mock failed dependency installation
-            from remote_execution import FunctionResponse
+            from live_serverless.remote_execution import FunctionResponse
 
             mock_deps.return_value = FunctionResponse(
                 success=False,

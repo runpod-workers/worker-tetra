@@ -1,6 +1,6 @@
 from typing import Dict, Any
 
-from remote_execution import FunctionRequest, FunctionResponse
+from live_serverless.remote_execution import FunctionRequest, FunctionResponse
 from remote_executor import RemoteExecutor
 
 

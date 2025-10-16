@@ -3,7 +3,7 @@
 from unittest.mock import patch
 
 from dependency_installer import DependencyInstaller
-from remote_execution import FunctionResponse
+from live_serverless.remote_execution import FunctionResponse
 
 
 class TestSystemDependencies:

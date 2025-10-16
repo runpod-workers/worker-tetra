@@ -6,7 +6,7 @@ from contextlib import redirect_stdout, redirect_stderr
 from datetime import datetime
 from typing import Dict, Any, Tuple
 
-from remote_execution import FunctionRequest, FunctionResponse
+from live_serverless.remote_execution import FunctionRequest, FunctionResponse
 from serialization_utils import SerializationUtils
 
 

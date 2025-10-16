@@ -4,7 +4,7 @@ import cloudpickle
 from unittest.mock import Mock, patch, AsyncMock
 
 from remote_executor import RemoteExecutor
-from remote_execution import FunctionRequest
+from live_serverless.remote_execution import FunctionRequest
 
 
 class TestRemoteExecutor:
@@ -107,7 +107,7 @@ class TestRemoteExecutor:
                     self.executor.function_executor, "execute"
                 ) as mock_execute:
                     # Mock async methods with proper FunctionResponse returns
-                    from remote_execution import FunctionResponse
+                    from live_serverless.remote_execution import FunctionResponse
 
                     mock_sys_deps_async.return_value = FunctionResponse(
                         success=True, stdout="System deps installed"
@@ -146,7 +146,7 @@ class TestRemoteExecutor:
                 self.executor.function_executor, "execute"
             ) as mock_execute:
                 # Mock async method with FunctionResponse
-                from remote_execution import FunctionResponse
+                from live_serverless.remote_execution import FunctionResponse
 
                 mock_py_deps_async.return_value = FunctionResponse(
                     success=False, error="Package not found"
@@ -223,7 +223,7 @@ class TestRemoteExecutor:
                 new_callable=AsyncMock,
             ) as mock_sync,
         ):
-            from remote_execution import FunctionResponse
+            from live_serverless.remote_execution import FunctionResponse
 
             mock_deps.return_value = FunctionResponse(
                 success=True, stdout="Deps installed"
