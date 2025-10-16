@@ -4,7 +4,7 @@ import base64
 import cloudpickle
 from datetime import datetime
 
-from class_executor import ClassExecutor
+from live_serverless.class_executor import ClassExecutor
 from live_serverless.remote_execution import FunctionRequest
 
 

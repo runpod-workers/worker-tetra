@@ -4,7 +4,7 @@ from typing import List, Any
 from live_serverless.remote_execution import FunctionRequest, FunctionResponse, RemoteExecutorStub
 from live_serverless.dependency_installer import DependencyInstaller
 from function_executor import FunctionExecutor
-from class_executor import ClassExecutor
+from live_serverless.class_executor import ClassExecutor
 from live_serverless.log_streamer import start_log_streaming, stop_log_streaming, get_streamed_logs
 from live_serverless.cache_sync_manager import CacheSyncManager
 from live_serverless.constants import NAMESPACE
