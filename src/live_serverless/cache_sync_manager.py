@@ -5,7 +5,7 @@ import tempfile
 from datetime import datetime
 from pathlib import Path
 from typing import Optional
-from constants import NAMESPACE, CACHE_DIR, VOLUME_CACHE_PATH
+from live_serverless.constants import NAMESPACE, CACHE_DIR, VOLUME_CACHE_PATH
 from live_serverless.subprocess_utils import run_logged_subprocess
 
 

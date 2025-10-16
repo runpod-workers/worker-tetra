@@ -5,7 +5,7 @@ import platform
 from typing import List
 
 from live_serverless.remote_execution import FunctionResponse
-from constants import LARGE_SYSTEM_PACKAGES, NAMESPACE
+from live_serverless.constants import LARGE_SYSTEM_PACKAGES, NAMESPACE
 from live_serverless.subprocess_utils import run_logged_subprocess
 
 

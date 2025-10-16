@@ -7,7 +7,7 @@ from function_executor import FunctionExecutor
 from class_executor import ClassExecutor
 from log_streamer import start_log_streaming, stop_log_streaming, get_streamed_logs
 from live_serverless.cache_sync_manager import CacheSyncManager
-from constants import NAMESPACE
+from live_serverless.constants import NAMESPACE
 
 
 class RemoteExecutor(RemoteExecutorStub):
