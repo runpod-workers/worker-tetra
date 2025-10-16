@@ -1,12 +1,13 @@
 import os
 import importlib
 import sys
-from typing import Callable, Dict, Any, cast
+from typing import cast
 
 import runpod
+from handler_protocol import HandlerFunction
 
 
-def load_handler() -> Callable[[Dict[str, Any]], Dict[str, Any]]:
+def load_handler() -> HandlerFunction:
     """
     Dynamically load the handler function from the specified module.
 
@@ -37,7 +38,7 @@ def load_handler() -> Callable[[Dict[str, Any]], Dict[str, Any]]:
             )
 
         print(f"Loaded handler from module: {handler_module_name}")
-        return cast(Callable[[Dict[str, Any]], Dict[str, Any]], handler_func)
+        return cast(HandlerFunction, handler_func)
 
     except ImportError as e:
         print(

@@ -187,3 +187,40 @@ class TestLoadHandlerOutputVerification:
                 assert "live_serverless" not in captured.out
                 # Should load priority_handler
                 assert "priority_handler" in captured.out
+
+
+class TestHandlerFunctionType:
+    """Test HandlerFunction type compatibility."""
+
+    def test_load_handler_returns_handler_function_type(self):
+        """Test that load_handler returns a HandlerFunction compatible callable."""
+        with patch.dict(os.environ, {}, clear=True):
+            handler_func = load_handler()
+
+            # Verify it's callable
+            assert callable(handler_func)
+
+            # Verify it's an async function (coroutine function)
+            import inspect
+
+            assert inspect.iscoroutinefunction(handler_func)
+
+    def test_loaded_handler_signature_matches_protocol(self, mock_handler_module):
+        """Test that loaded handler has correct signature for HandlerFunction."""
+        with patch.dict(os.environ, {"HANDLER_MODULE": "test_module"}):
+            with patch(
+                "handler.importlib.import_module", return_value=mock_handler_module
+            ):
+                handler_func = load_handler()
+
+                # Check signature
+                import inspect
+
+                sig = inspect.signature(handler_func)
+                params = list(sig.parameters.keys())
+
+                # Should have at least one parameter (event)
+                assert len(params) >= 1
+
+                # Should be async
+                assert inspect.iscoroutinefunction(handler_func)
