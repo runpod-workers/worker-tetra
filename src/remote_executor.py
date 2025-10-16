@@ -52,7 +52,9 @@ class RemoteExecutor(RemoteExecutorStub):
                             sys.path.insert(0, workers_code_str)
                             self.logger.info(f"Added {workers_code_path} to sys.path")
                 else:
-                    self.logger.error("Tarball loading failed, continuing with dynamic execution")
+                    self.logger.error(
+                        "Tarball loading failed, continuing with dynamic execution"
+                    )
 
         except ImportError:
             self.logger.debug("Tarball loader not available, skipping")
@@ -60,7 +62,10 @@ class RemoteExecutor(RemoteExecutorStub):
     def _initialize_production_executor(self):
         """Initialize production executor if running in production mode."""
         try:
-            from production_executor import ProductionExecutor, is_production_mode_enabled
+            from production_executor import (
+                ProductionExecutor,
+                is_production_mode_enabled,
+            )
 
             if is_production_mode_enabled():
                 self.production_executor = ProductionExecutor(self.workspace_manager)
@@ -159,11 +164,11 @@ class RemoteExecutor(RemoteExecutorStub):
         execution_type = getattr(request, "execution_type", "function")
         if execution_type == "function" and getattr(request, "function_code", None):
             self.logger.debug(
-                f"Request has custom function_code, using dynamic execution"
+                "Request has custom function_code, using dynamic execution"
             )
             return False
         elif execution_type == "class" and getattr(request, "class_code", None):
-            self.logger.debug(f"Request has custom class_code, using dynamic execution")
+            self.logger.debug("Request has custom class_code, using dynamic execution")
             return False
 
         return True

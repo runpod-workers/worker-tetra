@@ -37,6 +37,7 @@ class ProductionExecutor(BaseExecutor):
 
         if registry_path is None:
             from constants import WORKERS_CODE_DIR
+
             registry_path = Path(WORKERS_CODE_DIR) / "registry.json"
 
         self.registry_path = registry_path
@@ -127,7 +128,9 @@ class ProductionExecutor(BaseExecutor):
                 kwargs = SerializationUtils.deserialize_kwargs(request.kwargs)
 
                 # Execute
-                log.info(f"Executing production worker function: {request.function_name}")
+                log.info(
+                    f"Executing production worker function: {request.function_name}"
+                )
                 result = func(*args, **kwargs)
 
             except Exception as e:
@@ -204,7 +207,10 @@ class ProductionExecutor(BaseExecutor):
                     constructor_args = []
                     constructor_kwargs = {}
 
-                    if hasattr(request, "constructor_args") and request.constructor_args:
+                    if (
+                        hasattr(request, "constructor_args")
+                        and request.constructor_args
+                    ):
                         constructor_args = SerializationUtils.deserialize_args(
                             request.constructor_args
                         )
