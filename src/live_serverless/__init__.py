@@ -1,7 +1,11 @@
 from typing import Dict, Any
 
+from .logger import setup_logging
 from .remote_execution import FunctionRequest, FunctionResponse
 from .remote_executor import RemoteExecutor
+
+
+setup_logging()
 
 
 async def handler(event: Dict[str, Any]) -> Dict[str, Any]:
