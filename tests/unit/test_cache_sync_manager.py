@@ -2,7 +2,7 @@ import os
 import pytest
 from unittest.mock import patch
 from pathlib import Path
-from cache_sync_manager import CacheSyncManager
+from live_serverless.cache_sync_manager import CacheSyncManager
 from live_serverless.remote_execution import FunctionResponse
 
 
@@ -88,7 +88,7 @@ class TestMarkBaseline:
         """Test that mark_baseline stores current timestamp."""
         with (
             patch.object(cache_sync, "should_sync", return_value=True),
-            patch("cache_sync_manager.datetime") as mock_datetime,
+            patch("live_serverless.cache_sync_manager.datetime") as mock_datetime,
         ):
             # Mock datetime.now().timestamp()
             mock_now = mock_datetime.now.return_value
@@ -102,7 +102,7 @@ class TestMarkBaseline:
         """Test that mark_baseline handles exceptions gracefully."""
         with (
             patch.object(cache_sync, "should_sync", return_value=True),
-            patch("cache_sync_manager.datetime") as mock_datetime,
+            patch("live_serverless.cache_sync_manager.datetime") as mock_datetime,
         ):
             mock_datetime.now.side_effect = Exception("Time error")
 
