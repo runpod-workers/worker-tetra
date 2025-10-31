@@ -30,13 +30,11 @@ class TestRemoteExecutor:
     def test_executor_composition_initialization(self):
         """Test RemoteExecutor initializes all component dependencies correctly."""
         # Test that all components are created
-        assert hasattr(self.executor, "workspace_manager")
         assert hasattr(self.executor, "dependency_installer")
         assert hasattr(self.executor, "function_executor")
         assert hasattr(self.executor, "class_executor")
 
         # Test that components are properly initialized
-        assert self.executor.workspace_manager is not None
         assert self.executor.dependency_installer is not None
         assert self.executor.function_executor is not None
         assert self.executor.class_executor is not None
@@ -52,19 +50,13 @@ class TestRemoteExecutor:
         )
 
         # Mock component methods to verify orchestration
-        with patch.object(
-            self.executor.workspace_manager, "initialize_workspace"
-        ) as mock_init:
-            with patch.object(
-                self.executor.function_executor, "execute"
-            ) as mock_execute:
-                mock_init.return_value = Mock(success=True, stdout="Workspace ready")
-                mock_execute.return_value = Mock(success=True, result="encoded_result")
+        with patch.object(self.executor.function_executor, "execute") as mock_execute:
+            mock_execute.return_value = Mock(success=True, result="encoded_result")
 
-                await self.executor.ExecuteFunction(request)
+            await self.executor.ExecuteFunction(request)
 
-                # Verify function executor was called
-                mock_execute.assert_called_once_with(request)
+            # Verify function executor was called
+            mock_execute.assert_called_once_with(request)
 
     @pytest.mark.asyncio
     async def test_execute_function_orchestration_class(self):
@@ -78,20 +70,16 @@ class TestRemoteExecutor:
         )
 
         with patch.object(
-            self.executor.workspace_manager, "initialize_workspace"
-        ) as mock_init:
-            with patch.object(
-                self.executor.class_executor, "execute_class_method"
-            ) as mock_class_execute:
-                mock_init.return_value = Mock(success=True, stdout="Workspace ready")
-                mock_class_execute.return_value = Mock(
-                    success=True, result="encoded_result"
-                )
+            self.executor.class_executor, "execute_class_method"
+        ) as mock_class_execute:
+            mock_class_execute.return_value = Mock(
+                success=True, result="encoded_result"
+            )
 
-                await self.executor.ExecuteFunction(request)
+            await self.executor.ExecuteFunction(request)
 
-                # Verify class executor was called
-                mock_class_execute.assert_called_once_with(request)
+            # Verify class executor was called
+            mock_class_execute.assert_called_once_with(request)
 
     @pytest.mark.asyncio
     async def test_execute_function_with_dependencies_orchestration(self):
@@ -106,76 +94,37 @@ class TestRemoteExecutor:
         )
 
         with patch.object(
-            self.executor.workspace_manager, "initialize_workspace"
-        ) as mock_init:
+            self.executor.dependency_installer,
+            "install_system_dependencies_async",
+            new_callable=AsyncMock,
+        ) as mock_sys_deps_async:
             with patch.object(
                 self.executor.dependency_installer,
-                "install_system_dependencies_async",
+                "install_dependencies_async",
                 new_callable=AsyncMock,
-            ) as mock_sys_deps_async:
-                with patch.object(
-                    self.executor.dependency_installer,
-                    "install_dependencies_async",
-                    new_callable=AsyncMock,
-                ) as mock_py_deps_async:
-                    with patch.object(
-                        self.executor.function_executor, "execute"
-                    ) as mock_execute:
-                        # Setup successful responses
-                        mock_init.return_value = Mock(
-                            success=True, stdout="Workspace ready"
-                        )
-
-                        # Mock async methods with proper FunctionResponse returns
-                        from remote_execution import FunctionResponse
-
-                        mock_sys_deps_async.return_value = FunctionResponse(
-                            success=True, stdout="System deps installed"
-                        )
-                        mock_py_deps_async.return_value = FunctionResponse(
-                            success=True, stdout="Python deps installed"
-                        )
-                        mock_execute.return_value = Mock(
-                            success=True, result="encoded_result"
-                        )
-
-                        await self.executor.ExecuteFunction(request)
-
-                        # Verify all components were called in correct order
-                        mock_sys_deps_async.assert_called_once_with(["curl"], True)
-                        mock_py_deps_async.assert_called_once_with(["requests"], True)
-                        mock_execute.assert_called_once_with(request)
-
-    @pytest.mark.asyncio
-    async def test_execute_function_workspace_failure_stops_execution(self):
-        """Test ExecuteFunction stops on workspace initialization failure."""
-        request = FunctionRequest(
-            function_name="test_func",
-            function_code="def test_func(): return 'test'",
-            args=[],
-            kwargs={},
-        )
-
-        # Mock the workspace to have volume so initialization is triggered
-        with patch.object(self.executor.workspace_manager, "has_runpod_volume", True):
-            with patch.object(
-                self.executor.workspace_manager, "initialize_workspace"
-            ) as mock_init:
+            ) as mock_py_deps_async:
                 with patch.object(
                     self.executor.function_executor, "execute"
                 ) as mock_execute:
-                    # Setup workspace failure - must return actual response-like object
-                    workspace_failure = Mock()
-                    workspace_failure.success = False
-                    workspace_failure.error = "Workspace init failed"
-                    mock_init.return_value = workspace_failure
+                    # Mock async methods with proper FunctionResponse returns
+                    from remote_execution import FunctionResponse
 
-                    response = await self.executor.ExecuteFunction(request)
+                    mock_sys_deps_async.return_value = FunctionResponse(
+                        success=True, stdout="System deps installed"
+                    )
+                    mock_py_deps_async.return_value = FunctionResponse(
+                        success=True, stdout="Python deps installed"
+                    )
+                    mock_execute.return_value = Mock(
+                        success=True, result="encoded_result"
+                    )
 
-                    # Verify execution stopped and error returned
-                    assert response.success is False
-                    assert response.error and "Workspace init failed" in response.error
-                    mock_execute.assert_not_called()
+                    await self.executor.ExecuteFunction(request)
+
+                    # Verify all components were called in correct order
+                    mock_sys_deps_async.assert_called_once_with(["curl"], True)
+                    mock_py_deps_async.assert_called_once_with(["requests"], True)
+                    mock_execute.assert_called_once_with(request)
 
     @pytest.mark.asyncio
     async def test_execute_function_dependency_failure_stops_execution(self):
@@ -189,34 +138,26 @@ class TestRemoteExecutor:
         )
 
         with patch.object(
-            self.executor.workspace_manager, "initialize_workspace"
-        ) as mock_init:
+            self.executor.dependency_installer,
+            "install_dependencies_async",
+            new_callable=AsyncMock,
+        ) as mock_py_deps_async:
             with patch.object(
-                self.executor.dependency_installer,
-                "install_dependencies_async",
-                new_callable=AsyncMock,
-            ) as mock_py_deps_async:
-                with patch.object(
-                    self.executor.function_executor, "execute"
-                ) as mock_execute:
-                    # Setup successful workspace but failed dependencies
-                    mock_init.return_value = Mock(
-                        success=True, stdout="Workspace ready"
-                    )
+                self.executor.function_executor, "execute"
+            ) as mock_execute:
+                # Mock async method with FunctionResponse
+                from remote_execution import FunctionResponse
 
-                    # Mock async method with FunctionResponse
-                    from remote_execution import FunctionResponse
+                mock_py_deps_async.return_value = FunctionResponse(
+                    success=False, error="Package not found"
+                )
 
-                    mock_py_deps_async.return_value = FunctionResponse(
-                        success=False, error="Package not found"
-                    )
+                response = await self.executor.ExecuteFunction(request)
 
-                    response = await self.executor.ExecuteFunction(request)
-
-                    # Verify execution stopped and error returned
-                    assert response.success is False
-                    assert response.error and "Package not found" in response.error
-                    mock_execute.assert_not_called()
+                # Verify execution stopped and error returned
+                assert response.success is False
+                assert response.error and "Package not found" in response.error
+                mock_execute.assert_not_called()
 
     def test_component_access_methods(self):
         """Test that components can be accessed directly."""
@@ -227,14 +168,6 @@ class TestRemoteExecutor:
             mock_install.return_value = Mock(success=True)
             self.executor.dependency_installer.install_dependencies(["test"], True)
             mock_install.assert_called_once_with(["test"], True)
-
-        # Test workspace manager methods
-        with patch.object(
-            self.executor.workspace_manager, "initialize_workspace"
-        ) as mock_init:
-            mock_init.return_value = Mock(success=True)
-            self.executor.workspace_manager.initialize_workspace(30)
-            mock_init.assert_called_once_with(30)  # default timeout
 
         # Test function executor methods
         request = FunctionRequest(
@@ -249,17 +182,84 @@ class TestRemoteExecutor:
     def test_component_attribute_exposure(self):
         """Test that component attributes are properly exposed."""
         # Test that components are properly accessible
-        assert hasattr(self.executor, "workspace_manager")
         assert hasattr(self.executor, "dependency_installer")
         assert hasattr(self.executor, "function_executor")
         assert hasattr(self.executor, "class_executor")
 
-        # Test workspace manager attributes through component
-        assert hasattr(self.executor.workspace_manager, "has_runpod_volume")
-        assert hasattr(self.executor.workspace_manager, "workspace_path")
-        assert hasattr(self.executor.workspace_manager, "venv_path")
-        assert hasattr(self.executor.workspace_manager, "cache_path")
-
         # Test class executor attributes through component
         assert hasattr(self.executor.class_executor, "class_instances")
         assert hasattr(self.executor.class_executor, "instance_metadata")
+
+    @pytest.mark.asyncio
+    async def test_hydration_before_installation_with_dependencies(self):
+        """Test that hydrate_from_volume is called before installations when there are dependencies."""
+        request = FunctionRequest(
+            function_name="test_func",
+            function_code="def test_func(): return 'test'",
+            dependencies=["requests"],
+            args=[],
+            kwargs={},
+        )
+
+        with (
+            patch.object(
+                self.executor.cache_sync,
+                "hydrate_from_volume",
+                new_callable=AsyncMock,
+            ) as mock_hydrate,
+            patch.object(
+                self.executor.cache_sync,
+                "mark_baseline",
+            ) as mock_baseline,
+            patch.object(
+                self.executor.dependency_installer,
+                "install_dependencies_async",
+                new_callable=AsyncMock,
+            ) as mock_deps,
+            patch.object(self.executor.function_executor, "execute") as mock_execute,
+            patch.object(
+                self.executor.cache_sync,
+                "sync_to_volume",
+                new_callable=AsyncMock,
+            ) as mock_sync,
+        ):
+            from remote_execution import FunctionResponse
+
+            mock_deps.return_value = FunctionResponse(
+                success=True, stdout="Deps installed"
+            )
+            mock_execute.return_value = Mock(success=True, result="encoded_result")
+
+            await self.executor.ExecuteFunction(request)
+
+            # Verify hydration was called
+            mock_hydrate.assert_called_once()
+            # Verify baseline was marked
+            mock_baseline.assert_called_once()
+            # Verify sync was called after installation
+            mock_sync.assert_called_once()
+
+    @pytest.mark.asyncio
+    async def test_no_hydration_without_dependencies(self):
+        """Test that hydrate_from_volume is not called when there are no dependencies."""
+        request = FunctionRequest(
+            function_name="test_func",
+            function_code="def test_func(): return 'test'",
+            args=[],
+            kwargs={},
+        )
+
+        with (
+            patch.object(
+                self.executor.cache_sync,
+                "hydrate_from_volume",
+                new_callable=AsyncMock,
+            ) as mock_hydrate,
+            patch.object(self.executor.function_executor, "execute") as mock_execute,
+        ):
+            mock_execute.return_value = Mock(success=True, result="encoded_result")
+
+            await self.executor.ExecuteFunction(request)
+
+            # Verify hydration was NOT called (no dependencies)
+            mock_hydrate.assert_not_called()

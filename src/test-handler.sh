@@ -6,7 +6,7 @@ failed_tests=""
 test_count=0
 passed_count=0
 
-for test_file in test_*.json; do
+for test_file in tests/test_*.json; do
     if [ ! -f "$test_file" ]; then
         echo "No test_*.json files found"
         exit 1
@@ -15,8 +15,8 @@ for test_file in test_*.json; do
     test_count=$((test_count + 1))
     echo "Testing with $test_file..."
     
-    # Run the test and capture output
-    output=$(env RUNPOD_TEST_INPUT="$(cat "$test_file")" uv run python handler.py 2>&1)
+    # Run the test and capture output using system Python directly
+    output=$(python handler.py --test_input "$(cat "$test_file")" 2>&1)
     exit_code=$?
     
     if [ $exit_code -eq 0 ]; then

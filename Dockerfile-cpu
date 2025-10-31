@@ -1,32 +1,29 @@
-# Stage 1: Build stage
-FROM python:3.12-slim AS builder
-
-WORKDIR /app
-
-# Install minimal OS deps and uv
-RUN apt-get update && apt-get install -y --no-install-recommends \
-    curl ca-certificates git build-essential \
- && curl -LsSf https://astral.sh/uv/install.sh | sh \
- && cp ~/.local/bin/uv /usr/local/bin/uv \
- && chmod +x /usr/local/bin/uv
-
-# Copy app files and install deps
-COPY README.md src/* pyproject.toml uv.lock ./
-RUN uv sync
-
-# Stage 2: Runtime stage
 FROM python:3.12-slim
 
 WORKDIR /app
 
-# Install runtime dependencies
-RUN apt-get update && apt-get install -y --no-install-recommends \
-    curl ca-certificates nala \
+# Prevent interactive prompts during package installation
+ENV DEBIAN_FRONTEND=noninteractive
+# Set timezone to avoid tzdata prompts
+ENV TZ=Etc/UTC
+
+# Configure APT cache to persist under /root/.cache for volume sync
+RUN mkdir -p /root/.cache/apt/archives/partial \
+ && echo 'Dir::Cache "/root/.cache/apt";' > /etc/apt/apt.conf.d/01cache
+
+# Install system dependencies and uv
+RUN DEBIAN_FRONTEND=noninteractive apt-get update && apt-get install -y --no-install-recommends \
+    build-essential curl ca-certificates nala \
+ && curl -LsSf https://astral.sh/uv/install.sh | sh \
+ && cp ~/.local/bin/uv /usr/local/bin/uv \
+ && chmod +x /usr/local/bin/uv \
  && apt-get clean \
  && rm -rf /var/lib/apt/lists/*
 
-# Copy only necessary files from the builder stage
-COPY --from=builder /app /app
-COPY --from=builder /usr/local/bin/uv /usr/local/bin/uv
+# Copy app code and install dependencies
+COPY README.md pyproject.toml uv.lock ./
+COPY src/ ./
+RUN uv export --format requirements-txt --no-dev --no-hashes > requirements.txt \
+ && uv pip install --system -r requirements.txt
 
-CMD ["uv", "run", "handler.py"]
+CMD ["python", "handler.py"]

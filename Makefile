@@ -1,5 +1,5 @@
 IMAGE = runpod/tetra-rp
-TAG = local
+TAG = $(or $(TETRA_IMAGE_TAG),local)
 FULL_IMAGE = $(IMAGE):$(TAG)
 FULL_IMAGE_CPU = $(IMAGE)-cpu:$(TAG)
 
@@ -20,18 +20,25 @@ help: # Show this help menu
 dev: # Install development dependencies
 	uv sync --all-groups
 
+update: # Upgrade all dependencies
+	uv sync --upgrade --all-groups
+	uv lock --upgrade
+	git submodule update --remote
+	make protocols
+
 clean: # Remove build artifacts and cache files
 	rm -rf dist build *.egg-info
 	find . -type d -name __pycache__ -exec rm -rf {} +
 	find . -type f -name "*.pyc" -delete
 	find . -type f -name "*.pkl" -delete
 
-upgrade: # Upgrade all dependencies
-	uv sync --upgrade
-
 setup: dev # Initialize project, sync deps, update submodules
-	git submodule init
-	git submodule update --remote --merge
+	@if [ ! -f "tetra-rp/.git" ]; then \
+		git submodule update --init --recursive; \
+	fi
+	make protocols
+
+protocols: # Copy remote_execution protocol from submodule
 	cp tetra-rp/src/tetra_rp/protos/remote_execution.py src/
 
 build: # Build both GPU and CPU Docker images
@@ -72,15 +79,15 @@ test-handler: # Test handler locally with all test_*.json files
 
 # Smoke Tests (local on Mac OS)
 
-smoketest-macos-build: setup # Build CPU-only Mac OS Docker image (macos/arm64)
+smoketest-macos-build: setup # Build Mac OS Docker image (macos/arm64)
 	docker buildx build \
 	--platform linux/arm64 \
-	-f Dockerfile-cpu \
-	-t $(FULL_IMAGE_CPU)-mac \
+	-f Dockerfile \
+	-t $(FULL_IMAGE)-mac \
 	. --load
 
-smoketest-macos: smoketest-macos-build # Test CPU Docker image locally
-	docker run --rm $(FULL_IMAGE_CPU)-mac ./test-handler.sh
+smoketest-macos: smoketest-macos-build # Test Docker image locally
+	docker run --rm $(FULL_IMAGE)-mac ./test-handler.sh
 
 # Linting commands
 lint: # Check code with ruff

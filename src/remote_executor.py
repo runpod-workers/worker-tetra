@@ -2,10 +2,12 @@ import logging
 import asyncio
 from typing import List, Any, Optional
 from remote_execution import FunctionRequest, FunctionResponse, RemoteExecutorStub
-from workspace_manager import WorkspaceManager
 from dependency_installer import DependencyInstaller
 from function_executor import FunctionExecutor
 from class_executor import ClassExecutor
+from log_streamer import start_log_streaming, stop_log_streaming, get_streamed_logs
+from cache_sync_manager import CacheSyncManager
+from constants import NAMESPACE
 
 
 class RemoteExecutor(RemoteExecutorStub):
@@ -17,16 +19,16 @@ class RemoteExecutor(RemoteExecutorStub):
 
     def __init__(self):
         super().__init__()
-        self.logger = logging.getLogger(__name__)
+        self.logger = logging.getLogger(f"{NAMESPACE}.{__name__.split('.')[-1]}")
 
         # Load tarball if specified (must happen before production executor init)
         self._load_tarball_if_needed()
 
         # Initialize components using composition
-        self.workspace_manager = WorkspaceManager()
-        self.dependency_installer = DependencyInstaller(self.workspace_manager)
-        self.function_executor = FunctionExecutor(self.workspace_manager)
-        self.class_executor = ClassExecutor(self.workspace_manager)
+        self.dependency_installer = DependencyInstaller()
+        self.function_executor = FunctionExecutor()
+        self.class_executor = ClassExecutor()
+        self.cache_sync = CacheSyncManager()
 
         # Initialize production executor if in production mode
         self.production_executor: Optional[Any] = None
@@ -68,7 +70,7 @@ class RemoteExecutor(RemoteExecutorStub):
             )
 
             if is_production_mode_enabled():
-                self.production_executor = ProductionExecutor(self.workspace_manager)
+                self.production_executor = ProductionExecutor()
                 self.logger.info(
                     "Production execution mode ENABLED - using tarball-loaded code"
                 )
@@ -91,47 +93,87 @@ class RemoteExecutor(RemoteExecutorStub):
         Returns:
             FunctionResponse object with execution result
         """
-        # Check if we should use production execution
-        if self._should_use_production_execution(request):
-            self.logger.info(
-                f"Using production execution for {getattr(request, 'function_name', None) or getattr(request, 'class_name', 'unknown')}"
-            )
-            return self.production_executor.execute(request)
+        # Start log streaming to capture all system logs
+        # Use the requested log level, not the root logger level
+        from logger import get_log_level
 
-        # Standard dynamic execution flow
-        # Initialize workspace if using volume
-        if self.workspace_manager.has_runpod_volume:
-            workspace_init = self.workspace_manager.initialize_workspace()
-            if not workspace_init.success:
-                return workspace_init
-            if workspace_init.stdout:
-                self.logger.info(workspace_init.stdout)
+        requested_level = get_log_level()
+        start_log_streaming(level=requested_level)
 
-        # Install dependencies and cache models
-        if request.accelerate_downloads:
-            # Run installations in parallel when acceleration is enabled
-            dep_result = await self._install_dependencies_parallel(request)
-            if not dep_result.success:
-                return dep_result
-        else:
-            # Sequential installation when acceleration is disabled
-            dep_result = await self._install_dependencies_sequential(request)
-            if not dep_result.success:
-                return dep_result
+        self.logger.debug(
+            f"Started log streaming at level: {logging.getLevelName(requested_level)}"
+        )
+        self.logger.debug(
+            f"Executing {request.execution_type} request: {request.function_name or request.class_name}"
+        )
 
-        # Route to appropriate execution method based on type
-        execution_type = getattr(request, "execution_type", "function")
+        try:
+            # Check if we should use production execution
+            if self._should_use_production_execution(request):
+                self.logger.info(
+                    f"Using production execution for {getattr(request, 'function_name', None) or getattr(request, 'class_name', 'unknown')}"
+                )
+                return self.production_executor.execute(request)
 
-        # Execute the function/class
-        if execution_type == "class":
-            result = self.class_executor.execute_class_method(request)
-        else:
-            result = self.function_executor.execute(request)
+            # Hydrate cache from volume if needed (before any installations)
+            has_installations = request.dependencies or request.system_dependencies
+            if has_installations:
+                await self.cache_sync.hydrate_from_volume()
 
-        # Add acceleration summary to the result
-        self._log_acceleration_summary(request, result)
+            # Mark cache baseline before installation
+            self.cache_sync.mark_baseline()
 
-        return result
+            # Install dependencies
+            if request.accelerate_downloads:
+                # Run installations in parallel when acceleration is enabled
+                dep_result = await self._install_dependencies_parallel(request)
+                if not dep_result.success:
+                    # Add any buffered logs to the failed response
+                    logs = get_streamed_logs(clear_buffer=True)
+                    if logs:
+                        if dep_result.stdout:
+                            dep_result.stdout += "\n" + logs
+                        else:
+                            dep_result.stdout = logs
+                    return dep_result
+            else:
+                # Sequential installation when acceleration is disabled
+                dep_result = await self._install_dependencies_sequential(request)
+                if not dep_result.success:
+                    # Add any buffered logs to the failed response
+                    logs = get_streamed_logs(clear_buffer=True)
+                    if logs:
+                        if dep_result.stdout:
+                            dep_result.stdout += "\n" + logs
+                        else:
+                            dep_result.stdout = logs
+                    return dep_result
+
+            # cache sync after installation
+            await self.cache_sync.sync_to_volume()
+
+            # Route to appropriate execution method based on type
+            execution_type = getattr(request, "execution_type", "function")
+
+            # Execute the function/class
+            if execution_type == "class":
+                result = self.class_executor.execute_class_method(request)
+            else:
+                result = self.function_executor.execute(request)
+
+            # Add all captured system logs to the result
+            system_logs = get_streamed_logs(clear_buffer=True)
+            if system_logs:
+                if result.stdout:
+                    result.stdout = f"{system_logs}\n\n{result.stdout}"
+                else:
+                    result.stdout = system_logs
+
+            return result
+
+        finally:
+            # Always stop log streaming to clean up
+            stop_log_streaming()
 
     def _should_use_production_execution(self, request: FunctionRequest) -> bool:
         """
@@ -173,68 +215,6 @@ class RemoteExecutor(RemoteExecutorStub):
 
         return True
 
-    def _log_acceleration_summary(
-        self, request: FunctionRequest, result: FunctionResponse
-    ):
-        """Log acceleration impact summary for performance visibility."""
-        if not hasattr(self.dependency_installer, "download_accelerator"):
-            return
-
-        acceleration_enabled = request.accelerate_downloads
-        has_volume = self.workspace_manager.has_runpod_volume
-        hf_transfer_available = self.dependency_installer.download_accelerator.hf_transfer_downloader.hf_transfer_available
-        nala_available = self.dependency_installer._check_nala_available()
-
-        # Build summary message
-        summary_parts = []
-
-        if acceleration_enabled:
-            summary_parts.append("✓ Download acceleration ENABLED")
-
-            if has_volume:
-                summary_parts.append(
-                    f"✓ Volume workspace: {self.workspace_manager.workspace_path}"
-                )
-                summary_parts.append("✓ Persistent caching enabled")
-            else:
-                summary_parts.append("ℹ No persistent volume - using temporary cache")
-
-            # System package acceleration status
-            if request.system_dependencies:
-                large_system_packages = (
-                    self.dependency_installer._identify_large_system_packages(
-                        request.system_dependencies
-                    )
-                )
-                if large_system_packages and nala_available:
-                    summary_parts.append(
-                        f"✓ System packages with nala: {len(large_system_packages)}"
-                    )
-                elif request.system_dependencies:
-                    summary_parts.append("→ System packages using standard apt-get")
-
-            if request.hf_models_to_cache:
-                summary_parts.append(
-                    f"✓ HF models pre-cached: {len(request.hf_models_to_cache)}"
-                )
-
-        elif acceleration_enabled and not (hf_transfer_available or nala_available):
-            summary_parts.append(
-                "⚠ Download acceleration REQUESTED but no accelerators available"
-            )
-            summary_parts.append("→ Using standard downloads")
-
-        elif not acceleration_enabled:
-            summary_parts.append("- Download acceleration DISABLED")
-            summary_parts.append("→ Using standard downloads")
-
-        # Log the summary
-        if summary_parts:
-            self.logger.debug("=== DOWNLOAD ACCELERATION SUMMARY ===")
-            for part in summary_parts:
-                self.logger.debug(part)
-            self.logger.debug("=====================================")
-
     async def _install_dependencies_parallel(
         self, request: FunctionRequest
     ) -> FunctionResponse:
@@ -266,17 +246,10 @@ class RemoteExecutor(RemoteExecutorStub):
             tasks.append(task)
             task_names.append("python_dependencies")
 
-        # Add HF model caching tasks
-        if request.hf_models_to_cache:
-            for model_id in request.hf_models_to_cache:
-                task = self.workspace_manager.accelerate_model_download_async(model_id)
-                tasks.append(task)
-                task_names.append(f"hf_model_{model_id}")
-
         if not tasks:
             return FunctionResponse(success=True, stdout="No dependencies to install")
 
-        self.logger.info(
+        self.logger.debug(
             f"Starting parallel installation of {len(tasks)} tasks: {task_names}"
         )
 
@@ -306,22 +279,6 @@ class RemoteExecutor(RemoteExecutorStub):
             if not sys_installed.success:
                 return sys_installed
             self.logger.info(sys_installed.stdout)
-
-        # Pre-cache HuggingFace models if requested (should not happen when acceleration disabled)
-        if request.accelerate_downloads and request.hf_models_to_cache:
-            for model_id in request.hf_models_to_cache:
-                self.logger.info(f"Pre-caching HuggingFace model: {model_id}")
-                cache_result = self.workspace_manager.accelerate_model_download(
-                    model_id
-                )
-                if cache_result.success:
-                    self.logger.info(
-                        f"Successfully cached model {model_id}: {cache_result.stdout}"
-                    )
-                else:
-                    self.logger.warning(
-                        f"Failed to cache model {model_id}: {cache_result.error}"
-                    )
 
         # Install Python dependencies next
         if request.dependencies:
@@ -365,7 +322,7 @@ class RemoteExecutor(RemoteExecutorStub):
                 if result.success:
                     success_count += 1
                     stdout_parts.append(f"✓ {task_name}: {result.stdout}")
-                    self.logger.info(f"✓ {task_name} completed successfully")
+                    self.logger.debug(f"✓ {task_name} completed successfully")
                 else:
                     error_msg = f"{task_name}: {result.error}"
                     failures.append(error_msg)
@@ -386,10 +343,10 @@ class RemoteExecutor(RemoteExecutorStub):
                 stdout=f"Parallel installation: {success_count}/{len(results)} tasks succeeded\n"
                 + "\n".join(stdout_parts),
             )
-        else:
-            # All tasks succeeded
-            return FunctionResponse(
-                success=True,
-                stdout=f"Parallel installation: {success_count}/{len(results)} tasks completed successfully\n"
-                + "\n".join(stdout_parts),
-            )
+
+        # All tasks succeeded
+        return FunctionResponse(
+            success=True,
+            stdout=f"Parallel installation: {success_count}/{len(results)} tasks completed successfully\n"
+            + "\n".join(stdout_parts),
+        )

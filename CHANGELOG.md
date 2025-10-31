@@ -1,5 +1,26 @@
 # Changelog
 
+## [0.7.0](https://github.com/runpod-workers/worker-tetra/compare/v0.6.0...v0.7.0) (2025-10-10)
+
+
+### Features
+
+* Endpoint Persistence using Network Volume (phase 1) ([#25](https://github.com/runpod-workers/worker-tetra/issues/25)) ([f59bec2](https://github.com/runpod-workers/worker-tetra/commit/f59bec228a93f075a4009bf0b17a3002d496df6e))
+* Endpoint Persistence using Network Volume (phase 2) ([#31](https://github.com/runpod-workers/worker-tetra/issues/31)) ([657e89a](https://github.com/runpod-workers/worker-tetra/commit/657e89a91c9e36432d8720d8464179996b4f1e60))
+
+## [0.6.0](https://github.com/runpod-workers/worker-tetra/compare/v0.5.0...v0.6.0) (2025-09-25)
+
+
+### Features
+
+* AE-1146 upgrade PyTorch base image to 2.8.0 with CUDA 12.8. ([#28](https://github.com/runpod-workers/worker-tetra/issues/28)) ([32b2561](https://github.com/runpod-workers/worker-tetra/commit/32b256182eccafa526dd8a45d1d3a8b2668dc08b))
+* AE-962 streaming logs from remote to local ([#24](https://github.com/runpod-workers/worker-tetra/issues/24)) ([b1c9a47](https://github.com/runpod-workers/worker-tetra/commit/b1c9a4743ebf687559ca6542137913c4926f8ce9))
+
+
+### Bug Fixes
+
+* access built-in system Python instead of using venv for runtime ([#30](https://github.com/runpod-workers/worker-tetra/issues/30)) ([d11a7fb](https://github.com/runpod-workers/worker-tetra/commit/d11a7fba53d8336dd229b34954ca5cee9ec0ce9b))
+
 ## [0.5.0](https://github.com/runpod-workers/worker-tetra/compare/v0.4.1...v0.5.0) (2025-08-27)
 
 

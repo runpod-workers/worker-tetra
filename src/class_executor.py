@@ -6,22 +6,20 @@ from contextlib import redirect_stdout, redirect_stderr
 from datetime import datetime
 from typing import Dict, Any, Tuple
 
-from base_executor import BaseExecutor
 from remote_execution import FunctionRequest, FunctionResponse
 from serialization_utils import SerializationUtils
 
 
-class ClassExecutor(BaseExecutor):
+class ClassExecutor:
     """Handles execution of class methods with instance management."""
 
-    def __init__(self, workspace_manager):
-        super().__init__(workspace_manager)
+    def __init__(self):
         # Instance registry for persistent class instances
         self.class_instances: Dict[str, Any] = {}
         self.instance_metadata: Dict[str, Dict[str, Any]] = {}
 
     def execute(self, request: FunctionRequest) -> FunctionResponse:
-        """Execute class method - required by BaseExecutor interface."""
+        """Execute class method."""
         return self.execute_class_method(request)
 
     def execute_class_method(self, request: FunctionRequest) -> FunctionResponse:
@@ -33,16 +31,13 @@ class ClassExecutor(BaseExecutor):
         log_io = io.StringIO()
 
         with redirect_stdout(stdout_io), redirect_stderr(stderr_io):
+            # Setup logging
+            log_handler = logging.StreamHandler(log_io)
+            log_handler.setLevel(logging.DEBUG)
+            logger = logging.getLogger()
+            logger.addHandler(log_handler)
+
             try:
-                # Setup execution environment including Python path
-                self._setup_execution_environment()
-
-                # Setup logging
-                log_handler = logging.StreamHandler(log_io)
-                log_handler.setLevel(logging.DEBUG)
-                logger = logging.getLogger()
-                logger.addHandler(log_handler)
-
                 # Get or create class instance
                 instance, instance_id = self._get_or_create_instance(request)
 
@@ -110,7 +105,7 @@ class ClassExecutor(BaseExecutor):
             return self.class_instances[instance_id], instance_id
 
         # Create new instance
-        logging.info(f"Creating new instance of class: {request.class_name}")
+        logging.debug(f"Creating new instance of class: {request.class_name}")
 
         # Execute class code
         namespace: Dict[str, Any] = {}
@@ -154,7 +149,7 @@ class ClassExecutor(BaseExecutor):
             "last_used": datetime.now().isoformat(),
         }
 
-        logging.info(f"Created instance with ID: {instance_id}")
+        logging.debug(f"Created instance with ID: {instance_id}")
         return instance, instance_id
 
     def _update_instance_metadata(self, instance_id: str):
