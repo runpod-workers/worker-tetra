@@ -4,6 +4,8 @@
 
 This design addresses full use of PyTorch installation built into the base Docker image that we use for the runtime.
 
+**Module Structure**: The core implementation resides in the `src/live_serverless/` module. The `src/handler.py` file serves as a lightweight RunPod wrapper that imports and starts the handler from `live_serverless`.
+
 ## Architecture Design
 
 ### System Python Runtime
@@ -11,16 +13,17 @@ This design addresses full use of PyTorch installation built into the base Docke
 ```mermaid
 graph TD
     A[RunPod Request] --> B[src/handler.py]
-    B --> C[RemoteExecutor]
-    C --> D[Environment Detection]
-    D --> E{Docker?}
-    E -->|Yes| F[System UV Install]
-    E -->|No| G[Local UV Install]
-    F --> H[Function Execution]
-    G --> H
+    B --> C[live_serverless module]
+    C --> D[RemoteExecutor]
+    D --> E[Environment Detection]
+    E --> F{Docker?}
+    F -->|Yes| G[System UV Install]
+    F -->|No| H[Local UV Install]
+    G --> I[Function Execution]
+    H --> I
 
-    J[DependencyInstaller] --> C
-    K[FunctionExecutor] --> C
+    J[DependencyInstaller] --> D
+    K[FunctionExecutor] --> D
 ```
 
 ## Key Points

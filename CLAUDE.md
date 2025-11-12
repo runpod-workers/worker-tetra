@@ -6,18 +6,19 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 This is `worker-tetra`, a RunPod Serverless worker template that provides dynamic GPU provisioning for ML workloads with transparent execution and persistent workspace management. The project consists of two main components:
 
-1. **RunPod Worker Handler** (`src/handler.py`) - A serverless function that executes remote Python functions with dependency management and workspace support
-2. **Tetra SDK** (`tetra-rp/` submodule) - Python library for distributed inference and serving of ML models
+1. **RunPod Worker Handler** (`src/handler.py`) - A lightweight RunPod wrapper that imports and starts the serverless handler from the `live_serverless` module
+2. **Live Serverless Module** (`src/live_serverless/`) - Core implementation that executes remote Python functions with dependency management and workspace support
+3. **Tetra SDK** (`tetra-rp/` submodule) - Python library for distributed inference and serving of ML models
 
 ## Key Areas of Responsibility
 
-### 1. Remote Function Execution Engine (`src/`)
-- **Core Handler** (`src/handler.py:18`): Main RunPod serverless entry point that orchestrates remote execution
-- **Remote Executor** (`src/remote_executor.py:11`): Central orchestrator that coordinates all execution components using composition pattern
-- **Function Executor** (`src/function_executor.py:12`): Handles individual function execution with full output capture (stdout, stderr, logs)
-- **Class Executor** (`src/class_executor.py:14`): Manages class instantiation and method execution with instance persistence and metadata tracking
+### 1. Remote Function Execution Engine (`src/live_serverless/`)
+- **Core Handler** (`src/live_serverless/__init__.py`): Main serverless handler that orchestrates remote execution
+- **Remote Executor** (`src/live_serverless/remote_executor.py`): Central orchestrator that coordinates all execution components using composition pattern
+- **Function Executor** (`src/live_serverless/function_executor.py`): Handles individual function execution with full output capture (stdout, stderr, logs)
+- **Class Executor** (`src/live_serverless/class_executor.py`): Manages class instantiation and method execution with instance persistence and metadata tracking
 
-### 2. Dependency Management System (`src/dependency_installer.py:14`)
+### 2. Dependency Management System (`src/live_serverless/dependency_installer.py`)
 - **Python Package Installation**: UV-based package management with environment-aware configuration (Docker vs local)
 - **System Package Installation**: APT/Nala-based system dependency handling with acceleration support
 - **Differential Installation**: Optimized package installation that skips already-installed packages
@@ -25,7 +26,7 @@ This is `worker-tetra`, a RunPod Serverless worker template that provides dynami
 - **System Package Filtering**: Intelligent detection of system-available packages to avoid redundant installation
 - **Universal Subprocess Integration**: All subprocess operations use centralized logging utility
 
-### 3. Universal Subprocess Utility (`src/subprocess_utils.py`)
+### 3. Universal Subprocess Utility (`src/live_serverless/subprocess_utils.py`)
 - **Centralized Subprocess Operations**: All subprocess calls use `run_logged_subprocess` for consistency
 - **Automatic Logging Integration**: All subprocess output flows through log streamer at DEBUG level
 - **Environment-Aware Execution**: Handles Docker vs local environment differences automatically
@@ -33,9 +34,8 @@ This is `worker-tetra`, a RunPod Serverless worker template that provides dynami
 - **Timeout Management**: Configurable timeouts with proper cleanup on timeout/cancellation
 
 ### 4. Serialization & Protocol Management
-- **Protocol Definitions** (`src/remote_execution.py:13`): Pydantic models for request/response with validation
-- **Serialization Utils** (`src/serialization_utils.py`): CloudPickle-based data serialization for function arguments and results
-- **Base Executor** (`src/base_executor.py`): Common execution interface and environment setup
+- **Protocol Definitions** (`src/live_serverless/remote_execution.py`): Pydantic models for request/response with validation
+- **Serialization Utils** (`src/live_serverless/serialization_utils.py`): CloudPickle-based data serialization for function arguments and results
 
 ### 5. Tetra SDK Integration (`tetra-rp/` submodule)
 - **Client Interface**: `@remote` decorator for marking functions for remote execution
@@ -58,20 +58,25 @@ This is `worker-tetra`, a RunPod Serverless worker template that provides dynami
 - **Release Management**: Automated semantic versioning and Docker Hub deployment
 
 ### 8. Configuration & Constants
-- **Constants** (`src/constants.py`): System-wide configuration values (NAMESPACE, LARGE_SYSTEM_PACKAGES)
+- **Constants** (`src/live_serverless/constants.py`): System-wide configuration values (NAMESPACE, LARGE_SYSTEM_PACKAGES)
 - **Environment Configuration**: RunPod API integration
 
 ## Architecture
 
 ### Core Components
 
-- **`src/handler.py`**: Main RunPod serverless handler implementing composition pattern
+- **`src/handler.py`**: Lightweight RunPod wrapper that starts the serverless handler
+  - Imports and initializes the handler from `live_serverless` module
+  - Entry point for RunPod Serverless execution
+
+- **`src/live_serverless/`**: Core serverless implementation module
+  - `__init__.py`: Main handler implementing composition pattern
   - Executes arbitrary Python functions remotely with workspace support
   - Handles dynamic installation of Python and system dependencies with differential updates
   - Serializes/deserializes function arguments and results using cloudpickle
   - Captures stdout, stderr, and logs from remote execution
 
-- **`src/remote_execution.py`**: Protocol definitions using Pydantic models
+- **`src/live_serverless/remote_execution.py`**: Protocol definitions using Pydantic models
   - `FunctionRequest`: Defines function execution requests with dependencies
   - `FunctionResponse`: Standardized response format with success/error handling
 
@@ -188,16 +193,21 @@ gpu_config = LiveServerless(
 ## File Structure Highlights
 
 ```
-├── src/                       # Core implementation
-│   ├── handler.py            # Main serverless function handler
-│   ├── remote_executor.py    # Central execution orchestrator
-│   ├── remote_execution.py   # Protocol definitions
-│   ├── function_executor.py  # Function execution with output capture
-│   ├── class_executor.py     # Class execution with persistence
-│   ├── dependency_installer.py # Python and system dependency management
-│   ├── serialization_utils.py # CloudPickle serialization utilities
-│   ├── base_executor.py      # Common execution interface
-│   ├── constants.py          # System-wide configuration constants
+├── src/                       # Source directory
+│   ├── handler.py            # RunPod wrapper (entry point)
+│   ├── live_serverless/      # Core serverless implementation module
+│   │   ├── __init__.py       # Main handler with composition pattern
+│   │   ├── remote_executor.py    # Central execution orchestrator
+│   │   ├── remote_execution.py   # Protocol definitions
+│   │   ├── function_executor.py  # Function execution with output capture
+│   │   ├── class_executor.py     # Class execution with persistence
+│   │   ├── dependency_installer.py # Python and system dependency management
+│   │   ├── subprocess_utils.py   # Centralized subprocess operations
+│   │   ├── log_streamer.py       # Log streaming system
+│   │   ├── logger.py             # Unified logging configuration
+│   │   ├── serialization_utils.py # CloudPickle serialization utilities
+│   │   ├── cache_sync_manager.py # Workspace sync management
+│   │   └── constants.py          # System-wide configuration constants
 │   └── tests/                # Handler test JSON files
 ├── tests/                    # Comprehensive test suite
 │   ├── conftest.py          # Shared test fixtures

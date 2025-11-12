@@ -4,8 +4,9 @@ import pytest
 import base64
 import cloudpickle
 from unittest.mock import patch, AsyncMock
-from handler import handler
-from remote_execution import FunctionResponse
+from live_serverless import handler
+from live_serverless.remote_execution import FunctionResponse
+from handler_protocol import HandlerEvent
 
 
 class TestHandler:
@@ -23,7 +24,7 @@ class TestHandler:
             }
         }
 
-        with patch("handler.RemoteExecutor") as mock_executor_class:
+        with patch("live_serverless.RemoteExecutor") as mock_executor_class:
             mock_executor = AsyncMock()
             mock_executor_class.return_value = mock_executor
             mock_executor.ExecuteFunction.return_value = FunctionResponse(
@@ -76,7 +77,7 @@ class TestHandler:
             }
         }
 
-        with patch("handler.RemoteExecutor") as mock_executor_class:
+        with patch("live_serverless.RemoteExecutor") as mock_executor_class:
             mock_executor_class.side_effect = Exception(
                 "Executor initialization failed"
             )
@@ -100,7 +101,7 @@ class TestHandler:
         }
 
         test_data = {"data": "test"}
-        with patch("handler.RemoteExecutor") as mock_executor_class:
+        with patch("live_serverless.RemoteExecutor") as mock_executor_class:
             mock_executor = AsyncMock()
             mock_executor_class.return_value = mock_executor
             mock_executor.ExecuteFunction.return_value = FunctionResponse(
@@ -130,7 +131,7 @@ class TestHandler:
             }
         }
 
-        with patch("handler.RemoteExecutor") as mock_executor_class:
+        with patch("live_serverless.RemoteExecutor") as mock_executor_class:
             mock_executor = AsyncMock()
             mock_executor_class.return_value = mock_executor
             mock_executor.ExecuteFunction.return_value = FunctionResponse(
@@ -147,3 +148,85 @@ class TestHandler:
             assert result["success"] is True
             assert "instance_id" in result
             assert "instance_info" in result
+
+
+class TestHandlerWithHandlerEvent:
+    """Test handler with HandlerEvent model."""
+
+    @pytest.mark.asyncio
+    async def test_handler_with_handler_event_object(self):
+        """Test handler accepts HandlerEvent objects."""
+        event = HandlerEvent(
+            input={
+                "function_name": "test_func",
+                "function_code": "def test_func(): return 'success'",
+                "args": [],
+                "kwargs": {},
+            }
+        )
+
+        with patch("live_serverless.RemoteExecutor") as mock_executor_class:
+            mock_executor = AsyncMock()
+            mock_executor_class.return_value = mock_executor
+            mock_executor.ExecuteFunction.return_value = FunctionResponse(
+                success=True,
+                result=base64.b64encode(cloudpickle.dumps("success")).decode("utf-8"),
+                stdout="Function executed successfully",
+            )
+
+            result = await handler(event)
+
+            assert result["success"] is True
+            assert "result" in result
+
+    @pytest.mark.asyncio
+    async def test_handler_backward_compatible_with_dict(self):
+        """Test handler still works with plain dict (backward compatibility)."""
+        # Plain dict should be coerced to HandlerEvent
+        event = {
+            "input": {
+                "function_name": "test_func",
+                "function_code": "def test_func(): return 'test'",
+                "args": [],
+                "kwargs": {},
+            }
+        }
+
+        with patch("live_serverless.RemoteExecutor") as mock_executor_class:
+            mock_executor = AsyncMock()
+            mock_executor_class.return_value = mock_executor
+            mock_executor.ExecuteFunction.return_value = FunctionResponse(
+                success=True,
+                result=base64.b64encode(cloudpickle.dumps("test")).decode("utf-8"),
+            )
+
+            result = await handler(event)
+
+            assert result["success"] is True
+
+    @pytest.mark.asyncio
+    async def test_handler_event_with_extra_fields(self):
+        """Test handler works with HandlerEvent containing extra fields."""
+        event = HandlerEvent(
+            input={
+                "function_name": "test_func",
+                "function_code": "def test_func(): return 'test'",
+                "args": [],
+                "kwargs": {},
+            },
+            job_id="job-123",
+            worker_id="worker-456",
+        )
+
+        with patch("live_serverless.RemoteExecutor") as mock_executor_class:
+            mock_executor = AsyncMock()
+            mock_executor_class.return_value = mock_executor
+            mock_executor.ExecuteFunction.return_value = FunctionResponse(
+                success=True,
+                result=base64.b64encode(cloudpickle.dumps("test")).decode("utf-8"),
+            )
+
+            result = await handler(event)
+
+            assert result["success"] is True
+            # Extra fields shouldn't interfere with handler execution

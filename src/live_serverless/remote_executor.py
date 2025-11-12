@@ -1,13 +1,14 @@
 import logging
 import asyncio
 from typing import List, Any
-from remote_execution import FunctionRequest, FunctionResponse, RemoteExecutorStub
-from dependency_installer import DependencyInstaller
-from function_executor import FunctionExecutor
-from class_executor import ClassExecutor
-from log_streamer import start_log_streaming, stop_log_streaming, get_streamed_logs
-from cache_sync_manager import CacheSyncManager
-from constants import NAMESPACE
+
+from .remote_execution import FunctionRequest, FunctionResponse, RemoteExecutorStub
+from .dependency_installer import DependencyInstaller
+from .function_executor import FunctionExecutor
+from .class_executor import ClassExecutor
+from .log_streamer import start_log_streaming, stop_log_streaming, get_streamed_logs
+from .cache_sync_manager import CacheSyncManager
+from .constants import NAMESPACE
 
 
 class RemoteExecutor(RemoteExecutorStub):
@@ -38,7 +39,7 @@ class RemoteExecutor(RemoteExecutorStub):
         """
         # Start log streaming to capture all system logs
         # Use the requested log level, not the root logger level
-        from logger import get_log_level
+        from .logger import get_log_level
 
         requested_level = get_log_level()
         start_log_streaming(level=requested_level)

@@ -32,14 +32,15 @@ clean: # Remove build artifacts and cache files
 	find . -type f -name "*.pyc" -delete
 	find . -type f -name "*.pkl" -delete
 
-setup: dev # Initialize project, sync deps, update submodules
+setup: # Initialize project, sync deps, update submodules
+	uv sync
 	@if [ ! -f "tetra-rp/.git" ]; then \
 		git submodule update --init --recursive; \
 	fi
 	make protocols
 
 protocols: # Copy remote_execution protocol from submodule
-	cp tetra-rp/src/tetra_rp/protos/remote_execution.py src/
+	cp tetra-rp/src/tetra_rp/protos/remote_execution.py src/live_serverless/
 
 build: # Build both GPU and CPU Docker images
 	make build-gpu

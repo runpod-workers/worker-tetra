@@ -2,7 +2,7 @@ import pytest
 import base64
 import cloudpickle
 from pydantic import ValidationError
-from remote_execution import FunctionRequest, FunctionResponse
+from live_serverless.remote_execution import FunctionRequest, FunctionResponse
 
 
 class TestFunctionRequest:
