@@ -59,8 +59,15 @@ class ClassExecutor:
 
                 # Execute the method (handle both sync and async)
                 if inspect.iscoroutinefunction(method):
-                    # Async method - need to await it
-                    result = asyncio.run(method(*args, **kwargs))
+                    # Async method - check for running event loop
+                    try:
+                        loop = asyncio.get_running_loop()
+                    except RuntimeError:
+                        # No running event loop - safe to use asyncio.run()
+                        result = asyncio.run(method(*args, **kwargs))
+                    else:
+                        # Running inside an event loop - use run_until_complete()
+                        result = loop.run_until_complete(method(*args, **kwargs))
                 else:
                     # Sync method - call directly
                     result = method(*args, **kwargs)
