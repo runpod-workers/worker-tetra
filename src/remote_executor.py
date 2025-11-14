@@ -93,9 +93,9 @@ class RemoteExecutor(RemoteExecutorStub):
 
             # Execute the function/class
             if execution_type == "class":
-                result = self.class_executor.execute_class_method(request)
+                result = await self.class_executor.execute_class_method(request)
             else:
-                result = self.function_executor.execute(request)
+                result = await self.function_executor.execute(request)
 
             # Add all captured system logs to the result
             system_logs = get_streamed_logs(clear_buffer=True)

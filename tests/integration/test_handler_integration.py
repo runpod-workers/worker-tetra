@@ -356,7 +356,8 @@ def bad_function(:
         assert "SyntaxError" in result["error"] or "invalid syntax" in result["error"]
 
     @pytest.mark.integration
-    def test_remote_executor_direct_execution(self):
+    @pytest.mark.asyncio
+    async def test_remote_executor_direct_execution(self):
         """Test RemoteExecutor direct method calls."""
         executor = RemoteExecutor()
 
@@ -370,7 +371,7 @@ def direct_test():
             kwargs={},
         )
 
-        result = executor.function_executor.execute(request)
+        result = await executor.function_executor.execute(request)
 
         assert result.success is True
         deserialized_result = cloudpickle.loads(base64.b64decode(result.result))

@@ -2,6 +2,7 @@ import io
 import logging
 import traceback
 import uuid
+import inspect
 from contextlib import redirect_stdout, redirect_stderr
 from datetime import datetime
 from typing import Dict, Any, Tuple
@@ -18,11 +19,11 @@ class ClassExecutor:
         self.class_instances: Dict[str, Any] = {}
         self.instance_metadata: Dict[str, Dict[str, Any]] = {}
 
-    def execute(self, request: FunctionRequest) -> FunctionResponse:
+    async def execute(self, request: FunctionRequest) -> FunctionResponse:
         """Execute class method."""
-        return self.execute_class_method(request)
+        return await self.execute_class_method(request)
 
-    def execute_class_method(self, request: FunctionRequest) -> FunctionResponse:
+    async def execute_class_method(self, request: FunctionRequest) -> FunctionResponse:
         """
         Execute a class method with instance management.
         """
@@ -55,8 +56,13 @@ class ClassExecutor:
                 args = SerializationUtils.deserialize_args(request.args)
                 kwargs = SerializationUtils.deserialize_kwargs(request.kwargs)
 
-                # Execute the method
-                result = method(*args, **kwargs)
+                # Execute the method (handle both sync and async)
+                if inspect.iscoroutinefunction(method):
+                    # Async method - await directly
+                    result = await method(*args, **kwargs)
+                else:
+                    # Sync method - call directly
+                    result = method(*args, **kwargs)
 
                 # Update instance metadata
                 self._update_instance_metadata(instance_id)

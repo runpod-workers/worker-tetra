@@ -27,7 +27,7 @@ class TestFunctionExecution:
             for k, v in kwargs.items()
         }
 
-    def test_execute_simple_function(self):
+    async def test_execute_simple_function(self):
         """Test basic function execution."""
         request = FunctionRequest(
             function_name="hello",
@@ -36,13 +36,13 @@ class TestFunctionExecution:
             kwargs={},
         )
 
-        response = self.executor.execute(request)
+        response = await self.executor.execute(request)
 
         assert response.success is True
         result = cloudpickle.loads(base64.b64decode(response.result))
         assert result == "hello world"
 
-    def test_execute_function_with_args(self):
+    async def test_execute_function_with_args(self):
         """Test function execution with arguments."""
         request = FunctionRequest(
             function_name="add",
@@ -51,13 +51,13 @@ class TestFunctionExecution:
             kwargs={},
         )
 
-        response = self.executor.execute(request)
+        response = await self.executor.execute(request)
 
         assert response.success is True
         result = cloudpickle.loads(base64.b64decode(response.result))
         assert result == 8
 
-    def test_execute_function_with_kwargs(self):
+    async def test_execute_function_with_kwargs(self):
         """Test function execution with keyword arguments."""
         request = FunctionRequest(
             function_name="greet",
@@ -66,13 +66,13 @@ class TestFunctionExecution:
             kwargs=self.encode_kwargs(greeting="Hi"),
         )
 
-        response = self.executor.execute(request)
+        response = await self.executor.execute(request)
 
         assert response.success is True
         result = cloudpickle.loads(base64.b64decode(response.result))
         assert result == "Hi, Alice!"
 
-    def test_execute_function_not_found(self):
+    async def test_execute_function_not_found(self):
         """Test execution when function is not found in code."""
         request = FunctionRequest(
             function_name="missing_func",
@@ -81,13 +81,13 @@ class TestFunctionExecution:
             kwargs={},
         )
 
-        response = self.executor.execute(request)
+        response = await self.executor.execute(request)
 
         assert response.success is False
         assert "missing_func" in response.result
         assert "not found" in response.result
 
-    def test_execute_function_with_exception(self):
+    async def test_execute_function_with_exception(self):
         """Test error handling when function raises exception."""
         request = FunctionRequest(
             function_name="error_func",
@@ -96,13 +96,13 @@ class TestFunctionExecution:
             kwargs={},
         )
 
-        response = self.executor.execute(request)
+        response = await self.executor.execute(request)
 
         assert response.success is False
         assert "Test error" in response.error
         assert "ValueError" in response.error
 
-    def test_execute_function_with_output_capture(self):
+    async def test_execute_function_with_output_capture(self):
         """Test that stdout, stderr, and logs are captured."""
         request = FunctionRequest(
             function_name="output_func",
@@ -120,7 +120,7 @@ def output_func():
             kwargs={},
         )
 
-        response = self.executor.execute(request)
+        response = await self.executor.execute(request)
 
         assert response.success is True
         result = cloudpickle.loads(base64.b64decode(response.result))
@@ -130,6 +130,96 @@ def output_func():
         assert "log message" in response.stdout
 
 
+class TestAsyncFunctionSupport:
+    """Test async function execution support."""
+
+    def setup_method(self):
+        """Setup for each test method."""
+        self.executor = FunctionExecutor()
+
+    def encode_args(self, *args):
+        """Helper to encode arguments."""
+        return [
+            base64.b64encode(cloudpickle.dumps(arg)).decode("utf-8") for arg in args
+        ]
+
+    async def test_execute_async_function(self):
+        """Test execution of async function."""
+        request = FunctionRequest(
+            function_name="async_hello",
+            function_code="async def async_hello():\n    return 'async hello world'",
+            args=[],
+            kwargs={},
+        )
+
+        response = await self.executor.execute(request)
+
+        assert response.success is True
+        result = cloudpickle.loads(base64.b64decode(response.result))
+        assert result == "async hello world"
+
+    async def test_execute_async_function_with_args(self):
+        """Test async function with arguments."""
+        request = FunctionRequest(
+            function_name="async_multiply",
+            function_code="async def async_multiply(x, y):\n    return x * y",
+            args=self.encode_args(6, 7),
+            kwargs={},
+        )
+
+        response = await self.executor.execute(request)
+
+        assert response.success is True
+        result = cloudpickle.loads(base64.b64decode(response.result))
+        assert result == 42
+
+    async def test_execute_async_function_with_await(self):
+        """Test async function that uses await."""
+        request = FunctionRequest(
+            function_name="async_with_await",
+            function_code="""
+import asyncio
+
+async def async_with_await(delay):
+    await asyncio.sleep(delay)
+    return f'slept for {delay}s'
+""",
+            args=self.encode_args(0.01),
+            kwargs={},
+        )
+
+        response = await self.executor.execute(request)
+
+        assert response.success is True
+        result = cloudpickle.loads(base64.b64decode(response.result))
+        assert result == "slept for 0.01s"
+
+    async def test_execute_async_function_with_dict_return(self):
+        """Test async function returning dict (like GPU worker)."""
+        request = FunctionRequest(
+            function_name="gpu_matrix_multiply",
+            function_code="""
+async def gpu_matrix_multiply(input_data: dict) -> dict:
+    size = input_data.get("matrix_size", 100)
+    return {
+        "status": "success",
+        "matrix_size": size,
+        "result_shape": [size, size],
+    }
+""",
+            args=self.encode_args({"matrix_size": 500}),
+            kwargs={},
+        )
+
+        response = await self.executor.execute(request)
+
+        assert response.success is True
+        result = cloudpickle.loads(base64.b64decode(response.result))
+        assert result["status"] == "success"
+        assert result["matrix_size"] == 500
+        assert result["result_shape"] == [500, 500]
+
+
 class TestErrorHandling:
     """Test error handling in function execution."""
 
@@ -137,7 +227,7 @@ class TestErrorHandling:
         """Setup for each test method."""
         self.executor = FunctionExecutor()
 
-    def test_execute_function_handles_errors(self):
+    async def test_execute_function_handles_errors(self):
         """Test that function execution properly handles errors."""
         request = FunctionRequest(
             function_name="error_func",
@@ -146,7 +236,7 @@ class TestErrorHandling:
             kwargs={},
         )
 
-        response = self.executor.execute(request)
+        response = await self.executor.execute(request)
 
         # Verify error was captured
         assert response.success is False

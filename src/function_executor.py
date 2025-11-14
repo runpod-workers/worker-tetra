@@ -1,6 +1,7 @@
 import io
 import logging
 import traceback
+import inspect
 from contextlib import redirect_stdout, redirect_stderr
 from typing import Dict, Any
 
@@ -11,7 +12,7 @@ from serialization_utils import SerializationUtils
 class FunctionExecutor:
     """Handles execution of individual functions with output capture."""
 
-    def execute(self, request: FunctionRequest) -> FunctionResponse:
+    async def execute(self, request: FunctionRequest) -> FunctionResponse:
         """
         Execute a function with full output capture.
 
@@ -50,8 +51,13 @@ class FunctionExecutor:
                 args = SerializationUtils.deserialize_args(request.args)
                 kwargs = SerializationUtils.deserialize_kwargs(request.kwargs)
 
-                # Execute the function
-                result = func(*args, **kwargs)
+                # Execute the function (handle both sync and async)
+                if inspect.iscoroutinefunction(func):
+                    # Async function - await directly
+                    result = await func(*args, **kwargs)
+                else:
+                    # Sync function - call directly
+                    result = func(*args, **kwargs)
 
             except Exception as e:
                 # Combine output streams
