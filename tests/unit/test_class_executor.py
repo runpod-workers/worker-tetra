@@ -325,3 +325,211 @@ class OtherClass:
         assert response.success is False
         assert "MissingClass" in response.error
         assert "not found" in response.error
+
+
+class TestAsyncMethodSupport:
+    """Test async method execution support."""
+
+    def setup_method(self):
+        """Setup for each test method."""
+        self.executor = ClassExecutor()
+
+    def encode_args(self, *args):
+        """Helper to encode arguments."""
+        return [
+            base64.b64encode(cloudpickle.dumps(arg)).decode("utf-8") for arg in args
+        ]
+
+    def test_execute_async_method(self):
+        """Test execution of async method."""
+        request = FunctionRequest(
+            execution_type="class",
+            class_name="AsyncGreeter",
+            class_code="""
+class AsyncGreeter:
+    def __init__(self, greeting):
+        self.greeting = greeting
+
+    async def greet(self, name):
+        return f'{self.greeting}, {name}!'
+""",
+            method_name="greet",
+            constructor_args=self.encode_args("Hello"),
+            args=self.encode_args("World"),
+            kwargs={},
+        )
+
+        response = self.executor.execute_class_method(request)
+
+        assert response.success is True
+        result = cloudpickle.loads(base64.b64decode(response.result))
+        assert result == "Hello, World!"
+
+    def test_execute_async_method_with_await(self):
+        """Test async method that uses await."""
+        request = FunctionRequest(
+            execution_type="class",
+            class_name="AsyncWorker",
+            class_code="""
+import asyncio
+
+class AsyncWorker:
+    def __init__(self):
+        self.processed = []
+
+    async def process(self, item, delay=0.01):
+        await asyncio.sleep(delay)
+        self.processed.append(item)
+        return f'Processed: {item}'
+""",
+            method_name="process",
+            args=self.encode_args("task1"),
+            kwargs={},
+        )
+
+        response = self.executor.execute_class_method(request)
+
+        assert response.success is True
+        result = cloudpickle.loads(base64.b64decode(response.result))
+        assert result == "Processed: task1"
+
+    def test_execute_async_method_returning_dict(self):
+        """Test async method returning dict (like GPU worker)."""
+        request = FunctionRequest(
+            execution_type="class",
+            class_name="GPUProcessor",
+            class_code="""
+class GPUProcessor:
+    def __init__(self, gpu_id):
+        self.gpu_id = gpu_id
+
+    async def process_batch(self, input_data: dict) -> dict:
+        batch_size = input_data.get("batch_size", 32)
+        return {
+            "status": "success",
+            "gpu_id": self.gpu_id,
+            "batch_size": batch_size,
+            "processed_items": batch_size * 10,
+        }
+""",
+            method_name="process_batch",
+            constructor_args=self.encode_args("cuda:0"),
+            args=self.encode_args({"batch_size": 64}),
+            kwargs={},
+        )
+
+        response = self.executor.execute_class_method(request)
+
+        assert response.success is True
+        result = cloudpickle.loads(base64.b64decode(response.result))
+        assert result["status"] == "success"
+        assert result["gpu_id"] == "cuda:0"
+        assert result["batch_size"] == 64
+        assert result["processed_items"] == 640
+
+    def test_async_method_instance_persistence(self):
+        """Test that async methods work with instance persistence."""
+        # Create instance and call async method
+        initial_request = FunctionRequest(
+            execution_type="class",
+            class_name="AsyncCounter",
+            class_code="""
+import asyncio
+
+class AsyncCounter:
+    def __init__(self, start=0):
+        self.count = start
+
+    async def increment(self):
+        await asyncio.sleep(0.01)
+        self.count += 1
+        return self.count
+
+    async def get_count(self):
+        return self.count
+""",
+            method_name="increment",
+            constructor_args=self.encode_args(0),
+            create_new_instance=True,
+            args=[],
+            kwargs={},
+        )
+
+        first_response = self.executor.execute_class_method(initial_request)
+        instance_id = first_response.instance_id
+
+        assert first_response.success is True
+        result1 = cloudpickle.loads(base64.b64decode(first_response.result))
+        assert result1 == 1
+
+        # Reuse instance with another async method call
+        reuse_request = FunctionRequest(
+            execution_type="class",
+            class_name="AsyncCounter",
+            class_code="# Code not needed for reuse",
+            method_name="get_count",
+            instance_id=instance_id,
+            create_new_instance=False,
+            args=[],
+            kwargs={},
+        )
+
+        second_response = self.executor.execute_class_method(reuse_request)
+
+        assert second_response.success is True
+        assert second_response.instance_id == instance_id
+        result2 = cloudpickle.loads(base64.b64decode(second_response.result))
+        assert result2 == 1  # Count should be preserved from first call
+
+    def test_mixed_sync_async_methods(self):
+        """Test class with both sync and async methods."""
+        # First call sync method
+        sync_request = FunctionRequest(
+            execution_type="class",
+            class_name="MixedClass",
+            class_code="""
+import asyncio
+
+class MixedClass:
+    def __init__(self):
+        self.value = 0
+
+    def sync_set(self, val):
+        self.value = val
+        return f'Sync set: {val}'
+
+    async def async_get(self):
+        await asyncio.sleep(0.01)
+        return f'Async get: {self.value}'
+""",
+            method_name="sync_set",
+            constructor_args=[],
+            create_new_instance=True,
+            args=self.encode_args(42),
+            kwargs={},
+        )
+
+        sync_response = self.executor.execute_class_method(sync_request)
+        instance_id = sync_response.instance_id
+
+        assert sync_response.success is True
+        sync_result = cloudpickle.loads(base64.b64decode(sync_response.result))
+        assert sync_result == "Sync set: 42"
+
+        # Then call async method on same instance
+        async_request = FunctionRequest(
+            execution_type="class",
+            class_name="MixedClass",
+            class_code="# Code not needed for reuse",
+            method_name="async_get",
+            instance_id=instance_id,
+            create_new_instance=False,
+            args=[],
+            kwargs={},
+        )
+
+        async_response = self.executor.execute_class_method(async_request)
+
+        assert async_response.success is True
+        async_result = cloudpickle.loads(base64.b64decode(async_response.result))
+        assert async_result == "Async get: 42"

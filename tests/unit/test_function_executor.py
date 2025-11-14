@@ -130,6 +130,96 @@ def output_func():
         assert "log message" in response.stdout
 
 
+class TestAsyncFunctionSupport:
+    """Test async function execution support."""
+
+    def setup_method(self):
+        """Setup for each test method."""
+        self.executor = FunctionExecutor()
+
+    def encode_args(self, *args):
+        """Helper to encode arguments."""
+        return [
+            base64.b64encode(cloudpickle.dumps(arg)).decode("utf-8") for arg in args
+        ]
+
+    def test_execute_async_function(self):
+        """Test execution of async function."""
+        request = FunctionRequest(
+            function_name="async_hello",
+            function_code="async def async_hello():\n    return 'async hello world'",
+            args=[],
+            kwargs={},
+        )
+
+        response = self.executor.execute(request)
+
+        assert response.success is True
+        result = cloudpickle.loads(base64.b64decode(response.result))
+        assert result == "async hello world"
+
+    def test_execute_async_function_with_args(self):
+        """Test async function with arguments."""
+        request = FunctionRequest(
+            function_name="async_multiply",
+            function_code="async def async_multiply(x, y):\n    return x * y",
+            args=self.encode_args(6, 7),
+            kwargs={},
+        )
+
+        response = self.executor.execute(request)
+
+        assert response.success is True
+        result = cloudpickle.loads(base64.b64decode(response.result))
+        assert result == 42
+
+    def test_execute_async_function_with_await(self):
+        """Test async function that uses await."""
+        request = FunctionRequest(
+            function_name="async_with_await",
+            function_code="""
+import asyncio
+
+async def async_with_await(delay):
+    await asyncio.sleep(delay)
+    return f'slept for {delay}s'
+""",
+            args=self.encode_args(0.01),
+            kwargs={},
+        )
+
+        response = self.executor.execute(request)
+
+        assert response.success is True
+        result = cloudpickle.loads(base64.b64decode(response.result))
+        assert result == "slept for 0.01s"
+
+    def test_execute_async_function_with_dict_return(self):
+        """Test async function returning dict (like GPU worker)."""
+        request = FunctionRequest(
+            function_name="gpu_matrix_multiply",
+            function_code="""
+async def gpu_matrix_multiply(input_data: dict) -> dict:
+    size = input_data.get("matrix_size", 100)
+    return {
+        "status": "success",
+        "matrix_size": size,
+        "result_shape": [size, size],
+    }
+""",
+            args=self.encode_args({"matrix_size": 500}),
+            kwargs={},
+        )
+
+        response = self.executor.execute(request)
+
+        assert response.success is True
+        result = cloudpickle.loads(base64.b64decode(response.result))
+        assert result["status"] == "success"
+        assert result["matrix_size"] == 500
+        assert result["result_shape"] == [500, 500]
+
+
 class TestErrorHandling:
     """Test error handling in function execution."""
 

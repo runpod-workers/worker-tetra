@@ -2,6 +2,8 @@ import io
 import logging
 import traceback
 import uuid
+import asyncio
+import inspect
 from contextlib import redirect_stdout, redirect_stderr
 from datetime import datetime
 from typing import Dict, Any, Tuple
@@ -55,8 +57,13 @@ class ClassExecutor:
                 args = SerializationUtils.deserialize_args(request.args)
                 kwargs = SerializationUtils.deserialize_kwargs(request.kwargs)
 
-                # Execute the method
-                result = method(*args, **kwargs)
+                # Execute the method (handle both sync and async)
+                if inspect.iscoroutinefunction(method):
+                    # Async method - need to await it
+                    result = asyncio.run(method(*args, **kwargs))
+                else:
+                    # Sync method - call directly
+                    result = method(*args, **kwargs)
 
                 # Update instance metadata
                 self._update_instance_metadata(instance_id)
