@@ -1,6 +1,6 @@
 import logging
 import asyncio
-from typing import List, Any
+from typing import List, Any, Optional
 from remote_execution import FunctionRequest, FunctionResponse, RemoteExecutorStub
 from dependency_installer import DependencyInstaller
 from function_executor import FunctionExecutor
@@ -14,17 +14,74 @@ class RemoteExecutor(RemoteExecutorStub):
     """
     RemoteExecutor orchestrates remote function and class execution.
     Uses composition pattern with specialized components.
+    Supports both dynamic (dev) and production (tarball-based) execution modes.
     """
 
     def __init__(self):
         super().__init__()
         self.logger = logging.getLogger(f"{NAMESPACE}.{__name__.split('.')[-1]}")
 
+        # Load tarball if specified (must happen before production executor init)
+        self._load_tarball_if_needed()
+
         # Initialize components using composition
         self.dependency_installer = DependencyInstaller()
         self.function_executor = FunctionExecutor()
         self.class_executor = ClassExecutor()
         self.cache_sync = CacheSyncManager()
+
+        # Initialize production executor if in production mode
+        self.production_executor: Optional[Any] = None
+        self._initialize_production_executor()
+
+    def _load_tarball_if_needed(self):
+        """Load production worker code tarball from network volume and add to Python path."""
+        try:
+            from tarball_loader import should_load_tarball, load_and_extract_tarball
+            from constants import WORKERS_CODE_DIR
+            import sys
+            from pathlib import Path
+
+            if should_load_tarball():
+                success = load_and_extract_tarball()
+
+                if success:
+                    # Add extracted workers code directory to Python path
+                    workers_code_path = Path(WORKERS_CODE_DIR)
+                    if workers_code_path.exists():
+                        workers_code_str = str(workers_code_path)
+                        if workers_code_str not in sys.path:
+                            sys.path.insert(0, workers_code_str)
+                            self.logger.info(f"Added {workers_code_path} to sys.path")
+                else:
+                    self.logger.error(
+                        "Tarball loading failed, continuing with dynamic execution"
+                    )
+
+        except ImportError:
+            self.logger.debug("Tarball loader not available, skipping")
+
+    def _initialize_production_executor(self):
+        """Initialize production executor if running in production mode."""
+        try:
+            from production_executor import (
+                ProductionExecutor,
+                is_production_mode_enabled,
+            )
+
+            if is_production_mode_enabled():
+                self.production_executor = ProductionExecutor()
+                self.logger.info(
+                    "Production execution mode ENABLED - using tarball-loaded code"
+                )
+            else:
+                self.logger.info(
+                    "Production execution mode DISABLED - using dynamic code execution"
+                )
+        except ImportError:
+            self.logger.debug(
+                "ProductionExecutor not available - running in development mode"
+            )
 
     async def ExecuteFunction(self, request: FunctionRequest) -> FunctionResponse:
         """
@@ -51,6 +108,13 @@ class RemoteExecutor(RemoteExecutorStub):
         )
 
         try:
+            # Check if we should use production execution
+            if self._should_use_production_execution(request):
+                self.logger.info(
+                    f"Using production execution for {getattr(request, 'function_name', None) or getattr(request, 'class_name', 'unknown')}"
+                )
+                return self.production_executor.execute(request)
+
             # Hydrate cache from volume if needed (before any installations)
             has_installations = request.dependencies or request.system_dependencies
             if has_installations:
@@ -110,6 +174,46 @@ class RemoteExecutor(RemoteExecutorStub):
         finally:
             # Always stop log streaming to clean up
             stop_log_streaming()
+
+    def _should_use_production_execution(self, request: FunctionRequest) -> bool:
+        """
+        Determine if request should use production execution.
+
+        Returns True if:
+        1. Production executor is initialized (production mode enabled)
+        2. Request has a callable name
+        3. Callable is available in production registry
+        4. Request doesn't have custom code (function_code or class_code)
+        """
+        if not self.production_executor:
+            return False
+
+        # Get callable name
+        callable_name = getattr(request, "function_name", None) or getattr(
+            request, "class_name", None
+        )
+        if not callable_name:
+            return False
+
+        # Check if callable is registered
+        if not self.production_executor.is_registered(callable_name):
+            self.logger.debug(
+                f"Callable '{callable_name}' not found in production registry, using dynamic execution"
+            )
+            return False
+
+        # If request has custom code, use dynamic execution
+        execution_type = getattr(request, "execution_type", "function")
+        if execution_type == "function" and getattr(request, "function_code", None):
+            self.logger.debug(
+                "Request has custom function_code, using dynamic execution"
+            )
+            return False
+        elif execution_type == "class" and getattr(request, "class_code", None):
+            self.logger.debug("Request has custom class_code, using dynamic execution")
+            return False
+
+        return True
 
     async def _install_dependencies_parallel(
         self, request: FunctionRequest
