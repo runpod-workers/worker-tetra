@@ -1,5 +1,13 @@
 # Changelog
 
+## [0.7.1](https://github.com/runpod-workers/worker-tetra/compare/v0.7.0...v0.7.1) (2025-11-14)
+
+
+### Features
+
+* configure release-please to include refactor commits ([#37](https://github.com/runpod-workers/worker-tetra/issues/37)) ([b8c59a0](https://github.com/runpod-workers/worker-tetra/commit/b8c59a0eef5f876a9cbbf524f48f2ce984b2b013))
+* **executor:** add async function and method execution support ([#42](https://github.com/runpod-workers/worker-tetra/issues/42)) ([6b19ce6](https://github.com/runpod-workers/worker-tetra/commit/6b19ce678f091979b387657ec657959768861d4c))
+
 ## [0.7.0](https://github.com/runpod-workers/worker-tetra/compare/v0.6.0...v0.7.0) (2025-10-10)
 
 
