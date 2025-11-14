@@ -28,7 +28,7 @@ class TestClassExecution:
             for k, v in kwargs.items()
         }
 
-    def test_execute_class_method_basic(self):
+    async def test_execute_class_method_basic(self):
         """Test basic class method execution."""
         request = FunctionRequest(
             execution_type="class",
@@ -47,14 +47,14 @@ class TestClass:
             kwargs={},
         )
 
-        response = self.executor.execute_class_method(request)
+        response = await self.executor.execute_class_method(request)
 
         assert response.success is True
         assert response.instance_id is not None
         result = cloudpickle.loads(base64.b64decode(response.result))
         assert result == "Value: test"
 
-    def test_execute_class_method_with_args(self):
+    async def test_execute_class_method_with_args(self):
         """Test class method execution with method arguments."""
         request = FunctionRequest(
             execution_type="class",
@@ -73,13 +73,13 @@ class Calculator:
             kwargs={},
         )
 
-        response = self.executor.execute_class_method(request)
+        response = await self.executor.execute_class_method(request)
 
         assert response.success is True
         result = cloudpickle.loads(base64.b64decode(response.result))
         assert result == 8
 
-    def test_execute_class_method_default_call(self):
+    async def test_execute_class_method_default_call(self):
         """Test class method execution with default __call__ method."""
         request = FunctionRequest(
             execution_type="class",
@@ -97,13 +97,13 @@ class Callable:
             kwargs={},
         )
 
-        response = self.executor.execute_class_method(request)
+        response = await self.executor.execute_class_method(request)
 
         assert response.success is True
         result = cloudpickle.loads(base64.b64decode(response.result))
         assert result == "hello"
 
-    def test_execute_class_method_not_found(self):
+    async def test_execute_class_method_not_found(self):
         """Test execution when method is not found in class."""
         request = FunctionRequest(
             execution_type="class",
@@ -121,13 +121,13 @@ class TestClass:
             kwargs={},
         )
 
-        response = self.executor.execute_class_method(request)
+        response = await self.executor.execute_class_method(request)
 
         assert response.success is False
         assert "missing_method" in response.error
         assert "not found" in response.error
 
-    def test_execute_class_method_with_exception(self):
+    async def test_execute_class_method_with_exception(self):
         """Test error handling when class method raises exception."""
         request = FunctionRequest(
             execution_type="class",
@@ -145,7 +145,7 @@ class ErrorClass:
             kwargs={},
         )
 
-        response = self.executor.execute_class_method(request)
+        response = await self.executor.execute_class_method(request)
 
         assert response.success is False
         assert "Method error" in response.error
@@ -165,7 +165,7 @@ class TestInstanceManagement:
             base64.b64encode(cloudpickle.dumps(arg)).decode("utf-8") for arg in args
         ]
 
-    def test_create_new_instance(self):
+    async def test_create_new_instance(self):
         """Test creating a new class instance."""
         request = FunctionRequest(
             execution_type="class",
@@ -186,7 +186,7 @@ class Counter:
             kwargs={},
         )
 
-        response = self.executor.execute_class_method(request)
+        response = await self.executor.execute_class_method(request)
 
         assert response.success is True
         assert response.instance_id is not None
@@ -198,7 +198,7 @@ class Counter:
         assert metadata["method_calls"] == 1
         assert "created_at" in metadata
 
-    def test_reuse_existing_instance(self):
+    async def test_reuse_existing_instance(self):
         """Test reusing an existing class instance."""
         # Create initial instance
         initial_request = FunctionRequest(
@@ -223,7 +223,7 @@ class Counter:
             kwargs={},
         )
 
-        first_response = self.executor.execute_class_method(initial_request)
+        first_response = await self.executor.execute_class_method(initial_request)
         instance_id = first_response.instance_id
 
         # Reuse the same instance
@@ -238,7 +238,7 @@ class Counter:
             kwargs={},
         )
 
-        second_response = self.executor.execute_class_method(reuse_request)
+        second_response = await self.executor.execute_class_method(reuse_request)
 
         assert second_response.success is True
         assert second_response.instance_id == instance_id
@@ -247,7 +247,7 @@ class Counter:
         result = cloudpickle.loads(base64.b64decode(second_response.result))
         assert result == 1
 
-    def test_instance_metadata_tracking(self):
+    async def test_instance_metadata_tracking(self):
         """Test that instance metadata is properly tracked."""
         request = FunctionRequest(
             execution_type="class",
@@ -257,7 +257,7 @@ class TestClass:
     def __init__(self):
         pass
     
-    def test_method(self):
+    async def test_method(self):
         return "test"
 """,
             method_name="test_method",
@@ -266,12 +266,12 @@ class TestClass:
         )
 
         # Execute method multiple times
-        response1 = self.executor.execute_class_method(request)
+        response1 = await self.executor.execute_class_method(request)
         instance_id = response1.instance_id
 
         request.instance_id = instance_id
         request.create_new_instance = False
-        self.executor.execute_class_method(request)
+        await self.executor.execute_class_method(request)
 
         # Check metadata updates
         metadata = self.executor.instance_metadata[instance_id]
@@ -283,14 +283,14 @@ class TestClass:
         last_used_time = datetime.fromisoformat(metadata["last_used"])
         assert last_used_time >= created_time
 
-    def test_generate_instance_id(self):
+    async def test_generate_instance_id(self):
         """Test automatic instance ID generation."""
         request = FunctionRequest(
             execution_type="class",
             class_name="TestClass",
             class_code="""
 class TestClass:
-    def test_method(self):
+    async def test_method(self):
         return "test"
 """,
             method_name="test_method",
@@ -298,14 +298,14 @@ class TestClass:
             kwargs={},
         )
 
-        response = self.executor.execute_class_method(request)
+        response = await self.executor.execute_class_method(request)
 
         assert response.success is True
         assert response.instance_id is not None
         assert response.instance_id.startswith("TestClass_")
         assert len(response.instance_id.split("_")[1]) == 8  # UUID hex[:8]
 
-    def test_class_not_found_error(self):
+    async def test_class_not_found_error(self):
         """Test error when class is not found in provided code."""
         request = FunctionRequest(
             execution_type="class",
@@ -320,7 +320,7 @@ class OtherClass:
             kwargs={},
         )
 
-        response = self.executor.execute_class_method(request)
+        response = await self.executor.execute_class_method(request)
 
         assert response.success is False
         assert "MissingClass" in response.error
@@ -340,7 +340,7 @@ class TestAsyncMethodSupport:
             base64.b64encode(cloudpickle.dumps(arg)).decode("utf-8") for arg in args
         ]
 
-    def test_execute_async_method(self):
+    async def test_execute_async_method(self):
         """Test execution of async method."""
         request = FunctionRequest(
             execution_type="class",
@@ -359,13 +359,13 @@ class AsyncGreeter:
             kwargs={},
         )
 
-        response = self.executor.execute_class_method(request)
+        response = await self.executor.execute_class_method(request)
 
         assert response.success is True
         result = cloudpickle.loads(base64.b64decode(response.result))
         assert result == "Hello, World!"
 
-    def test_execute_async_method_with_await(self):
+    async def test_execute_async_method_with_await(self):
         """Test async method that uses await."""
         request = FunctionRequest(
             execution_type="class",
@@ -387,13 +387,13 @@ class AsyncWorker:
             kwargs={},
         )
 
-        response = self.executor.execute_class_method(request)
+        response = await self.executor.execute_class_method(request)
 
         assert response.success is True
         result = cloudpickle.loads(base64.b64decode(response.result))
         assert result == "Processed: task1"
 
-    def test_execute_async_method_returning_dict(self):
+    async def test_execute_async_method_returning_dict(self):
         """Test async method returning dict (like GPU worker)."""
         request = FunctionRequest(
             execution_type="class",
@@ -418,7 +418,7 @@ class GPUProcessor:
             kwargs={},
         )
 
-        response = self.executor.execute_class_method(request)
+        response = await self.executor.execute_class_method(request)
 
         assert response.success is True
         result = cloudpickle.loads(base64.b64decode(response.result))
@@ -427,7 +427,7 @@ class GPUProcessor:
         assert result["batch_size"] == 64
         assert result["processed_items"] == 640
 
-    def test_async_method_instance_persistence(self):
+    async def test_async_method_instance_persistence(self):
         """Test that async methods work with instance persistence."""
         # Create instance and call async method
         initial_request = FunctionRequest(
@@ -455,7 +455,7 @@ class AsyncCounter:
             kwargs={},
         )
 
-        first_response = self.executor.execute_class_method(initial_request)
+        first_response = await self.executor.execute_class_method(initial_request)
         instance_id = first_response.instance_id
 
         assert first_response.success is True
@@ -474,14 +474,14 @@ class AsyncCounter:
             kwargs={},
         )
 
-        second_response = self.executor.execute_class_method(reuse_request)
+        second_response = await self.executor.execute_class_method(reuse_request)
 
         assert second_response.success is True
         assert second_response.instance_id == instance_id
         result2 = cloudpickle.loads(base64.b64decode(second_response.result))
         assert result2 == 1  # Count should be preserved from first call
 
-    def test_mixed_sync_async_methods(self):
+    async def test_mixed_sync_async_methods(self):
         """Test class with both sync and async methods."""
         # First call sync method
         sync_request = FunctionRequest(
@@ -509,7 +509,7 @@ class MixedClass:
             kwargs={},
         )
 
-        sync_response = self.executor.execute_class_method(sync_request)
+        sync_response = await self.executor.execute_class_method(sync_request)
         instance_id = sync_response.instance_id
 
         assert sync_response.success is True
@@ -528,7 +528,7 @@ class MixedClass:
             kwargs={},
         )
 
-        async_response = self.executor.execute_class_method(async_request)
+        async_response = await self.executor.execute_class_method(async_request)
 
         assert async_response.success is True
         async_result = cloudpickle.loads(base64.b64decode(async_response.result))

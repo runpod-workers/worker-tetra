@@ -13,7 +13,7 @@ from serialization_utils import SerializationUtils
 class FunctionExecutor:
     """Handles execution of individual functions with output capture."""
 
-    def execute(self, request: FunctionRequest) -> FunctionResponse:
+    async def execute(self, request: FunctionRequest) -> FunctionResponse:
         """
         Execute a function with full output capture.
 
@@ -54,15 +54,8 @@ class FunctionExecutor:
 
                 # Execute the function (handle both sync and async)
                 if inspect.iscoroutinefunction(func):
-                    # Async function - check for running event loop
-                    try:
-                        loop = asyncio.get_running_loop()
-                    except RuntimeError:
-                        # No running event loop - safe to use asyncio.run()
-                        result = asyncio.run(func(*args, **kwargs))
-                    else:
-                        # Running inside an event loop - use run_until_complete()
-                        result = loop.run_until_complete(func(*args, **kwargs))
+                    # Async function - await directly
+                    result = await func(*args, **kwargs)
                 else:
                     # Sync function - call directly
                     result = func(*args, **kwargs)

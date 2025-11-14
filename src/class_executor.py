@@ -20,11 +20,11 @@ class ClassExecutor:
         self.class_instances: Dict[str, Any] = {}
         self.instance_metadata: Dict[str, Dict[str, Any]] = {}
 
-    def execute(self, request: FunctionRequest) -> FunctionResponse:
+    async def execute(self, request: FunctionRequest) -> FunctionResponse:
         """Execute class method."""
-        return self.execute_class_method(request)
+        return await self.execute_class_method(request)
 
-    def execute_class_method(self, request: FunctionRequest) -> FunctionResponse:
+    async def execute_class_method(self, request: FunctionRequest) -> FunctionResponse:
         """
         Execute a class method with instance management.
         """
@@ -59,15 +59,8 @@ class ClassExecutor:
 
                 # Execute the method (handle both sync and async)
                 if inspect.iscoroutinefunction(method):
-                    # Async method - check for running event loop
-                    try:
-                        loop = asyncio.get_running_loop()
-                    except RuntimeError:
-                        # No running event loop - safe to use asyncio.run()
-                        result = asyncio.run(method(*args, **kwargs))
-                    else:
-                        # Running inside an event loop - use run_until_complete()
-                        result = loop.run_until_complete(method(*args, **kwargs))
+                    # Async method - await directly
+                    result = await method(*args, **kwargs)
                 else:
                     # Sync method - call directly
                     result = method(*args, **kwargs)
