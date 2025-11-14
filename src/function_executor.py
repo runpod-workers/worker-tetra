@@ -1,7 +1,6 @@
 import io
 import logging
 import traceback
-import asyncio
 import inspect
 from contextlib import redirect_stdout, redirect_stderr
 from typing import Dict, Any

@@ -2,7 +2,6 @@ import io
 import logging
 import traceback
 import uuid
-import asyncio
 import inspect
 from contextlib import redirect_stdout, redirect_stderr
 from datetime import datetime
