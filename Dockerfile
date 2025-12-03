@@ -18,7 +18,7 @@ RUN mkdir -p /root/.cache/apt/archives/partial \
 
 # Install system dependencies and uv
 RUN DEBIAN_FRONTEND=noninteractive apt-get update && apt-get install -y --no-install-recommends \
-    build-essential curl ca-certificates nala \
+    build-essential curl ca-certificates nala git \
  && curl -LsSf https://astral.sh/uv/install.sh | sh \
  && cp ~/.local/bin/uv /usr/local/bin/uv \
  && chmod +x /usr/local/bin/uv \
