@@ -22,5 +22,9 @@ LARGE_SYSTEM_PACKAGES = [
 CACHE_DIR = "/root/.cache"
 """Directory containing package and model caches."""
 
+# Production Code Configuration
+WORKERS_CODE_DIR = "/app/workers"
+"""Directory where production worker code is extracted from tarball."""
+
 VOLUME_CACHE_PATH = "/runpod-volume/.cache"
 """Network volume path for cache tarball storage."""
