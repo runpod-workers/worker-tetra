@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.7.2](https://github.com/runpod-workers/worker-tetra/compare/v0.7.1...v0.7.2) (2025-12-03)
+
+
+### Features
+
+* pre-install git in Docker images ([#43](https://github.com/runpod-workers/worker-tetra/issues/43)) ([99ac555](https://github.com/runpod-workers/worker-tetra/commit/99ac55572e77d0b37cd7c01f536ac50eb8d604d9))
+
 ## [0.7.1](https://github.com/runpod-workers/worker-tetra/compare/v0.7.0...v0.7.1) (2025-11-14)
 
 
