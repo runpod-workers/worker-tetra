@@ -11,6 +11,8 @@ dependencies = [
     "runpod",
     "hf_transfer>=0.1.0",
     "huggingface_hub>=0.32.0",
+    "fastapi>=0.115.0",
+    "uvicorn[standard]>=0.34.0",
 ]
 
 [dependency-groups]
