@@ -65,6 +65,13 @@ build-lb: setup # Build Load Balancer Docker image (linux/amd64)
 	-t $(IMAGE)-lb:$(TAG) \
 	. --load
 
+build-lb-cpu: setup # Build CPU-only Load Balancer Docker image (linux/amd64)
+	docker buildx build \
+	--platform linux/amd64 \
+	-f Dockerfile-lb-cpu \
+	-t $(IMAGE)-lb-cpu:$(TAG) \
+	. --load
+
 # Test commands
 test: # Run all tests
 	uv run pytest tests/ -v
@@ -108,6 +115,16 @@ smoketest-macos-lb-build: setup # Build Mac OS Load Balancer Docker image (macos
 
 smoketest-macos-lb: smoketest-macos-lb-build # Test Load Balancer Docker image locally
 	docker run --rm $(IMAGE)-lb:mac ./test-lb-handler.sh
+
+smoketest-macos-lb-cpu-build: setup # Build Mac OS CPU-only Load Balancer Docker image (macos/arm64)
+	docker buildx build \
+	--platform linux/arm64 \
+	-f Dockerfile-lb-cpu \
+	-t $(IMAGE)-lb-cpu:mac \
+	. --load
+
+smoketest-macos-lb-cpu: smoketest-macos-lb-cpu-build # Test CPU-only Load Balancer Docker image locally
+	docker run --rm $(IMAGE)-lb-cpu:mac ./test-lb-handler.sh
 
 # Linting commands
 lint: # Check code with ruff

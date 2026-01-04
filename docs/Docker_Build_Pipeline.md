@@ -4,11 +4,12 @@ This document covers the CI/CD infrastructure for building and deploying worker-
 
 ## Overview
 
-The worker-tetra repository maintains three Docker images:
+The worker-tetra repository maintains four Docker images:
 
 1. **GPU Image** (`runpod/tetra-rp`) - Queue-based serverless worker with CUDA
 2. **CPU Image** (`runpod/tetra-rp-cpu`) - Queue-based serverless worker for CPU-only
-3. **Load Balancer Image** (`runpod/tetra-rp-lb`) - HTTP-based Load Balancer worker
+3. **Load Balancer GPU Image** (`runpod/tetra-rp-lb`) - HTTP-based Load Balancer worker with CUDA
+4. **Load Balancer CPU Image** (`runpod/tetra-rp-lb-cpu`) - HTTP-based Load Balancer worker for CPU-only
 
 All images are automatically built and pushed via GitHub Actions workflows.
 
@@ -20,7 +21,8 @@ All images are automatically built and pushed via GitHub Actions workflows.
 
 **Jobs**:
 - `docker-test` - Validates GPU image builds
-- `docker-test-lb` - Validates Load Balancer image builds
+- `docker-test-lb` - Validates Load Balancer GPU image builds
+- `docker-test-lb-cpu` - Validates Load Balancer CPU image builds
 
 **What it does**:
 - Builds the Docker images locally
@@ -37,7 +39,8 @@ All images are automatically built and pushed via GitHub Actions workflows.
 **Jobs**:
 - `docker-main-gpu` - Pushes GPU image
 - `docker-main-cpu` - Pushes CPU image
-- `docker-main-lb` - Pushes Load Balancer image
+- `docker-main-lb` - Pushes Load Balancer GPU image
+- `docker-main-lb-cpu` - Pushes Load Balancer CPU image
 
 **What it does**:
 - Builds the Docker images
@@ -49,6 +52,7 @@ All images are automatically built and pushed via GitHub Actions workflows.
 - `runpod/tetra-rp:main`
 - `runpod/tetra-rp-cpu:main`
 - `runpod/tetra-rp-lb:main`
+- `runpod/tetra-rp-lb-cpu:main`
 
 ### Stage 3: Release Deployment
 
@@ -57,7 +61,8 @@ All images are automatically built and pushed via GitHub Actions workflows.
 **Jobs**:
 - `docker-prod-gpu` - Pushes GPU image with version tags
 - `docker-prod-cpu` - Pushes CPU image with version tags
-- `docker-prod-lb` - Pushes Load Balancer image with version tags
+- `docker-prod-lb` - Pushes Load Balancer GPU image with version tags
+- `docker-prod-lb-cpu` - Pushes Load Balancer CPU image with version tags
 
 **What it does**:
 - Builds the Docker images
@@ -69,6 +74,7 @@ All images are automatically built and pushed via GitHub Actions workflows.
 - `runpod/tetra-rp:0.7.3` and `runpod/tetra-rp:latest`
 - `runpod/tetra-rp-cpu:0.7.3` and `runpod/tetra-rp-cpu:latest`
 - `runpod/tetra-rp-lb:0.7.3` and `runpod/tetra-rp-lb:latest`
+- `runpod/tetra-rp-lb-cpu:0.7.3` and `runpod/tetra-rp-lb-cpu:latest`
 
 ## Pipeline Flow
 
@@ -127,6 +133,14 @@ make build-lb
 ```
 
 Builds `runpod/tetra-rp-lb:local` for testing locally.
+
+### Build CPU Load Balancer Image
+
+```bash
+make build-lb-cpu
+```
+
+Builds `runpod/tetra-rp-lb-cpu:local` for testing locally.
 
 ### Build All Images
 
