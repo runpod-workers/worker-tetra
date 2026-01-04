@@ -31,4 +31,4 @@ EXPOSE 8000
 # CMD will be overridden by RunPod at runtime to run the specific generated handler
 # The handler factory generates handler_{resource_name}.py files
 # RunPod will invoke: uvicorn handler_{resource_name}:app --host 0.0.0.0 --port 8000
-CMD ["uvicorn", "handler:app", "--host", "0.0.0.0", "--port", "8000", "--timeout-keep-alive", "600"]
+CMD ["uvicorn", "lb_handler:app", "--host", "0.0.0.0", "--port", "8000", "--timeout-keep-alive", "600"]
