@@ -37,10 +37,17 @@ class DependencyInstaller:
         if self._is_docker_environment():
             if accelerate_downloads:
                 # Packages are installed to the system location where they can be imported
-                command = ["uv", "pip", "install", "--system"] + packages
+                # Use --break-system-packages to override PEP 668 externally-managed-environment
+                command = [
+                    "uv",
+                    "pip",
+                    "install",
+                    "--system",
+                    "--break-system-packages",
+                ] + packages
             else:
                 # Use full path to system python
-                command = ["pip", "install"] + packages
+                command = ["pip", "install", "--break-system-packages"] + packages
         else:
             # Local: Always use uv with current python for consistency
             command = ["uv", "pip", "install", "--python", "python"] + packages
