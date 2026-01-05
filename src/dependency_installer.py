@@ -32,34 +32,18 @@ class DependencyInstaller:
         if not packages:
             return FunctionResponse(success=True, stdout="No packages to install")
 
-        # Filter out already-installed packages (differential installation)
-        packages_to_install = self._filter_installed_packages(packages)
-
-        if not packages_to_install:
-            return FunctionResponse(
-                success=True,
-                stdout=f"All packages already installed: {packages}",
-            )
-
-        self.logger.info(f"Installing Python dependencies: {packages_to_install}")
+        self.logger.info(f"Installing Python dependencies: {packages}")
 
         if self._is_docker_environment():
             if accelerate_downloads:
-                # Use uv with --system to respect pre-installed packages (e.g., PyTorch)
-                # and install new packages to system site-packages
-                command = ["uv", "pip", "install", "--system"] + packages_to_install
+                # Packages are installed to the system location where they can be imported
+                command = ["uv", "pip", "install", "--system"] + packages
             else:
-                # Use pip for standard installation to system site-packages
-                command = ["pip", "install"] + packages_to_install
+                # Use full path to system python
+                command = ["pip", "install"] + packages
         else:
             # Local: Always use uv with current python for consistency
-            command = [
-                "uv",
-                "pip",
-                "install",
-                "--python",
-                "python",
-            ] + packages_to_install
+            command = ["uv", "pip", "install", "--python", "python"] + packages
 
         operation_name = f"Installing Python packages ({'accelerated' if accelerate_downloads else 'standard'})"
 
@@ -273,46 +257,6 @@ class DependencyInstaller:
                 )
         except Exception as e:
             return FunctionResponse(success=False, error=str(e))
-
-    def _filter_installed_packages(self, packages: List[str]) -> List[str]:
-        """
-        Filter out packages that are already installed.
-
-        Checks which packages from the requested list are already installed
-        in the current Python environment, returning only those that need
-        to be installed. This implements differential installation to avoid
-        unnecessary reinstalls (e.g., PyTorch in pytorch-based images).
-
-        Args:
-            packages: List of package names to check
-
-        Returns:
-            List of package names that are not yet installed
-        """
-        missing_packages = []
-
-        for package in packages:
-            # Extract base package name (handle things like "package>=1.0")
-            base_name = (
-                package.split(">=")[0]
-                .split("==")[0]
-                .split("<")[0]
-                .split(">")[0]
-                .split("[")[0]
-                .strip()
-            )
-
-            try:
-                # Try to import the package to check if it's installed
-                __import__(base_name.replace("-", "_"))
-            except ImportError:
-                # Package not installed, add to install list
-                missing_packages.append(package)
-            except Exception:
-                # If there's any other error, assume we need to try installing
-                missing_packages.append(package)
-
-        return missing_packages
 
     async def install_system_dependencies_async(
         self, packages: List[str], accelerate_downloads: bool = True
