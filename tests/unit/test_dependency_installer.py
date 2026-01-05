@@ -213,7 +213,8 @@ class TestPythonDependencies:
             success=True, stdout="Successfully installed"
         )
 
-        result = self.installer.install_dependencies(["requests", "numpy"])
+        # Use a package that's unlikely to be installed
+        result = self.installer.install_dependencies(["nonexistent-test-package-12345"])
 
         assert result.success is True
         assert "Successfully installed" in result.stdout
@@ -246,8 +247,9 @@ class TestPythonDependencies:
             success=True, stdout="Successfully installed with UV"
         )
 
+        # Use a package that's unlikely to be installed
         result = self.installer.install_dependencies(
-            ["requests", "numpy"], accelerate_downloads=True
+            ["nonexistent-test-package-uv-12345"], accelerate_downloads=True
         )
 
         assert result.success is True
@@ -262,8 +264,9 @@ class TestPythonDependencies:
             success=True, stdout="Successfully installed with pip"
         )
 
+        # Use a package that's unlikely to be installed
         result = self.installer.install_dependencies(
-            ["requests", "numpy"], accelerate_downloads=False
+            ["nonexistent-test-package-pip-12345"], accelerate_downloads=False
         )
 
         assert result.success is True
