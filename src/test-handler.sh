@@ -15,9 +15,16 @@ for test_file in tests/test_*.json; do
     test_count=$((test_count + 1))
     echo "Testing with $test_file..."
     
-    # Run the test and capture output using uv-managed Python
-    output=$(PYTHONPATH=. uv run python3 handler.py --test_input "$(cat "$test_file")" 2>&1)
-    exit_code=$?
+    # Run the test and capture output
+    # In Docker: python is available and has system-installed packages
+    # Locally: use uv run to manage dependencies
+    if command -v python &> /dev/null; then
+        output=$(python handler.py --test_input "$(cat "$test_file")" 2>&1)
+        exit_code=$?
+    else
+        output=$(uv run python3 handler.py --test_input "$(cat "$test_file")" 2>&1)
+        exit_code=$?
+    fi
     
     if [ $exit_code -eq 0 ]; then
         echo "✓ $test_file: PASSED"
