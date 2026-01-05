@@ -37,7 +37,14 @@ class DependencyInstaller:
         if self._is_docker_environment():
             if accelerate_downloads:
                 # Packages are installed to the system location where they can be imported
-                command = ["uv", "pip", "install", "--system"] + packages
+                command = [
+                    "uv",
+                    "pip",
+                    "install",
+                    "--system",
+                    "--python",
+                    "/usr/bin/python3",
+                ] + packages
             else:
                 # Use full path to system python
                 command = ["pip", "install"] + packages
