@@ -50,7 +50,7 @@ graph TB
     end
 
     subgraph Runtime["RunPod Deployment"]
-        K["Load Balancer Endpoint<br/>Port 8000"]
+        K["Load Balancer Endpoint<br/>Port 80"]
         L["FastAPI Handler<br/>POST /execute"]
     end
 
