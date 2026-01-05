@@ -5,7 +5,7 @@ set -e
 echo "Testing Load Balancer handler with /execute endpoint..."
 
 # Configuration
-PORT=8000
+PORT=80
 HOST="localhost"
 TEST_TIMEOUT=30
 SERVER_PID=""

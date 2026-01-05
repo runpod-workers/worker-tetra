@@ -110,7 +110,7 @@ Uses PyTorch CUDA runtime to support GPU-accelerated functions. This matches the
 |--------|------------------------|------|
 | Handler Entry | `runpod.serverless.start()` | `uvicorn handler:app` |
 | Communication | RunPod job queue | HTTP requests |
-| Port | Job polling (no port) | Port 8000 |
+| Port | Job polling (no port) | Port 80 |
 | Handler | Single `handler.py` | Generated `handler_*.py` |
 | Framework | RunPod SDK | FastAPI + uvicorn |
 | Request Type | Batch (job queue) | Synchronous HTTP |
@@ -142,13 +142,13 @@ ENV TZ=Etc/UTC                      # Timezone
 ### CMD Strategy
 
 ```dockerfile
-CMD ["uvicorn", "handler:app", "--host", "0.0.0.0", "--port", "8000", "--timeout-keep-alive", "600"]
+CMD ["uvicorn", "handler:app", "--host", "0.0.0.0", "--port", "80", "--timeout-keep-alive", "600"]
 ```
 
 This is a **placeholder**. RunPod overrides the CMD at runtime to run the specific generated handler:
 
 ```bash
-uvicorn handler_api:app --host 0.0.0.0 --port 8000
+uvicorn handler_api:app --host 0.0.0.0 --port 80
 ```
 
 Different endpoints can use different generated handlers (e.g., `handler_api`, `handler_service`).
@@ -195,7 +195,7 @@ The handler processes `/execute` requests by:
 ### /execute Request Example
 
 ```bash
-curl -X POST http://localhost:8000/execute \
+curl -X POST http://localhost:80/execute \
   -H "Content-Type: application/json" \
   -d '{
     "function_name": "add",
@@ -251,7 +251,7 @@ make test-lb-handler
 ```
 
 This script:
-1. Starts the FastAPI server on port 8000
+1. Starts the FastAPI server on port 80
 2. Validates the `/health` endpoint
 3. Runs all `tests/test_*.json` files against `/execute`
 4. Reports pass/fail results
@@ -262,19 +262,19 @@ This script:
 Start the server:
 
 ```bash
-uvicorn src.lb_handler:app --port 8000
+uvicorn src.lb_handler:app --port 80
 ```
 
 Test the health endpoint:
 
 ```bash
-curl http://localhost:8000/health
+curl http://localhost:80/health
 ```
 
 Test the execute endpoint:
 
 ```bash
-curl -X POST http://localhost:8000/execute \
+curl -X POST http://localhost:80/execute \
   -H "Content-Type: application/json" \
   -d '{
     "function_name": "add",
@@ -314,7 +314,7 @@ Note: Arguments must be base64-encoded cloudpickle serialized values.
 ### /execute Endpoint Not Responding
 
 1. Verify endpoint is deployed and in "Ready" state
-2. Check port 8000 is exposed: `EXPOSE 8000` in Dockerfile-lb
+2. Check port 80 is exposed: `EXPOSE 80` in Dockerfile-lb
 3. Verify FastAPI handler is started: check container logs
 4. Test with simple request first
 
