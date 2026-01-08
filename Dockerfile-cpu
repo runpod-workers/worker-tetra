@@ -12,8 +12,10 @@ RUN mkdir -p /root/.cache/apt/archives/partial \
  && echo 'Dir::Cache "/root/.cache/apt";' > /etc/apt/apt.conf.d/01cache
 
 # Install system dependencies and uv
+# Note: build-essential not pre-installed to reduce image size (400MB savings)
+# Users needing compilation can add system_dependencies=["build-essential"]
 RUN DEBIAN_FRONTEND=noninteractive apt-get update && apt-get install -y --no-install-recommends \
-    build-essential curl ca-certificates nala git \
+    curl ca-certificates nala git \
  && curl -LsSf https://astral.sh/uv/install.sh | sh \
  && cp ~/.local/bin/uv /usr/local/bin/uv \
  && chmod +x /usr/local/bin/uv \
