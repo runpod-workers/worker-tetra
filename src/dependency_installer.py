@@ -21,7 +21,8 @@ class DependencyInstaller:
         self, packages: List[str], accelerate_downloads: bool = True
     ) -> FunctionResponse:
         """
-        Install Python packages using uv or regular pip
+        Install Python packages using uv or regular pip.
+        Automatically installs build-essential if compilation is required.
 
         Args:
             packages: List of package names or package specifications
@@ -48,13 +49,51 @@ class DependencyInstaller:
         operation_name = f"Installing Python packages ({'accelerated' if accelerate_downloads else 'standard'})"
 
         try:
-            return run_logged_subprocess(
+            result = run_logged_subprocess(
                 command=command,
                 logger=self.logger,
                 operation_name=operation_name,
                 timeout=300,
                 env=os.environ.copy(),
             )
+
+            # Check if installation failed due to missing compiler
+            if not result.success and self._needs_compilation(result):
+                self.logger.info(
+                    "Package compilation required but build tools missing. "
+                    "Auto-installing build-essential..."
+                )
+
+                # Install build-essential
+                build_result = self.install_system_dependencies(
+                    ["build-essential"], accelerate_downloads
+                )
+
+                if not build_result.success:
+                    return FunctionResponse(
+                        success=False,
+                        error=(
+                            f"Failed to install build tools: {build_result.error}\n\n"
+                            "Troubleshooting:\n"
+                            "1. Try manually specifying: system_dependencies=['build-essential']\n"
+                            "2. Check system package repositories are accessible\n"
+                            "3. Verify sufficient disk space for build tools (~400MB)"
+                        ),
+                        stdout=result.stdout,
+                    )
+
+                # Retry package installation with fresh timeout budget
+                self.logger.info("Retrying package installation with build tools...")
+                result = run_logged_subprocess(
+                    command=command,
+                    logger=self.logger,
+                    operation_name=f"{operation_name} (retry with build tools)",
+                    timeout=300,  # Fresh 300s timeout for retry (compilation may take longer)
+                    env=os.environ.copy(),
+                )
+
+            return result
+
         except Exception as e:
             return FunctionResponse(success=False, error=str(e))
 
@@ -116,6 +155,53 @@ class DependencyInstaller:
                 self._nala_available = False
 
         return self._nala_available
+
+    def _needs_compilation(self, result: FunctionResponse) -> bool:
+        """
+        Detect if a package installation failure was due to missing compilation tools.
+
+        Args:
+            result: FunctionResponse from failed pip installation
+
+        Returns:
+            True if the error indicates missing compiler/build tools, False otherwise
+        """
+        # Common error patterns indicating missing compiler
+        # Note: Patterns are specific to avoid false positives on package names
+        error_indicators = [
+            "gcc: command not found",
+            "gcc: error",
+            "g++: command not found",
+            "g++: error",
+            "cc: command not found",
+            "cc: error",
+            "c++: command not found",
+            "c++: error",
+            "command 'gcc' failed",
+            "command 'g++' failed",
+            "command 'cc' failed",
+            "command 'c++' failed",
+            "unable to execute 'gcc'",
+            "unable to execute 'g++'",
+            "unable to execute 'cc'",
+            "unable to execute 'c++'",
+            "error: command 'gcc'",
+            "error: command 'cc'",
+            "no such file or directory: 'gcc'",
+            "no such file or directory: 'cc'",
+            "no such file or directory: 'g++'",
+            "no such file or directory: 'c++'",
+            "_distutils_hack",
+            "distutils.errors.compileerror",
+            "distutils.errors.distutilsexecerror",
+        ]
+
+        error_text = (result.error or "") + (result.stdout or "")
+        error_text_lower = error_text.lower()
+
+        return any(
+            indicator.lower() in error_text_lower for indicator in error_indicators
+        )
 
     def _is_docker_environment(self) -> bool:
         """
