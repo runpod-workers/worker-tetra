@@ -295,3 +295,167 @@ class TestPythonDependencies:
 
         assert result.success is False
         assert "timed out after 300 seconds" in result.error
+
+
+class TestCompilationAutoRetry:
+    """Test automatic build-essential installation when compilation needed."""
+
+    def setup_method(self):
+        """Setup for each test method."""
+        self.installer = DependencyInstaller()
+
+    def test_needs_compilation_gcc_not_found(self):
+        """Test detection of missing gcc compiler."""
+        result = FunctionResponse(
+            success=False,
+            error="error: command 'gcc' failed: No such file or directory",
+        )
+
+        assert self.installer._needs_compilation(result) is True
+
+    def test_needs_compilation_unable_to_execute_gcc(self):
+        """Test detection of unable to execute gcc."""
+        result = FunctionResponse(
+            success=False,
+            error="unable to execute 'gcc': No such file or directory",
+        )
+
+        assert self.installer._needs_compilation(result) is True
+
+    def test_needs_compilation_distutils_error(self):
+        """Test detection of distutils compilation errors."""
+        result = FunctionResponse(
+            success=False,
+            error="distutils.errors.CompileError: command 'gcc' failed",
+        )
+
+        assert self.installer._needs_compilation(result) is True
+
+    def test_needs_compilation_cc_command_failed(self):
+        """Test detection of cc command failure."""
+        result = FunctionResponse(
+            success=False, stdout="error: command 'cc' failed with exit code 1"
+        )
+
+        assert self.installer._needs_compilation(result) is True
+
+    def test_needs_compilation_gxx_missing(self):
+        """Test detection of missing g++ compiler."""
+        result = FunctionResponse(
+            success=False, error="unable to execute 'g++': No such file or directory"
+        )
+
+        assert self.installer._needs_compilation(result) is True
+
+    def test_needs_compilation_false_for_unrelated_error(self):
+        """Test that unrelated errors don't trigger compilation detection."""
+        result = FunctionResponse(
+            success=False, error="Network error: Could not find package"
+        )
+
+        assert self.installer._needs_compilation(result) is False
+
+    def test_needs_compilation_false_for_success(self):
+        """Test that successful installations don't trigger compilation detection."""
+        result = FunctionResponse(success=True, stdout="Successfully installed")
+
+        assert self.installer._needs_compilation(result) is False
+
+    @patch("platform.system")
+    @patch("dependency_installer.run_logged_subprocess")
+    def test_auto_retry_installs_build_essential_on_gcc_error(
+        self, mock_subprocess, mock_platform
+    ):
+        """Test auto-retry automatically installs build-essential when gcc missing."""
+        mock_platform.return_value = "Linux"
+
+        # First call: pip install fails with gcc error
+        # Second call: nala check (not available)
+        # Third call: apt-get update
+        # Fourth call: apt-get install build-essential
+        # Fifth call: pip install retry (succeeds)
+        mock_subprocess.side_effect = [
+            FunctionResponse(
+                success=False, error="error: command 'gcc' failed: No such file"
+            ),
+            FunctionResponse(success=False),  # nala not available
+            FunctionResponse(success=True, stdout="Updated"),  # apt-get update
+            FunctionResponse(
+                success=True, stdout="Installed build-essential"
+            ),  # apt-get install
+            FunctionResponse(success=True, stdout="Successfully installed package"),
+        ]
+
+        result = self.installer.install_dependencies(["some-package-needing-gcc"])
+
+        assert result.success is True
+        assert "Successfully installed package" in result.stdout
+        assert mock_subprocess.call_count == 5
+
+    @patch("dependency_installer.run_logged_subprocess")
+    def test_auto_retry_no_retry_for_non_compilation_errors(self, mock_subprocess):
+        """Test that non-compilation errors don't trigger auto-retry."""
+        # Pip install fails with network error (not compilation related)
+        mock_subprocess.return_value = FunctionResponse(
+            success=False, error="Network error: Could not fetch package"
+        )
+
+        result = self.installer.install_dependencies(["some-package"])
+
+        assert result.success is False
+        assert "Network error" in result.error
+        # Should only be called once (no retry)
+        assert mock_subprocess.call_count == 1
+
+    @patch("platform.system")
+    @patch("dependency_installer.run_logged_subprocess")
+    def test_auto_retry_fails_if_build_essential_install_fails(
+        self, mock_subprocess, mock_platform
+    ):
+        """Test that if build-essential installation fails, the error is returned."""
+        mock_platform.return_value = "Linux"
+
+        # First call: pip install fails with gcc error
+        # Second call: nala check (not available)
+        # Third call: apt-get update (fails)
+        mock_subprocess.side_effect = [
+            FunctionResponse(
+                success=False, error="error: command 'gcc' failed: No such file"
+            ),
+            FunctionResponse(success=False),  # nala not available
+            FunctionResponse(success=False, error="apt-get update failed"),
+        ]
+
+        result = self.installer.install_dependencies(["some-package-needing-gcc"])
+
+        assert result.success is False
+        assert "Failed to install build tools" in result.error
+
+    @patch("platform.system")
+    @patch("dependency_installer.run_logged_subprocess")
+    def test_auto_retry_with_nala_acceleration(self, mock_subprocess, mock_platform):
+        """Test auto-retry uses nala when available for build-essential installation."""
+        mock_platform.return_value = "Linux"
+
+        # First call: pip install fails with gcc error
+        # Second call: nala check (available)
+        # Third call: nala update
+        # Fourth call: nala install build-essential
+        # Fifth call: pip install retry (succeeds)
+        mock_subprocess.side_effect = [
+            FunctionResponse(
+                success=False, error="error: command 'gcc' failed: No such file"
+            ),
+            FunctionResponse(success=True, stdout="/usr/bin/nala"),  # nala available
+            FunctionResponse(success=True, stdout="Updated with nala"),
+            FunctionResponse(
+                success=True, stdout="Installed build-essential with nala"
+            ),
+            FunctionResponse(success=True, stdout="Successfully installed package"),
+        ]
+
+        result = self.installer.install_dependencies(["some-package-needing-gcc"])
+
+        assert result.success is True
+        assert "Successfully installed package" in result.stdout
+        assert mock_subprocess.call_count == 5
