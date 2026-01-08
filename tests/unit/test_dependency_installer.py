@@ -459,3 +459,40 @@ class TestCompilationAutoRetry:
         assert result.success is True
         assert "Successfully installed package" in result.stdout
         assert mock_subprocess.call_count == 5
+
+    @patch("platform.system")
+    @patch("dependency_installer.run_logged_subprocess")
+    def test_auto_retry_succeeds_with_warnings_no_infinite_loop(
+        self, mock_subprocess, mock_platform
+    ):
+        """Test that warnings mentioning gcc in retry output don't trigger another retry."""
+        mock_platform.return_value = "Linux"
+
+        # First call: pip install fails with gcc error
+        # Second call: nala check (not available)
+        # Third call: apt-get update
+        # Fourth call: apt-get install build-essential
+        # Fifth call: pip install retry (succeeds but has warning mentioning gcc)
+        mock_subprocess.side_effect = [
+            FunctionResponse(
+                success=False,
+                error="error: command 'gcc' failed: No such file or directory",
+            ),
+            FunctionResponse(success=False),  # nala not available
+            FunctionResponse(success=True, stdout="Updated"),  # apt-get update
+            FunctionResponse(
+                success=True, stdout="Installed build-essential"
+            ),  # apt-get install
+            FunctionResponse(
+                success=True,
+                stdout="Successfully installed package\nWarning: gcc was used for compilation",
+            ),
+        ]
+
+        result = self.installer.install_dependencies(["some-package-needing-gcc"])
+
+        assert result.success is True
+        assert "Successfully installed package" in result.stdout
+        assert "Warning: gcc was used" in result.stdout
+        # Should only be called 5 times (no infinite retry loop)
+        assert mock_subprocess.call_count == 5

@@ -81,6 +81,8 @@ jobs:
     needs: [test, lint]
     steps:
       - name: Clear Space
+        # Note: Manual cleanup sufficient for CPU images (python:3.12-slim base ~150MB)
+        # Only CUDA images need aggressive cleanup due to their ~10-15GB size
         run: |
           rm -rf /usr/share/dotnet
           rm -rf /opt/ghc
@@ -134,7 +136,7 @@ jobs:
     needs: [test, lint]
     steps:
       - name: Free Disk Space
-        uses: jlumbroso/free-disk-space@main
+        uses: jlumbroso/free-disk-space@v1.3.1
         with:
           tool-cache: true
           android: true
@@ -188,7 +190,7 @@ jobs:
     needs: [test, lint]
     steps:
       - name: Free Disk Space
-        uses: jlumbroso/free-disk-space@main
+        uses: jlumbroso/free-disk-space@v1.3.1
         with:
           tool-cache: true
           android: true
@@ -263,7 +265,7 @@ jobs:
     if: github.ref == 'refs/heads/main' && github.event_name == 'push' && !needs.release.outputs.release_created
     steps:
       - name: Free Disk Space
-        uses: jlumbroso/free-disk-space@main
+        uses: jlumbroso/free-disk-space@v1.3.1
         with:
           tool-cache: true
           android: true
@@ -379,7 +381,7 @@ jobs:
     if: github.ref == 'refs/heads/main' && github.event_name == 'push' && !needs.release.outputs.release_created
     steps:
       - name: Free Disk Space
-        uses: jlumbroso/free-disk-space@main
+        uses: jlumbroso/free-disk-space@v1.3.1
         with:
           tool-cache: true
           android: true
@@ -440,7 +442,7 @@ jobs:
     if: github.ref == 'refs/heads/main' && github.event_name == 'push' && !needs.release.outputs.release_created
     steps:
       - name: Free Disk Space
-        uses: jlumbroso/free-disk-space@main
+        uses: jlumbroso/free-disk-space@v1.3.1
         with:
           tool-cache: true
           android: true
@@ -501,7 +503,7 @@ jobs:
     if: needs.release.outputs.release_created
     steps:
       - name: Free Disk Space
-        uses: jlumbroso/free-disk-space@main
+        uses: jlumbroso/free-disk-space@v1.3.1
         with:
           tool-cache: true
           android: true
@@ -637,7 +639,7 @@ jobs:
     if: needs.release.outputs.release_created
     steps:
       - name: Free Disk Space
-        uses: jlumbroso/free-disk-space@main
+        uses: jlumbroso/free-disk-space@v1.3.1
         with:
           tool-cache: true
           android: true
@@ -708,7 +710,7 @@ jobs:
     if: needs.release.outputs.release_created
     steps:
       - name: Free Disk Space
-        uses: jlumbroso/free-disk-space@main
+        uses: jlumbroso/free-disk-space@v1.3.1
         with:
           tool-cache: true
           android: true
