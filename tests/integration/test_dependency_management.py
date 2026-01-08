@@ -18,8 +18,9 @@ class TestDependencyManagement:
                 success=True, stdout="Successfully installed package-1.0.0"
             )
 
+            # Use a package that's unlikely to be installed
             result = executor.dependency_installer.install_dependencies(
-                ["requests", "numpy"]
+                ["nonexistent-test-package-integration-12345"]
             )
 
             assert result.success is True

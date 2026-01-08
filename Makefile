@@ -58,6 +58,20 @@ build-cpu: setup # Build CPU-only Docker image (linux/amd64)
 	-t $(FULL_IMAGE_CPU) \
 	. --load
 
+build-lb: setup # Build Load Balancer Docker image (linux/amd64)
+	docker buildx build \
+	--platform linux/amd64 \
+	-f Dockerfile-lb \
+	-t $(IMAGE)-lb:$(TAG) \
+	. --load
+
+build-lb-cpu: setup # Build CPU-only Load Balancer Docker image (linux/amd64)
+	docker buildx build \
+	--platform linux/amd64 \
+	-f Dockerfile-lb-cpu \
+	-t $(IMAGE)-lb-cpu:$(TAG) \
+	. --load
+
 # Test commands
 test: # Run all tests
 	uv run pytest tests/ -v
@@ -77,6 +91,9 @@ test-fast: # Run tests with fast-fail mode
 test-handler: # Test handler locally with all test_*.json files
 	cd src && ./test-handler.sh
 
+test-lb-handler: # Test Load Balancer handler with /execute endpoint
+	cd src && ./test-lb-handler.sh
+
 # Smoke Tests (local on Mac OS)
 
 smoketest-macos-build: setup # Build Mac OS Docker image (macos/arm64)
@@ -88,6 +105,26 @@ smoketest-macos-build: setup # Build Mac OS Docker image (macos/arm64)
 
 smoketest-macos: smoketest-macos-build # Test Docker image locally
 	docker run --rm $(FULL_IMAGE)-mac ./test-handler.sh
+
+smoketest-macos-lb-build: setup # Build Mac OS Load Balancer Docker image (macos/arm64)
+	docker buildx build \
+	--platform linux/arm64 \
+	-f Dockerfile-lb \
+	-t $(IMAGE)-lb:mac \
+	. --load
+
+smoketest-macos-lb: smoketest-macos-lb-build # Test Load Balancer Docker image locally
+	docker run --rm $(IMAGE)-lb:mac ./test-lb-handler.sh
+
+smoketest-macos-lb-cpu-build: setup # Build Mac OS CPU-only Load Balancer Docker image (macos/arm64)
+	docker buildx build \
+	--platform linux/arm64 \
+	-f Dockerfile-lb-cpu \
+	-t $(IMAGE)-lb-cpu:mac \
+	. --load
+
+smoketest-macos-lb-cpu: smoketest-macos-lb-cpu-build # Test CPU-only Load Balancer Docker image locally
+	docker run --rm $(IMAGE)-lb-cpu:mac ./test-lb-handler.sh
 
 # Linting commands
 lint: # Check code with ruff

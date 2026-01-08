@@ -128,10 +128,103 @@ jobs:
           echo "Testing CPU handler in Docker environment..."
           docker run --rm tetra-rp-cpu:test ./test-handler.sh
 
+  docker-test-lb:
+    runs-on: ubuntu-latest
+    needs: [test, lint]
+    steps:
+      - name: Clear Space
+        if: github.event_name == 'pull_request'
+        run: |
+          rm -rf /usr/share/dotnet
+          rm -rf /opt/ghc
+          rm -rf "/usr/local/share/boost"
+          rm -rf "$AGENT_TOOLSDIRECTORY"
+
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          submodules: recursive
+          fetch-depth: 0
+
+      - name: Set up QEMU
+        uses: docker/setup-qemu-action@v3
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Set up uv
+        uses: astral-sh/setup-uv@v4
+        with:
+          enable-cache: true
+
+      - name: Setup dependencies
+        run: |
+          uv sync
+          git submodule update
+          cp tetra-rp/src/tetra_rp/protos/remote_execution.py src/
+
+      - name: Build Load Balancer Docker image
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          file: ./Dockerfile-lb
+          platforms: linux/amd64
+          push: false
+          tags: tetra-rp-lb:test
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+          load: true
+
+  docker-test-lb-cpu:
+    runs-on: ubuntu-latest
+    needs: [test, lint]
+    steps:
+      - name: Clear Space
+        if: github.event_name == 'pull_request'
+        run: |
+          rm -rf /usr/share/dotnet
+          rm -rf /opt/ghc
+          rm -rf "/usr/local/share/boost"
+          rm -rf "$AGENT_TOOLSDIRECTORY"
+
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          submodules: recursive
+          fetch-depth: 0
+
+      - name: Set up QEMU
+        uses: docker/setup-qemu-action@v3
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Set up uv
+        uses: astral-sh/setup-uv@v4
+        with:
+          enable-cache: true
+
+      - name: Setup dependencies
+        run: |
+          uv sync
+          git submodule update
+          cp tetra-rp/src/tetra_rp/protos/remote_execution.py src/
+
+      - name: Build CPU Load Balancer Docker image
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          file: ./Dockerfile-lb-cpu
+          platforms: linux/amd64
+          push: false
+          tags: tetra-rp-lb-cpu:test
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+          load: true
 
   release:
     runs-on: ubuntu-latest
-    needs: [test, lint, docker-test]
+    needs: [test, lint, docker-test, docker-test-lb, docker-test-lb-cpu]
     if: github.ref == 'refs/heads/main'
     outputs:
       release_created: ${{ steps.release.outputs.release_created }}
@@ -255,6 +348,111 @@ jobs:
           cache-from: type=gha
           cache-to: type=gha,mode=max
 
+  docker-main-lb:
+    runs-on: ubuntu-latest
+    needs: [test, lint, docker-test, docker-test-lb, release]
+    if: github.ref == 'refs/heads/main' && github.event_name == 'push' && !needs.release.outputs.release_created
+    steps:
+      - name: Clear Space
+        run: |
+          rm -rf /usr/share/dotnet
+          rm -rf /opt/ghc
+          rm -rf "/usr/local/share/boost"
+          rm -rf "$AGENT_TOOLSDIRECTORY"
+
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          submodules: recursive
+          fetch-depth: 0
+
+      - name: Set up QEMU
+        uses: docker/setup-qemu-action@v3
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Login to Docker Hub
+        uses: docker/login-action@v3
+        with:
+          registry: ${{ env.REGISTRY }}
+          username: ${{ secrets.DOCKERHUB_USERNAME }}
+          password: ${{ secrets.DOCKERHUB_TOKEN }}
+
+      - name: Set up uv
+        uses: astral-sh/setup-uv@v4
+        with:
+          enable-cache: true
+
+      - name: Setup dependencies
+        run: |
+          uv sync
+          git submodule update
+          cp tetra-rp/src/tetra_rp/protos/remote_execution.py src/
+
+      - name: Build and push Load Balancer Docker image (main)
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          file: ./Dockerfile-lb
+          platforms: linux/amd64
+          push: true
+          tags: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}-lb:main
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+
+  docker-main-lb-cpu:
+    runs-on: ubuntu-latest
+    needs: [test, lint, docker-test, docker-test-lb-cpu, release]
+    if: github.ref == 'refs/heads/main' && github.event_name == 'push' && !needs.release.outputs.release_created
+    steps:
+      - name: Clear Space
+        run: |
+          rm -rf /usr/share/dotnet
+          rm -rf /opt/ghc
+          rm -rf "/usr/local/share/boost"
+          rm -rf "$AGENT_TOOLSDIRECTORY"
+
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          submodules: recursive
+          fetch-depth: 0
+
+      - name: Set up QEMU
+        uses: docker/setup-qemu-action@v3
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Login to Docker Hub
+        uses: docker/login-action@v3
+        with:
+          registry: ${{ env.REGISTRY }}
+          username: ${{ secrets.DOCKERHUB_USERNAME }}
+          password: ${{ secrets.DOCKERHUB_TOKEN }}
+
+      - name: Set up uv
+        uses: astral-sh/setup-uv@v4
+        with:
+          enable-cache: true
+
+      - name: Setup dependencies
+        run: |
+          uv sync
+          git submodule update
+          cp tetra-rp/src/tetra_rp/protos/remote_execution.py src/
+
+      - name: Build and push CPU Load Balancer Docker image (main)
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          file: ./Dockerfile-lb-cpu
+          platforms: linux/amd64
+          push: true
+          tags: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}-lb-cpu:main
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
 
   docker-prod-gpu:
     runs-on: ubuntu-latest
@@ -379,5 +577,131 @@ jobs:
           push: true
           tags: ${{ steps.meta-cpu.outputs.tags }}
           labels: ${{ steps.meta-cpu.outputs.labels }}
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+
+  docker-prod-lb:
+    runs-on: ubuntu-latest
+    needs: [release]
+    if: needs.release.outputs.release_created
+    steps:
+      - name: Clear Space
+        run: |
+          rm -rf /usr/share/dotnet
+          rm -rf /opt/ghc
+          rm -rf "/usr/local/share/boost"
+          rm -rf "$AGENT_TOOLSDIRECTORY"
+
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          submodules: recursive
+          fetch-depth: 0
+
+      - name: Set up QEMU
+        uses: docker/setup-qemu-action@v3
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Login to Docker Hub
+        uses: docker/login-action@v3
+        with:
+          registry: ${{ env.REGISTRY }}
+          username: ${{ secrets.DOCKERHUB_USERNAME }}
+          password: ${{ secrets.DOCKERHUB_TOKEN }}
+
+      - name: Extract Load Balancer metadata
+        id: meta-lb
+        uses: docker/metadata-action@v5
+        with:
+          images: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}-lb
+          tags: |
+            type=semver,pattern={{version}}
+            type=raw,value=latest,enable={{is_default_branch}}
+
+      - name: Set up uv
+        uses: astral-sh/setup-uv@v4
+        with:
+          enable-cache: true
+
+      - name: Setup dependencies
+        run: |
+          uv sync
+          git submodule update
+          cp tetra-rp/src/tetra_rp/protos/remote_execution.py src/
+
+      - name: Build and push Load Balancer Docker image (prod)
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          file: ./Dockerfile-lb
+          platforms: linux/amd64
+          push: true
+          tags: ${{ steps.meta-lb.outputs.tags }}
+          labels: ${{ steps.meta-lb.outputs.labels }}
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+
+  docker-prod-lb-cpu:
+    runs-on: ubuntu-latest
+    needs: [release]
+    if: needs.release.outputs.release_created
+    steps:
+      - name: Clear Space
+        run: |
+          rm -rf /usr/share/dotnet
+          rm -rf /opt/ghc
+          rm -rf "/usr/local/share/boost"
+          rm -rf "$AGENT_TOOLSDIRECTORY"
+
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          submodules: recursive
+          fetch-depth: 0
+
+      - name: Set up QEMU
+        uses: docker/setup-qemu-action@v3
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Login to Docker Hub
+        uses: docker/login-action@v3
+        with:
+          registry: ${{ env.REGISTRY }}
+          username: ${{ secrets.DOCKERHUB_USERNAME }}
+          password: ${{ secrets.DOCKERHUB_TOKEN }}
+
+      - name: Extract CPU Load Balancer metadata
+        id: meta-lb-cpu
+        uses: docker/metadata-action@v5
+        with:
+          images: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}-lb-cpu
+          tags: |
+            type=semver,pattern={{version}}
+            type=raw,value=latest,enable={{is_default_branch}}
+
+      - name: Set up uv
+        uses: astral-sh/setup-uv@v4
+        with:
+          enable-cache: true
+
+      - name: Setup dependencies
+        run: |
+          uv sync
+          git submodule update
+          cp tetra-rp/src/tetra_rp/protos/remote_execution.py src/
+
+      - name: Build and push CPU Load Balancer Docker image (prod)
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          file: ./Dockerfile-lb-cpu
+          platforms: linux/amd64
+          push: true
+          tags: ${{ steps.meta-lb-cpu.outputs.tags }}
+          labels: ${{ steps.meta-lb-cpu.outputs.labels }}
           cache-from: type=gha
           cache-to: type=gha,mode=max

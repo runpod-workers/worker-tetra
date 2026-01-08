@@ -1,0 +1,9 @@
+{
+  "input": {
+    "function_name": "simple_add",
+    "function_code": "def simple_add(a, b):\n    \"\"\"Add two numbers.\"\"\"\n    return a + b",
+    "args": ["gAVLBS4=", "gAVLAy4="],
+    "kwargs": {},
+    "dependencies": []
+  }
+}
