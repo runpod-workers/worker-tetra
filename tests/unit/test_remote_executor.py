@@ -1,7 +1,7 @@
 import pytest
 import base64
 import cloudpickle
-from unittest.mock import Mock, patch, AsyncMock
+from unittest.mock import Mock, patch, AsyncMock, mock_open
 
 from remote_executor import RemoteExecutor
 from remote_execution import FunctionRequest
@@ -364,3 +364,185 @@ class TestRemoteExecutor:
             # Verify Live Serverless path was used, not Flash
             mock_flash_execute.assert_not_called()
             mock_class_execute.assert_called_once_with(request)
+
+    @pytest.mark.asyncio
+    async def test_flash_execution_success(self):
+        """Test successful Flash function execution with manifest lookup."""
+        request = FunctionRequest(
+            function_name="my_flash_function",
+            args=self.encode_args(42),
+            kwargs=self.encode_kwargs(name="test"),
+        )
+
+        # Mock manifest structure
+        mock_manifest = {
+            "function_registry": {"my_flash_function": "resource_01"},
+            "resources": {
+                "resource_01": {
+                    "functions": [
+                        {
+                            "name": "my_flash_function",
+                            "module": "test_module",
+                            "is_async": False,
+                        }
+                    ]
+                }
+            },
+        }
+
+        with (
+            patch.object(
+                self.executor, "_load_flash_manifest", return_value=mock_manifest
+            ),
+            patch("importlib.import_module") as mock_import,
+            patch("asyncio.to_thread") as mock_to_thread,
+        ):
+            # Mock the imported function
+            mock_func = Mock(return_value="flash_result")
+            mock_module = Mock()
+            mock_module.my_flash_function = mock_func
+            mock_import.return_value = mock_module
+            mock_to_thread.return_value = "flash_result"
+
+            response = await self.executor._execute_flash_function(request)
+
+            # Verify success
+            assert response.success is True
+            assert response.result is not None
+            mock_import.assert_any_call("test_module")
+
+    @pytest.mark.asyncio
+    async def test_flash_execution_function_not_in_registry(self):
+        """Test Flash execution fails when function not in registry."""
+        request = FunctionRequest(function_name="unknown_function")
+
+        mock_manifest = {"function_registry": {}, "resources": {}}
+
+        with patch.object(
+            self.executor, "_load_flash_manifest", return_value=mock_manifest
+        ):
+            response = await self.executor._execute_flash_function(request)
+
+            assert response.success is False
+            assert "not found in flash_manifest.json" in response.error
+
+    @pytest.mark.asyncio
+    async def test_flash_execution_function_not_in_resource(self):
+        """Test Flash execution fails when function in registry but not in resource."""
+        request = FunctionRequest(function_name="my_function")
+
+        mock_manifest = {
+            "function_registry": {"my_function": "resource_01"},
+            "resources": {"resource_01": {"functions": []}},
+        }
+
+        with patch.object(
+            self.executor, "_load_flash_manifest", return_value=mock_manifest
+        ):
+            response = await self.executor._execute_flash_function(request)
+
+            assert response.success is False
+            assert "found in registry but not in resource" in response.error
+
+    @pytest.mark.asyncio
+    async def test_flash_execution_async_function(self):
+        """Test Flash execution handles async functions correctly."""
+        request = FunctionRequest(function_name="async_flash_function")
+
+        mock_manifest = {
+            "function_registry": {"async_flash_function": "resource_01"},
+            "resources": {
+                "resource_01": {
+                    "functions": [
+                        {
+                            "name": "async_flash_function",
+                            "module": "async_module",
+                            "is_async": True,
+                        }
+                    ]
+                }
+            },
+        }
+
+        async def mock_async_func(*args, **kwargs):
+            return "async_result"
+
+        with (
+            patch.object(
+                self.executor, "_load_flash_manifest", return_value=mock_manifest
+            ),
+            patch("importlib.import_module") as mock_import,
+        ):
+            mock_module = Mock()
+            mock_module.async_flash_function = mock_async_func
+            mock_import.return_value = mock_module
+
+            response = await self.executor._execute_flash_function(request)
+
+            assert response.success is True
+            assert response.result is not None
+
+    @pytest.mark.asyncio
+    async def test_flash_execution_handles_exception(self):
+        """Test Flash execution handles execution exceptions."""
+        request = FunctionRequest(function_name="failing_function")
+
+        mock_manifest = {
+            "function_registry": {"failing_function": "resource_01"},
+            "resources": {
+                "resource_01": {
+                    "functions": [
+                        {
+                            "name": "failing_function",
+                            "module": "fail_module",
+                            "is_async": False,
+                        }
+                    ]
+                }
+            },
+        }
+
+        with (
+            patch.object(
+                self.executor, "_load_flash_manifest", return_value=mock_manifest
+            ),
+            patch("importlib.import_module") as mock_import,
+        ):
+            mock_import.side_effect = ImportError("Module not found")
+
+            response = await self.executor._execute_flash_function(request)
+
+            assert response.success is False
+            assert "Failed to execute Flash function" in response.error
+            assert "Module not found" in response.error
+
+    def test_load_flash_manifest_success(self):
+        """Test loading flash_manifest.json successfully."""
+        from pathlib import Path
+        import json
+
+        mock_manifest = {
+            "version": "1.0",
+            "function_registry": {"test_func": "resource_01"},
+        }
+
+        with (
+            patch.object(Path, "exists", return_value=True),
+            patch("builtins.open", mock_open(read_data=json.dumps(mock_manifest))),
+        ):
+            manifest = self.executor._load_flash_manifest()
+
+            assert manifest == mock_manifest
+            assert "function_registry" in manifest
+
+    def test_load_flash_manifest_not_found(self):
+        """Test loading manifest fails when file doesn't exist."""
+        from pathlib import Path
+
+        with (
+            patch.object(Path, "exists", return_value=False),
+            pytest.raises(FileNotFoundError) as exc_info,
+        ):
+            self.executor._load_flash_manifest()
+
+        assert "flash_manifest.json not found in /app" in str(exc_info.value)
