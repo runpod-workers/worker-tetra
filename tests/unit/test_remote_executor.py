@@ -263,3 +263,104 @@ class TestRemoteExecutor:
 
             # Verify hydration was NOT called (no dependencies)
             mock_hydrate.assert_not_called()
+
+    @pytest.mark.asyncio
+    async def test_flash_detection_routes_to_flash_path_function(self):
+        """Test that requests without function_code route to Flash execution path."""
+        request = FunctionRequest(
+            function_name="my_flash_function",
+            # No function_code - indicates Flash deployment
+            args=[],
+            kwargs={},
+        )
+
+        with patch.object(
+            self.executor, "_execute_flash_function"
+        ) as mock_flash_execute:
+            from remote_execution import FunctionResponse
+
+            mock_flash_execute.return_value = FunctionResponse(
+                success=True, result="flash_result"
+            )
+
+            await self.executor.ExecuteFunction(request)
+
+            # Verify Flash execution path was called
+            mock_flash_execute.assert_called_once_with(request)
+
+    @pytest.mark.asyncio
+    async def test_flash_detection_routes_to_flash_path_class(self):
+        """Test that class requests without class_code route to Flash execution path."""
+        request = FunctionRequest(
+            execution_type="class",
+            class_name="MyFlashClass",
+            # No class_code - indicates Flash deployment
+            method_name="process",
+            args=[],
+            kwargs={},
+        )
+
+        with patch.object(
+            self.executor, "_execute_flash_function"
+        ) as mock_flash_execute:
+            from remote_execution import FunctionResponse
+
+            mock_flash_execute.return_value = FunctionResponse(
+                success=True, result="flash_result"
+            )
+
+            await self.executor.ExecuteFunction(request)
+
+            # Verify Flash execution path was called
+            mock_flash_execute.assert_called_once_with(request)
+
+    @pytest.mark.asyncio
+    async def test_live_serverless_detection_with_function_code(self):
+        """Test that requests with function_code route to Live Serverless path."""
+        request = FunctionRequest(
+            function_name="live_function",
+            function_code="def live_function(): return 'live'",
+            args=[],
+            kwargs={},
+        )
+
+        with (
+            patch.object(
+                self.executor, "_execute_flash_function"
+            ) as mock_flash_execute,
+            patch.object(self.executor.function_executor, "execute") as mock_execute,
+        ):
+            mock_execute.return_value = Mock(success=True, result="live_result")
+
+            await self.executor.ExecuteFunction(request)
+
+            # Verify Live Serverless path was used, not Flash
+            mock_flash_execute.assert_not_called()
+            mock_execute.assert_called_once_with(request)
+
+    @pytest.mark.asyncio
+    async def test_live_serverless_detection_with_class_code(self):
+        """Test that class requests with class_code route to Live Serverless path."""
+        request = FunctionRequest(
+            execution_type="class",
+            class_name="LiveClass",
+            class_code="class LiveClass:\n    def __call__(self): return 'live'",
+            args=[],
+            kwargs={},
+        )
+
+        with (
+            patch.object(
+                self.executor, "_execute_flash_function"
+            ) as mock_flash_execute,
+            patch.object(
+                self.executor.class_executor, "execute_class_method"
+            ) as mock_class_execute,
+        ):
+            mock_class_execute.return_value = Mock(success=True, result="live_result")
+
+            await self.executor.ExecuteFunction(request)
+
+            # Verify Live Serverless path was used, not Flash
+            mock_flash_execute.assert_not_called()
+            mock_class_execute.assert_called_once_with(request)

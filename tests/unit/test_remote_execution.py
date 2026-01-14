@@ -73,7 +73,7 @@ class TestFunctionRequest:
 
     def test_function_request_missing_required_fields(self):
         """Test FunctionRequest validation with missing required fields for function execution."""
-        # Should fail when execution_type is "function" (default) but function_name/code missing
+        # Should fail when execution_type is "function" (default) but function_name missing
         with pytest.raises(ValidationError) as exc_info:
             FunctionRequest()
 
@@ -83,15 +83,11 @@ class TestFunctionRequest:
             errors[0]["ctx"]["error"]
         )
 
-        # Should also fail if only function_name is provided
-        with pytest.raises(ValidationError) as exc_info:
-            FunctionRequest(function_name="test_func")
-
-        errors = exc_info.value.errors()
-        assert len(errors) == 1
-        assert "function_code is required when execution_type is" in str(
-            errors[0]["ctx"]["error"]
-        )
+        # function_code is now optional to support Flash deployments
+        # This should succeed (Flash deployment case)
+        request = FunctionRequest(function_name="test_func")
+        assert request.function_name == "test_func"
+        assert request.function_code is None  # Flash deployments don't send code
 
     def test_function_request_invalid_types(self):
         """Test FunctionRequest validation with invalid field types."""
