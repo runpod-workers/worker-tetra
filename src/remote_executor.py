@@ -305,8 +305,12 @@ class RemoteExecutor(RemoteExecutorStub):
 
             # Import the function from its module
             module_path = func_details["module"]
-            self.logger.debug(f"Importing function '{function_name}' from module '{module_path}'")
+            self.logger.debug(
+                f"Importing function '{function_name}' from module '{module_path}'"
+            )
             module = importlib.import_module(module_path)
+            # function_name is guaranteed to be non-None by FunctionRequest validation
+            assert function_name is not None
             func = getattr(module, function_name)
 
             # Deserialize args/kwargs (same as Live Serverless)
@@ -336,7 +340,7 @@ class RemoteExecutor(RemoteExecutorStub):
                 error=f"Failed to execute Flash function '{function_name}': {str(e)}",
             )
 
-    def _load_flash_manifest(self) -> dict:
+    def _load_flash_manifest(self) -> dict[str, Any]:
         """Load flash_manifest.json from /app directory.
 
         Returns:
@@ -355,4 +359,5 @@ class RemoteExecutor(RemoteExecutorStub):
             )
 
         with open(manifest_path) as f:
-            return json.load(f)
+            manifest: dict[str, Any] = json.load(f)
+            return manifest

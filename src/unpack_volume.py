@@ -97,11 +97,13 @@ def _should_unpack_from_volume() -> bool:
         return False
 
     # Check if Flash deployment (any Flash-specific env var set)
-    is_flash = any([
-        os.getenv("FLASH_IS_MOTHERSHIP") == "true",
-        os.getenv("FLASH_MOTHERSHIP_ID"),
-        os.getenv("FLASH_RESOURCE_NAME"),
-    ])
+    is_flash = any(
+        [
+            os.getenv("FLASH_IS_MOTHERSHIP") == "true",
+            os.getenv("FLASH_MOTHERSHIP_ID"),
+            os.getenv("FLASH_RESOURCE_NAME"),
+        ]
+    )
 
     if is_flash:
         logger.debug("Flash deployment detected, will unpack artifact")
