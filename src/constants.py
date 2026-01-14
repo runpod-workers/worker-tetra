@@ -24,3 +24,17 @@ CACHE_DIR = "/root/.cache"
 
 VOLUME_CACHE_PATH = "/runpod-volume/.cache"
 """Network volume path for cache tarball storage."""
+
+# Volume Unpacking Configuration
+DEFAULT_APP_DIR = "/app"
+"""Default application directory for unpacking build artifacts."""
+
+DEFAULT_ARTIFACT_PATH = "/root/.runpod/archive.tar.gz"
+"""Default path for build artifact tarball.
+
+Can be overridden via FLASH_BUILD_ARTIFACT_PATH environment variable.
+"""
+
+# Environment Variables for Volume Unpacking
+# FLASH_BUILD_ARTIFACT_PATH: Custom path to build artifact tarball
+# FLASH_DISABLE_UNPACK: Set to "1", "true", or "yes" to disable unpacking
