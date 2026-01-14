@@ -310,7 +310,6 @@ class RemoteExecutor(RemoteExecutorStub):
             )
             module = importlib.import_module(module_path)
             # function_name is guaranteed to be non-None by FunctionRequest validation
-            assert function_name is not None
             func = getattr(module, function_name)
 
             # Deserialize args/kwargs (same as Live Serverless)
