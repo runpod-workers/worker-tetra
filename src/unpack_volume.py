@@ -4,7 +4,10 @@ import logging
 import os
 import sys
 import tarfile
+import threading
 from pathlib import Path
+
+from constants import DEFAULT_APP_DIR, DEFAULT_ARTIFACT_PATH
 
 logger = logging.getLogger(__name__)
 
@@ -14,26 +17,31 @@ def _safe_extract_tar(tar: tarfile.TarFile, target_dir: Path) -> None:
 
     for member in tar.getmembers():
         member_path = (target_dir / member.name).resolve()
-        if (
-            not str(member_path).startswith(str(target_dir_resolved) + os.sep)
-            and member_path != target_dir_resolved
-        ):
+        if not member_path.is_relative_to(target_dir_resolved):
             raise ValueError(f"unsafe tar member path: {member.name}")
 
     tar.extractall(path=target_dir)
 
 
 def _canonical_project_artifact_path() -> Path:
-    return Path(os.getenv("FLASH_BUILD_ARTIFACT_PATH", "/root/.runpod/archive.tar.gz"))
+    return Path(os.getenv("FLASH_BUILD_ARTIFACT_PATH", DEFAULT_ARTIFACT_PATH))
 
 
 def unpack_app_from_volume(
     *,
-    app_dir: str | Path = "/app",
+    app_dir: str | Path = DEFAULT_APP_DIR,
 ) -> bool:
-    """extract the build artifact from the volume into /app.
+    """Extract the build artifact from the volume into the app directory.
 
-    returns true if we installed (or verified) an artifact, false if nothing was found.
+    Args:
+        app_dir: Target directory for extraction (default: /app)
+
+    Returns:
+        True if extraction succeeds
+
+    Raises:
+        FileNotFoundError: If the artifact file is not found
+        RuntimeError: If extraction fails
     """
 
     app_dir_path = Path(app_dir)
@@ -52,17 +60,20 @@ def unpack_app_from_volume(
     try:
         with tarfile.open(artifact, mode="r:*") as tf:
             _safe_extract_tar(tf, app_dir_path)
-    except Exception as e:
+    except (OSError, tarfile.TarError, ValueError) as e:
         raise RuntimeError(f"failed to extract flash artifact: {e}") from e
 
+    logger.info("successfully extracted build artifact to %s", app_dir_path)
     return True
 
 
 _UNPACKED = False
+_UNPACK_LOCK = threading.Lock()
 
 
 def _should_unpack_from_volume() -> bool:
-    if os.getenv("FLASH_DISABLE_UNPACK") in {"1", "true", "yes"}:
+    disable_value = os.getenv("FLASH_DISABLE_UNPACK", "").lower()
+    if disable_value in {"1", "true", "yes"}:
         return False
     if not (os.getenv("RUNPOD_POD_ID") or os.getenv("RUNPOD_ENDPOINT_ID")):
         return False
@@ -70,17 +81,28 @@ def _should_unpack_from_volume() -> bool:
 
 
 def maybe_unpack():
+    """Unpack build artifact from volume if conditions are met.
+
+    Thread-safe: multiple concurrent calls will only unpack once.
+    """
     global _UNPACKED
+
+    # Fast path: check without lock first
     if _UNPACKED:
         return
     if not _should_unpack_from_volume():
         return
 
-    _UNPACKED = True
-    logger.info("unpacking app from volume")
+    # Slow path: acquire lock and check again
+    with _UNPACK_LOCK:
+        if _UNPACKED:
+            return
 
-    try:
-        unpack_app_from_volume()
-    except Exception as e:
-        logger.error("failed to unpack app from volume: %s", e, exc_info=True)
-        raise RuntimeError(f"failed to unpack app from volume: {e}") from e
+        _UNPACKED = True
+        logger.info("unpacking app from volume")
+
+        try:
+            unpack_app_from_volume()
+        except (FileNotFoundError, RuntimeError) as e:
+            logger.error("failed to unpack app from volume: %s", e, exc_info=True)
+            raise RuntimeError(f"failed to unpack app from volume: {e}") from e
