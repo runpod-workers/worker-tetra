@@ -1,5 +1,8 @@
 import logging
 import asyncio
+import importlib
+import json
+from pathlib import Path
 from typing import List, Any
 from remote_execution import FunctionRequest, FunctionResponse, RemoteExecutorStub
 from dependency_installer import DependencyInstaller
@@ -7,6 +10,7 @@ from function_executor import FunctionExecutor
 from class_executor import ClassExecutor
 from log_streamer import start_log_streaming, stop_log_streaming, get_streamed_logs
 from cache_sync_manager import CacheSyncManager
+from serialization_utils import SerializationUtils
 from constants import NAMESPACE
 
 
@@ -88,14 +92,26 @@ class RemoteExecutor(RemoteExecutorStub):
             # cache sync after installation
             await self.cache_sync.sync_to_volume()
 
-            # Route to appropriate execution method based on type
-            execution_type = getattr(request, "execution_type", "function")
+            # Detect execution mode: Flash deployed vs Live Serverless
+            has_function_code = bool(getattr(request, "function_code", None))
+            has_class_code = bool(getattr(request, "class_code", None))
 
-            # Execute the function/class
-            if execution_type == "class":
-                result = await self.class_executor.execute_class_method(request)
+            if not has_function_code and not has_class_code:
+                # Flash Deployed App: code pre-deployed in /app
+                self.logger.debug("Flash deployment detected, loading from /app")
+                result = await self._execute_flash_function(request)
             else:
-                result = await self.function_executor.execute(request)
+                # Live Serverless: dynamic code execution
+                self.logger.debug("Live Serverless mode, executing dynamic code")
+
+                # Route to appropriate execution method based on type
+                execution_type = getattr(request, "execution_type", "function")
+
+                # Execute the function/class
+                if execution_type == "class":
+                    result = await self.class_executor.execute_class_method(request)
+                else:
+                    result = await self.function_executor.execute(request)
 
             # Add all captured system logs to the result
             system_logs = get_streamed_logs(clear_buffer=True)
@@ -246,3 +262,97 @@ class RemoteExecutor(RemoteExecutorStub):
             stdout=f"Parallel installation: {success_count}/{len(results)} tasks completed successfully\n"
             + "\n".join(stdout_parts),
         )
+
+    async def _execute_flash_function(
+        self, request: FunctionRequest
+    ) -> FunctionResponse:
+        """Execute pre-deployed Flash function from /app directory.
+
+        Args:
+            request: Function request with function_name but no function_code
+
+        Returns:
+            FunctionResponse with result or error
+        """
+        function_name = request.function_name
+
+        try:
+            # Load manifest from /app (added to sys.path by maybe_unpack)
+            manifest = self._load_flash_manifest()
+
+            # Look up function in registry
+            if function_name not in manifest["function_registry"]:
+                return FunctionResponse(
+                    success=False,
+                    error=f"Function '{function_name}' not found in flash_manifest.json",
+                )
+
+            # Get resource config name from registry
+            resource_name = manifest["function_registry"][function_name]
+            resource = manifest["resources"][resource_name]
+
+            # Find function details in resource
+            func_details = next(
+                (f for f in resource["functions"] if f["name"] == function_name),
+                None,
+            )
+
+            if not func_details:
+                return FunctionResponse(
+                    success=False,
+                    error=f"Function '{function_name}' found in registry but not in resource '{resource_name}'",
+                )
+
+            # Import the function from its module
+            module_path = func_details["module"]
+            self.logger.debug(f"Importing function '{function_name}' from module '{module_path}'")
+            module = importlib.import_module(module_path)
+            func = getattr(module, function_name)
+
+            # Deserialize args/kwargs (same as Live Serverless)
+            args = SerializationUtils.deserialize_args(request.args)
+            kwargs = SerializationUtils.deserialize_kwargs(request.kwargs)
+
+            # Execute function
+            # Check if async or sync
+            if func_details["is_async"]:
+                if asyncio.iscoroutinefunction(func):
+                    result = await func(*args, **kwargs)
+                else:
+                    # Run in executor for blocking calls
+                    result = await asyncio.to_thread(func, *args, **kwargs)
+            else:
+                result = await asyncio.to_thread(func, *args, **kwargs)
+
+            return FunctionResponse(
+                success=True,
+                result=SerializationUtils.serialize_result(result),
+            )
+
+        except Exception as e:
+            self.logger.error(f"Flash function execution failed: {e}", exc_info=True)
+            return FunctionResponse(
+                success=False,
+                error=f"Failed to execute Flash function '{function_name}': {str(e)}",
+            )
+
+    def _load_flash_manifest(self) -> dict:
+        """Load flash_manifest.json from /app directory.
+
+        Returns:
+            Manifest dictionary with function routing info
+
+        Raises:
+            FileNotFoundError: If manifest not found
+            json.JSONDecodeError: If manifest is invalid
+        """
+        manifest_path = Path("/app/flash_manifest.json")
+
+        if not manifest_path.exists():
+            raise FileNotFoundError(
+                "flash_manifest.json not found in /app. "
+                "Ensure Flash build artifacts were unpacked correctly."
+            )
+
+        with open(manifest_path) as f:
+            return json.load(f)
