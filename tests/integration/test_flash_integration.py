@@ -5,13 +5,10 @@ both Live Serverless and Flash Deployed Apps.
 """
 
 import pytest
-import json
-import tempfile
-from pathlib import Path
-from unittest.mock import patch, mock_open
+from unittest.mock import patch
 
 from remote_executor import RemoteExecutor
-from remote_execution import FunctionRequest, FunctionResponse
+from remote_execution import FunctionRequest
 
 
 class TestFlashIntegration:
@@ -240,7 +237,9 @@ class TestFlashIntegration:
             ),
             patch("importlib.import_module") as mock_import,
         ):
-            mock_import.side_effect = ModuleNotFoundError("No module named 'nonexistent_module'")
+            mock_import.side_effect = ModuleNotFoundError(
+                "No module named 'nonexistent_module'"
+            )
 
             response = await self.executor.ExecuteFunction(request)
 
