@@ -1,5 +1,19 @@
 # Changelog
 
+## [0.7.3](https://github.com/runpod-workers/worker-tetra/compare/v0.7.2...v0.7.3) (2026-01-16)
+
+
+### Features
+
+* dual-mode runtime for Flash Deployed Apps and Live Serverless ([#50](https://github.com/runpod-workers/worker-tetra/issues/50)) ([fd568c2](https://github.com/runpod-workers/worker-tetra/commit/fd568c2c996d10551267e78053bb7b5e1d1a3f65))
+* **load-balancer:** implement Live Load Balancer runtime Docker infrastructure ([#45](https://github.com/runpod-workers/worker-tetra/issues/45)) ([7cfe1b7](https://github.com/runpod-workers/worker-tetra/commit/7cfe1b713c12a1cfb259976d971fe2900109a104))
+* unpack app tarballs from shadow volumes ([#49](https://github.com/runpod-workers/worker-tetra/issues/49)) ([55d9cec](https://github.com/runpod-workers/worker-tetra/commit/55d9cec2751ca6718c883ed5d85d1cffa42f2b35))
+
+
+### Bug Fixes
+
+* **ci:** resolve disk space issues and optimize Docker image sizes ([#46](https://github.com/runpod-workers/worker-tetra/issues/46)) ([7261ccb](https://github.com/runpod-workers/worker-tetra/commit/7261ccb5d0d20be83b47d67115959391f46383c4))
+
 ## [0.7.2](https://github.com/runpod-workers/worker-tetra/compare/v0.7.1...v0.7.2) (2025-12-03)
 
 
