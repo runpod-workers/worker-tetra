@@ -233,26 +233,46 @@ class TestUnpackAppFromVolume:
 class TestShouldUnpackFromVolume:
     """Test environment variable detection logic."""
 
-    def test_should_unpack_when_runpod_pod_id_set(self):
-        """Test unpacking is enabled when RUNPOD_POD_ID is set."""
+    def test_should_unpack_for_flash_mothership(self):
+        """Test unpacking is enabled for Flash Mothership deployment."""
+        with patch.dict(
+            os.environ,
+            {
+                "RUNPOD_POD_ID": "test-pod-id",
+                "FLASH_IS_MOTHERSHIP": "true",
+            },
+            clear=False,
+        ):
+            os.environ.pop("FLASH_DISABLE_UNPACK", None)
+            assert _should_unpack_from_volume() is True
+
+    def test_should_unpack_for_flash_child_endpoint(self):
+        """Test unpacking is enabled for Flash Child endpoint deployment."""
+        with patch.dict(
+            os.environ,
+            {
+                "RUNPOD_ENDPOINT_ID": "test-endpoint-id",
+                "FLASH_MOTHERSHIP_ID": "mothership-endpoint-id",
+                "FLASH_RESOURCE_NAME": "gpu_worker",
+            },
+            clear=False,
+        ):
+            os.environ.pop("FLASH_DISABLE_UNPACK", None)
+            os.environ.pop("RUNPOD_POD_ID", None)
+            assert _should_unpack_from_volume() is True
+
+    def test_should_not_unpack_for_live_serverless(self):
+        """Test unpacking is disabled for Live Serverless (RUNPOD_* set but no FLASH_*)."""
         with patch.dict(
             os.environ,
             {"RUNPOD_POD_ID": "test-pod-id"},
             clear=False,
         ):
             os.environ.pop("FLASH_DISABLE_UNPACK", None)
-            assert _should_unpack_from_volume() is True
-
-    def test_should_unpack_when_runpod_endpoint_id_set(self):
-        """Test unpacking is enabled when RUNPOD_ENDPOINT_ID is set."""
-        with patch.dict(
-            os.environ,
-            {"RUNPOD_ENDPOINT_ID": "test-endpoint-id"},
-            clear=False,
-        ):
-            os.environ.pop("FLASH_DISABLE_UNPACK", None)
-            os.environ.pop("RUNPOD_POD_ID", None)
-            assert _should_unpack_from_volume() is True
+            os.environ.pop("FLASH_IS_MOTHERSHIP", None)
+            os.environ.pop("FLASH_MOTHERSHIP_ID", None)
+            os.environ.pop("FLASH_RESOURCE_NAME", None)
+            assert _should_unpack_from_volume() is False
 
     def test_should_not_unpack_when_no_runpod_vars(self):
         """Test unpacking is disabled when no RunPod environment variables are set."""
@@ -268,6 +288,7 @@ class TestShouldUnpackFromVolume:
             os.environ,
             {
                 "RUNPOD_POD_ID": "test-pod-id",
+                "FLASH_IS_MOTHERSHIP": "true",
                 "FLASH_DISABLE_UNPACK": "1",
             },
         ):
@@ -279,6 +300,7 @@ class TestShouldUnpackFromVolume:
             os.environ,
             {
                 "RUNPOD_POD_ID": "test-pod-id",
+                "FLASH_IS_MOTHERSHIP": "true",
                 "FLASH_DISABLE_UNPACK": "true",
             },
         ):
@@ -290,6 +312,7 @@ class TestShouldUnpackFromVolume:
             os.environ,
             {
                 "RUNPOD_POD_ID": "test-pod-id",
+                "FLASH_IS_MOTHERSHIP": "true",
                 "FLASH_DISABLE_UNPACK": "yes",
             },
         ):
@@ -301,6 +324,7 @@ class TestShouldUnpackFromVolume:
             os.environ,
             {
                 "RUNPOD_POD_ID": "test-pod-id",
+                "FLASH_IS_MOTHERSHIP": "true",
                 "FLASH_DISABLE_UNPACK": "false",
             },
         ):
@@ -312,6 +336,7 @@ class TestShouldUnpackFromVolume:
             os.environ,
             {
                 "RUNPOD_POD_ID": "test-pod-id",
+                "FLASH_IS_MOTHERSHIP": "true",
                 "FLASH_DISABLE_UNPACK": "True",
             },
         ):
@@ -323,6 +348,7 @@ class TestShouldUnpackFromVolume:
             os.environ,
             {
                 "RUNPOD_POD_ID": "test-pod-id",
+                "FLASH_IS_MOTHERSHIP": "true",
                 "FLASH_DISABLE_UNPACK": "YES",
             },
         ):
@@ -334,6 +360,7 @@ class TestShouldUnpackFromVolume:
             os.environ,
             {
                 "RUNPOD_POD_ID": "test-pod-id",
+                "FLASH_IS_MOTHERSHIP": "true",
                 "FLASH_DISABLE_UNPACK": "Yes",
             },
         ):

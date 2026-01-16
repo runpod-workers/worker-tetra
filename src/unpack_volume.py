@@ -72,12 +72,45 @@ _UNPACK_LOCK = threading.Lock()
 
 
 def _should_unpack_from_volume() -> bool:
+    """Determine if Flash artifact unpacking should occur.
+
+    Returns True only for Flash-deployed apps, not Live Serverless.
+
+    Detection logic:
+    1. Honor explicit disable flag (FLASH_DISABLE_UNPACK)
+    2. Must be in RunPod environment (RUNPOD_POD_ID or RUNPOD_ENDPOINT_ID)
+    3. Must be Flash deployment (any of FLASH_IS_MOTHERSHIP, FLASH_MOTHERSHIP_ID, FLASH_RESOURCE_NAME)
+
+    Returns:
+        bool: True if unpacking should occur, False otherwise
+    """
+    # Honor explicit disable flag
     disable_value = os.getenv("FLASH_DISABLE_UNPACK", "").lower()
     if disable_value in {"1", "true", "yes"}:
+        logger.debug("unpacking disabled via FLASH_DISABLE_UNPACK")
         return False
-    if not (os.getenv("RUNPOD_POD_ID") or os.getenv("RUNPOD_ENDPOINT_ID")):
+
+    # Must be in RunPod environment
+    in_runpod = os.getenv("RUNPOD_POD_ID") or os.getenv("RUNPOD_ENDPOINT_ID")
+    if not in_runpod:
+        logger.debug("not in RunPod environment, skipping unpacking")
         return False
-    return True
+
+    # Check if Flash deployment (any Flash-specific env var set)
+    is_flash = any(
+        [
+            os.getenv("FLASH_IS_MOTHERSHIP") == "true",
+            os.getenv("FLASH_MOTHERSHIP_ID"),
+            os.getenv("FLASH_RESOURCE_NAME"),
+        ]
+    )
+
+    if is_flash:
+        logger.debug("Flash deployment detected, will unpack artifact")
+    else:
+        logger.debug("Live Serverless deployment detected, skipping unpacking")
+
+    return is_flash
 
 
 def maybe_unpack():
