@@ -1,3 +1,4 @@
 [submodule "tetra-rp"]
 	path = tetra-rp
 	url = https://github.com/runpod/tetra-rp
+	branch = main
