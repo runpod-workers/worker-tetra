@@ -21,7 +21,7 @@ Developer guide for contributing to worker-tetra, a RunPod Serverless worker for
 
 ### Prerequisites
 
-- Python 3.11+ (3.12 recommended)
+- Python 3.10+ (3.12 recommended)
 - Docker Desktop (for container testing)
 - `uv` package manager ([installation](https://github.com/astral-sh/uv))
 - Git with submodule support
@@ -593,7 +593,7 @@ git commit -m "chore: update tetra-rp to latest main"
 
 ```mermaid
 graph LR
-    PR[Pull Request]:::pr --> Test[Test Job<br/>Python 3.9-3.13]:::test
+    PR[Pull Request]:::pr --> Test[Test Job<br/>Python 3.10-3.14]:::test
     PR --> Lint[Lint Job<br/>Ruff + Formatting]:::lint
     PR --> Docker[Docker Test<br/>CPU Build]:::docker
 
