@@ -4,9 +4,14 @@ from typing import Dict, Any
 from remote_execution import FunctionRequest, FunctionResponse
 from remote_executor import RemoteExecutor
 from logger import setup_logging
+from unpack_volume import maybe_unpack
 
 # Initialize logging configuration
 setup_logging()
+
+# Unpack Flash deployment artifacts if running in Flash mode
+# This is a no-op for Live Serverless and local development
+maybe_unpack()
 
 
 async def handler(event: Dict[str, Any]) -> Dict[str, Any]:

@@ -17,11 +17,16 @@ from typing import Any, Dict
 from fastapi import FastAPI
 
 from logger import setup_logging
+from unpack_volume import maybe_unpack
 from remote_execution import FunctionRequest, FunctionResponse
 from remote_executor import RemoteExecutor
 
 # Initialize logging configuration
 setup_logging()
+
+# Unpack Flash deployment artifacts if running in Flash mode
+# This is a no-op for Live Serverless and local development
+maybe_unpack()
 
 # Create FastAPI app
 app = FastAPI(title="Load Balancer Handler")
