@@ -14,7 +14,7 @@ endif
 help: # Show this help menu
 	@echo "Available make commands:"
 	@echo ""
-	@awk 'BEGIN {FS = ":.*# "; printf "%-20s %s\n", "Target", "Description"} /^[a-zA-Z0-9_-]+:.*# / {printf "%-20s %s\n", $$1, $$2}' $(MAKEFILE_LIST)
+	@awk 'BEGIN {FS = ":.*# "; printf "%-20s %s\n", "Target", "Description"} /^[a-zA-Z_][a-zA-Z0-9_-]*:.*# / {printf "%-20s %s\n", $$1, $$2}' $(MAKEFILE_LIST)
 	@echo ""
 
 dev: # Install development dependencies

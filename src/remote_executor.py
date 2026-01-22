@@ -380,7 +380,7 @@ class RemoteExecutor(RemoteExecutorStub):
             self.logger.debug(f"Importing function '{function_name}' from module '{module_path}'")
             module = importlib.import_module(module_path)
             # function_name is guaranteed to be non-None by FunctionRequest validation
-            func = getattr(module, function_name or "")
+            func = getattr(module, function_name)
 
             # Deserialize args/kwargs (same as Live Serverless)
             args = SerializationUtils.deserialize_args(request.args)
