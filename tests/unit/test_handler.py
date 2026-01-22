@@ -5,7 +5,7 @@ import base64
 import cloudpickle
 from unittest.mock import patch, AsyncMock
 from handler import handler
-from remote_execution import FunctionResponse
+from tetra_rp.protos.remote_execution import FunctionResponse
 
 
 class TestHandler:
@@ -77,9 +77,7 @@ class TestHandler:
         }
 
         with patch("handler.RemoteExecutor") as mock_executor_class:
-            mock_executor_class.side_effect = Exception(
-                "Executor initialization failed"
-            )
+            mock_executor_class.side_effect = Exception("Executor initialization failed")
 
             result = await handler(event)
 
@@ -135,9 +133,7 @@ class TestHandler:
             mock_executor_class.return_value = mock_executor
             mock_executor.ExecuteFunction.return_value = FunctionResponse(
                 success=True,
-                result=base64.b64encode(cloudpickle.dumps("class result")).decode(
-                    "utf-8"
-                ),
+                result=base64.b64encode(cloudpickle.dumps("class result")).decode("utf-8"),
                 instance_id="TestClass_12345678",
                 instance_info={"class_name": "TestClass", "method_calls": 1},
             )

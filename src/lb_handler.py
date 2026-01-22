@@ -18,7 +18,7 @@ from fastapi import FastAPI
 
 from logger import setup_logging
 from unpack_volume import maybe_unpack
-from remote_execution import FunctionRequest, FunctionResponse
+from tetra_rp.protos.remote_execution import FunctionRequest, FunctionResponse  # type: ignore[import-untyped]
 from remote_executor import RemoteExecutor
 
 # Initialize logging configuration
@@ -64,7 +64,7 @@ async def execute(request: Dict[str, Any]) -> Dict[str, Any]:
             error=f"Error in handler: {str(error)}",
         )
 
-    return output.model_dump()
+    return output.model_dump()  # type: ignore[no-any-return]
 
 
 if __name__ == "__main__":

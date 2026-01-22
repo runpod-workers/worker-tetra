@@ -1,7 +1,7 @@
 import runpod
 from typing import Dict, Any
 
-from remote_execution import FunctionRequest, FunctionResponse
+from tetra_rp.protos.remote_execution import FunctionRequest, FunctionResponse  # type: ignore[import-untyped]
 from remote_executor import RemoteExecutor
 from logger import setup_logging
 from unpack_volume import maybe_unpack
@@ -31,7 +31,7 @@ async def handler(event: Dict[str, Any]) -> Dict[str, Any]:
             error=f"Error in handler: {str(error)}",
         )
 
-    return output.model_dump()
+    return output.model_dump()  # type: ignore[no-any-return]
 
 
 # Start the RunPod serverless handler

@@ -3,7 +3,7 @@
 from unittest.mock import patch
 
 from dependency_installer import DependencyInstaller
-from remote_execution import FunctionResponse
+from tetra_rp.protos.remote_execution import FunctionResponse
 
 
 class TestSystemDependencies:
@@ -34,16 +34,12 @@ class TestSystemDependencies:
 
     @patch("platform.system")
     @patch("dependency_installer.run_logged_subprocess")
-    def test_install_system_dependencies_update_failure(
-        self, mock_subprocess, mock_platform
-    ):
+    def test_install_system_dependencies_update_failure(self, mock_subprocess, mock_platform):
         """Test system dependency installation with update failure."""
         mock_platform.return_value = "Linux"
 
         # Mock failed apt-get update
-        mock_subprocess.return_value = FunctionResponse(
-            success=False, error="Update failed"
-        )
+        mock_subprocess.return_value = FunctionResponse(success=False, error="Update failed")
 
         result = self.installer.install_system_dependencies(["curl"])
 
@@ -70,9 +66,7 @@ class TestSystemPackageAcceleration:
     @patch("dependency_installer.run_logged_subprocess")
     def test_nala_availability_check_available(self, mock_subprocess):
         """Test nala availability detection when nala is available."""
-        mock_subprocess.return_value = FunctionResponse(
-            success=True, stdout="/usr/bin/nala"
-        )
+        mock_subprocess.return_value = FunctionResponse(success=True, stdout="/usr/bin/nala")
 
         # First call should check availability
         assert self.installer._check_nala_available() is True
@@ -146,9 +140,7 @@ class TestSystemPackageAcceleration:
 
     @patch("platform.system")
     @patch("dependency_installer.run_logged_subprocess")
-    def test_install_system_dependencies_with_acceleration(
-        self, mock_subprocess, mock_platform
-    ):
+    def test_install_system_dependencies_with_acceleration(self, mock_subprocess, mock_platform):
         """Test system dependency installation with acceleration enabled."""
         mock_platform.return_value = "Linux"
 
@@ -224,9 +216,7 @@ class TestPythonDependencies:
     @patch("dependency_installer.run_logged_subprocess")
     def test_install_dependencies_failure(self, mock_subprocess):
         """Test Python dependency installation failure."""
-        mock_subprocess.return_value = FunctionResponse(
-            success=False, error="Package not found"
-        )
+        mock_subprocess.return_value = FunctionResponse(success=False, error="Package not found")
 
         result = self.installer.install_dependencies(["nonexistent-package"])
 
@@ -349,9 +339,7 @@ class TestCompilationAutoRetry:
 
     def test_needs_compilation_false_for_unrelated_error(self):
         """Test that unrelated errors don't trigger compilation detection."""
-        result = FunctionResponse(
-            success=False, error="Network error: Could not find package"
-        )
+        result = FunctionResponse(success=False, error="Network error: Could not find package")
 
         assert self.installer._needs_compilation(result) is False
 
@@ -363,9 +351,7 @@ class TestCompilationAutoRetry:
 
     @patch("platform.system")
     @patch("dependency_installer.run_logged_subprocess")
-    def test_auto_retry_installs_build_essential_on_gcc_error(
-        self, mock_subprocess, mock_platform
-    ):
+    def test_auto_retry_installs_build_essential_on_gcc_error(self, mock_subprocess, mock_platform):
         """Test auto-retry automatically installs build-essential when gcc missing."""
         mock_platform.return_value = "Linux"
 
@@ -375,14 +361,10 @@ class TestCompilationAutoRetry:
         # Fourth call: apt-get install build-essential
         # Fifth call: pip install retry (succeeds)
         mock_subprocess.side_effect = [
-            FunctionResponse(
-                success=False, error="error: command 'gcc' failed: No such file"
-            ),
+            FunctionResponse(success=False, error="error: command 'gcc' failed: No such file"),
             FunctionResponse(success=False),  # nala not available
             FunctionResponse(success=True, stdout="Updated"),  # apt-get update
-            FunctionResponse(
-                success=True, stdout="Installed build-essential"
-            ),  # apt-get install
+            FunctionResponse(success=True, stdout="Installed build-essential"),  # apt-get install
             FunctionResponse(success=True, stdout="Successfully installed package"),
         ]
 
@@ -419,9 +401,7 @@ class TestCompilationAutoRetry:
         # Second call: nala check (not available)
         # Third call: apt-get update (fails)
         mock_subprocess.side_effect = [
-            FunctionResponse(
-                success=False, error="error: command 'gcc' failed: No such file"
-            ),
+            FunctionResponse(success=False, error="error: command 'gcc' failed: No such file"),
             FunctionResponse(success=False),  # nala not available
             FunctionResponse(success=False, error="apt-get update failed"),
         ]
@@ -443,14 +423,10 @@ class TestCompilationAutoRetry:
         # Fourth call: nala install build-essential
         # Fifth call: pip install retry (succeeds)
         mock_subprocess.side_effect = [
-            FunctionResponse(
-                success=False, error="error: command 'gcc' failed: No such file"
-            ),
+            FunctionResponse(success=False, error="error: command 'gcc' failed: No such file"),
             FunctionResponse(success=True, stdout="/usr/bin/nala"),  # nala available
             FunctionResponse(success=True, stdout="Updated with nala"),
-            FunctionResponse(
-                success=True, stdout="Installed build-essential with nala"
-            ),
+            FunctionResponse(success=True, stdout="Installed build-essential with nala"),
             FunctionResponse(success=True, stdout="Successfully installed package"),
         ]
 
@@ -480,9 +456,7 @@ class TestCompilationAutoRetry:
             ),
             FunctionResponse(success=False),  # nala not available
             FunctionResponse(success=True, stdout="Updated"),  # apt-get update
-            FunctionResponse(
-                success=True, stdout="Installed build-essential"
-            ),  # apt-get install
+            FunctionResponse(success=True, stdout="Installed build-essential"),  # apt-get install
             FunctionResponse(
                 success=True,
                 stdout="Successfully installed package\nWarning: gcc was used for compilation",

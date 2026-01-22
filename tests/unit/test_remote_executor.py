@@ -4,7 +4,7 @@ import cloudpickle
 from unittest.mock import Mock, patch, AsyncMock
 
 from remote_executor import RemoteExecutor
-from remote_execution import FunctionRequest
+from tetra_rp.protos.remote_execution import FunctionRequest
 
 
 class TestRemoteExecutor:
@@ -16,15 +16,12 @@ class TestRemoteExecutor:
 
     def encode_args(self, *args):
         """Helper to encode arguments."""
-        return [
-            base64.b64encode(cloudpickle.dumps(arg)).decode("utf-8") for arg in args
-        ]
+        return [base64.b64encode(cloudpickle.dumps(arg)).decode("utf-8") for arg in args]
 
     def encode_kwargs(self, **kwargs):
         """Helper to encode keyword arguments."""
         return {
-            k: base64.b64encode(cloudpickle.dumps(v)).decode("utf-8")
-            for k, v in kwargs.items()
+            k: base64.b64encode(cloudpickle.dumps(v)).decode("utf-8") for k, v in kwargs.items()
         }
 
     def test_executor_composition_initialization(self):
@@ -72,9 +69,7 @@ class TestRemoteExecutor:
         with patch.object(
             self.executor.class_executor, "execute_class_method"
         ) as mock_class_execute:
-            mock_class_execute.return_value = Mock(
-                success=True, result="encoded_result"
-            )
+            mock_class_execute.return_value = Mock(success=True, result="encoded_result")
 
             await self.executor.ExecuteFunction(request)
 
@@ -103,11 +98,9 @@ class TestRemoteExecutor:
                 "install_dependencies_async",
                 new_callable=AsyncMock,
             ) as mock_py_deps_async:
-                with patch.object(
-                    self.executor.function_executor, "execute"
-                ) as mock_execute:
+                with patch.object(self.executor.function_executor, "execute") as mock_execute:
                     # Mock async methods with proper FunctionResponse returns
-                    from remote_execution import FunctionResponse
+                    from tetra_rp.protos.remote_execution import FunctionResponse
 
                     mock_sys_deps_async.return_value = FunctionResponse(
                         success=True, stdout="System deps installed"
@@ -115,9 +108,7 @@ class TestRemoteExecutor:
                     mock_py_deps_async.return_value = FunctionResponse(
                         success=True, stdout="Python deps installed"
                     )
-                    mock_execute.return_value = Mock(
-                        success=True, result="encoded_result"
-                    )
+                    mock_execute.return_value = Mock(success=True, result="encoded_result")
 
                     await self.executor.ExecuteFunction(request)
 
@@ -142,11 +133,9 @@ class TestRemoteExecutor:
             "install_dependencies_async",
             new_callable=AsyncMock,
         ) as mock_py_deps_async:
-            with patch.object(
-                self.executor.function_executor, "execute"
-            ) as mock_execute:
+            with patch.object(self.executor.function_executor, "execute") as mock_execute:
                 # Mock async method with FunctionResponse
-                from remote_execution import FunctionResponse
+                from tetra_rp.protos.remote_execution import FunctionResponse
 
                 mock_py_deps_async.return_value = FunctionResponse(
                     success=False, error="Package not found"
@@ -223,11 +212,9 @@ class TestRemoteExecutor:
                 new_callable=AsyncMock,
             ) as mock_sync,
         ):
-            from remote_execution import FunctionResponse
+            from tetra_rp.protos.remote_execution import FunctionResponse
 
-            mock_deps.return_value = FunctionResponse(
-                success=True, stdout="Deps installed"
-            )
+            mock_deps.return_value = FunctionResponse(success=True, stdout="Deps installed")
             mock_execute.return_value = Mock(success=True, result="encoded_result")
 
             await self.executor.ExecuteFunction(request)
@@ -274,14 +261,10 @@ class TestRemoteExecutor:
             kwargs={},
         )
 
-        with patch.object(
-            self.executor, "_execute_flash_function"
-        ) as mock_flash_execute:
-            from remote_execution import FunctionResponse
+        with patch.object(self.executor, "_execute_flash_function") as mock_flash_execute:
+            from tetra_rp.protos.remote_execution import FunctionResponse
 
-            mock_flash_execute.return_value = FunctionResponse(
-                success=True, result="flash_result"
-            )
+            mock_flash_execute.return_value = FunctionResponse(success=True, result="flash_result")
 
             await self.executor.ExecuteFunction(request)
 
@@ -300,14 +283,10 @@ class TestRemoteExecutor:
             kwargs={},
         )
 
-        with patch.object(
-            self.executor, "_execute_flash_function"
-        ) as mock_flash_execute:
-            from remote_execution import FunctionResponse
+        with patch.object(self.executor, "_execute_flash_function") as mock_flash_execute:
+            from tetra_rp.protos.remote_execution import FunctionResponse
 
-            mock_flash_execute.return_value = FunctionResponse(
-                success=True, result="flash_result"
-            )
+            mock_flash_execute.return_value = FunctionResponse(success=True, result="flash_result")
 
             await self.executor.ExecuteFunction(request)
 
@@ -325,9 +304,7 @@ class TestRemoteExecutor:
         )
 
         with (
-            patch.object(
-                self.executor, "_execute_flash_function"
-            ) as mock_flash_execute,
+            patch.object(self.executor, "_execute_flash_function") as mock_flash_execute,
             patch.object(self.executor.function_executor, "execute") as mock_execute,
         ):
             mock_execute.return_value = Mock(success=True, result="live_result")
@@ -350,9 +327,7 @@ class TestRemoteExecutor:
         )
 
         with (
-            patch.object(
-                self.executor, "_execute_flash_function"
-            ) as mock_flash_execute,
+            patch.object(self.executor, "_execute_flash_function") as mock_flash_execute,
             patch.object(
                 self.executor.class_executor, "execute_class_method"
             ) as mock_class_execute,
@@ -391,9 +366,7 @@ class TestRemoteExecutor:
         }
 
         with (
-            patch.object(
-                self.executor, "_load_flash_manifest", return_value=mock_manifest
-            ),
+            patch.object(self.executor, "_load_flash_manifest", return_value=mock_manifest),
             patch("importlib.import_module") as mock_import,
             patch("asyncio.to_thread") as mock_to_thread,
         ):
@@ -418,9 +391,7 @@ class TestRemoteExecutor:
 
         mock_manifest = {"function_registry": {}, "resources": {}}
 
-        with patch.object(
-            self.executor, "_load_flash_manifest", return_value=mock_manifest
-        ):
+        with patch.object(self.executor, "_load_flash_manifest", return_value=mock_manifest):
             response = await self.executor._execute_flash_function(request)
 
             assert response.success is False
@@ -436,9 +407,7 @@ class TestRemoteExecutor:
             "resources": {"resource_01": {"functions": []}},
         }
 
-        with patch.object(
-            self.executor, "_load_flash_manifest", return_value=mock_manifest
-        ):
+        with patch.object(self.executor, "_load_flash_manifest", return_value=mock_manifest):
             response = await self.executor._execute_flash_function(request)
 
             assert response.success is False
@@ -468,9 +437,7 @@ class TestRemoteExecutor:
             return "async_result"
 
         with (
-            patch.object(
-                self.executor, "_load_flash_manifest", return_value=mock_manifest
-            ),
+            patch.object(self.executor, "_load_flash_manifest", return_value=mock_manifest),
             patch("importlib.import_module") as mock_import,
         ):
             mock_module = Mock()
@@ -503,9 +470,7 @@ class TestRemoteExecutor:
         }
 
         with (
-            patch.object(
-                self.executor, "_load_flash_manifest", return_value=mock_manifest
-            ),
+            patch.object(self.executor, "_load_flash_manifest", return_value=mock_manifest),
             patch("importlib.import_module") as mock_import,
         ):
             mock_import.side_effect = ImportError("Module not found")
@@ -580,9 +545,7 @@ class TestRemoteExecutor:
         # Mock ServiceRegistry to return None (local function)
         with (
             patch("remote_executor.ServiceRegistry") as mock_registry_class,
-            patch.object(
-                self.executor, "_load_flash_manifest", return_value=mock_manifest
-            ),
+            patch.object(self.executor, "_load_flash_manifest", return_value=mock_manifest),
             patch("importlib.import_module") as mock_import,
             patch("asyncio.to_thread") as mock_to_thread,
         ):

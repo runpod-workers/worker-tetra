@@ -7,7 +7,7 @@ from contextlib import redirect_stdout, redirect_stderr
 from datetime import datetime
 from typing import Dict, Any, Tuple
 
-from remote_execution import FunctionRequest, FunctionResponse
+from tetra_rp.protos.remote_execution import FunctionRequest, FunctionResponse  # type: ignore[import-untyped]
 from serialization_utils import SerializationUtils
 
 
@@ -69,9 +69,7 @@ class ClassExecutor:
 
             except Exception as e:
                 # Error handling
-                combined_output = (
-                    stdout_io.getvalue() + stderr_io.getvalue() + log_io.getvalue()
-                )
+                combined_output = stdout_io.getvalue() + stderr_io.getvalue() + log_io.getvalue()
                 traceback_str = traceback.format_exc()
                 error_message = f"{str(e)}\n{traceback_str}"
 
@@ -86,9 +84,7 @@ class ClassExecutor:
 
         # Serialize result
         serialized_result = SerializationUtils.serialize_result(result)
-        combined_output = (
-            stdout_io.getvalue() + stderr_io.getvalue() + log_io.getvalue()
-        )
+        combined_output = stdout_io.getvalue() + stderr_io.getvalue() + log_io.getvalue()
 
         return FunctionResponse(
             success=True,
@@ -119,9 +115,7 @@ class ClassExecutor:
             exec(request.class_code, namespace)
 
         if request.class_name not in namespace:
-            raise ValueError(
-                f"Class '{request.class_name}' not found in the provided code"
-            )
+            raise ValueError(f"Class '{request.class_name}' not found in the provided code")
 
         cls = namespace[request.class_name]
 
@@ -130,14 +124,10 @@ class ClassExecutor:
         constructor_kwargs = {}
 
         if hasattr(request, "constructor_args") and request.constructor_args:
-            constructor_args = SerializationUtils.deserialize_args(
-                request.constructor_args
-            )
+            constructor_args = SerializationUtils.deserialize_args(request.constructor_args)
 
         if hasattr(request, "constructor_kwargs") and request.constructor_kwargs:
-            constructor_kwargs = SerializationUtils.deserialize_kwargs(
-                request.constructor_kwargs
-            )
+            constructor_kwargs = SerializationUtils.deserialize_kwargs(request.constructor_kwargs)
 
         # Create instance
         instance = cls(*constructor_args, **constructor_kwargs)
@@ -162,6 +152,4 @@ class ClassExecutor:
         """Update metadata for an instance."""
         if instance_id in self.instance_metadata:
             self.instance_metadata[instance_id]["method_calls"] += 1
-            self.instance_metadata[instance_id]["last_used"] = (
-                datetime.now().isoformat()
-            )
+            self.instance_metadata[instance_id]["last_used"] = datetime.now().isoformat()

@@ -140,9 +140,7 @@ class TestUnpackAppFromVolume:
         app_dir = tmp_path / "app"
 
         # Mock the artifact path
-        with patch(
-            "unpack_volume._canonical_project_artifact_path", return_value=artifact_path
-        ):
+        with patch("unpack_volume._canonical_project_artifact_path", return_value=artifact_path):
             result = unpack_app_from_volume(app_dir=app_dir)
 
         assert result is True
@@ -161,9 +159,7 @@ class TestUnpackAppFromVolume:
         app_dir = tmp_path / "app"
 
         # Mock the artifact path
-        with patch(
-            "unpack_volume._canonical_project_artifact_path", return_value=artifact_path
-        ):
+        with patch("unpack_volume._canonical_project_artifact_path", return_value=artifact_path):
             unpack_app_from_volume(app_dir=app_dir)
 
         # Verify app_dir is in sys.path
@@ -174,12 +170,8 @@ class TestUnpackAppFromVolume:
         artifact_path = tmp_path / "nonexistent.tar.gz"
         app_dir = tmp_path / "app"
 
-        with patch(
-            "unpack_volume._canonical_project_artifact_path", return_value=artifact_path
-        ):
-            with pytest.raises(
-                FileNotFoundError, match="flash build artifact not found"
-            ):
+        with patch("unpack_volume._canonical_project_artifact_path", return_value=artifact_path):
+            with pytest.raises(FileNotFoundError, match="flash build artifact not found"):
                 unpack_app_from_volume(app_dir=app_dir)
 
     def test_unpack_app_from_volume_artifact_is_directory(self, tmp_path):
@@ -188,12 +180,8 @@ class TestUnpackAppFromVolume:
         artifact_path.mkdir()
         app_dir = tmp_path / "app"
 
-        with patch(
-            "unpack_volume._canonical_project_artifact_path", return_value=artifact_path
-        ):
-            with pytest.raises(
-                FileNotFoundError, match="flash build artifact not found"
-            ):
+        with patch("unpack_volume._canonical_project_artifact_path", return_value=artifact_path):
+            with pytest.raises(FileNotFoundError, match="flash build artifact not found"):
                 unpack_app_from_volume(app_dir=app_dir)
 
     def test_unpack_app_from_volume_extraction_error(self, tmp_path):
@@ -204,9 +192,7 @@ class TestUnpackAppFromVolume:
 
         app_dir = tmp_path / "app"
 
-        with patch(
-            "unpack_volume._canonical_project_artifact_path", return_value=artifact_path
-        ):
+        with patch("unpack_volume._canonical_project_artifact_path", return_value=artifact_path):
             with pytest.raises(RuntimeError, match="failed to extract flash artifact"):
                 unpack_app_from_volume(app_dir=app_dir)
 
@@ -220,9 +206,7 @@ class TestUnpackAppFromVolume:
 
         app_dir = tmp_path / "nonexistent_dir" / "app"
 
-        with patch(
-            "unpack_volume._canonical_project_artifact_path", return_value=artifact_path
-        ):
+        with patch("unpack_volume._canonical_project_artifact_path", return_value=artifact_path):
             result = unpack_app_from_volume(app_dir=app_dir)
 
         assert result is True
@@ -405,9 +389,7 @@ class TestMaybeUnpack:
 
     @patch("unpack_volume._should_unpack_from_volume")
     @patch("unpack_volume.unpack_app_from_volume")
-    def test_maybe_unpack_skips_when_should_not_unpack(
-        self, mock_unpack, mock_should_unpack
-    ):
+    def test_maybe_unpack_skips_when_should_not_unpack(self, mock_unpack, mock_should_unpack):
         """Test that unpacking is skipped when conditions are not met."""
         mock_should_unpack.return_value = False
 
@@ -429,9 +411,7 @@ class TestMaybeUnpack:
     @patch("unpack_volume._should_unpack_from_volume")
     @patch("unpack_volume.unpack_app_from_volume")
     @patch("unpack_volume.logger")
-    def test_maybe_unpack_logs_info_on_start(
-        self, mock_logger, mock_unpack, mock_should_unpack
-    ):
+    def test_maybe_unpack_logs_info_on_start(self, mock_logger, mock_unpack, mock_should_unpack):
         """Test that info is logged when unpacking starts."""
         mock_should_unpack.return_value = True
         mock_unpack.return_value = True
@@ -443,9 +423,7 @@ class TestMaybeUnpack:
     @patch("unpack_volume._should_unpack_from_volume")
     @patch("unpack_volume.unpack_app_from_volume")
     @patch("unpack_volume.logger")
-    def test_maybe_unpack_logs_error_on_failure(
-        self, mock_logger, mock_unpack, mock_should_unpack
-    ):
+    def test_maybe_unpack_logs_error_on_failure(self, mock_logger, mock_unpack, mock_should_unpack):
         """Test that errors are logged when unpacking fails."""
         mock_should_unpack.return_value = True
         error_msg = "Extraction failed"

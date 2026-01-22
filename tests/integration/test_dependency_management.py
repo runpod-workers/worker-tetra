@@ -1,7 +1,7 @@
 import pytest
 from unittest.mock import patch, AsyncMock
 from remote_executor import RemoteExecutor
-from remote_execution import FunctionRequest, FunctionResponse
+from tetra_rp.protos.remote_execution import FunctionRequest, FunctionResponse
 
 
 class TestDependencyManagement:
@@ -46,9 +46,7 @@ class TestDependencyManagement:
                 ),
             ]
 
-            result = executor.dependency_installer.install_system_dependencies(
-                ["nano", "vim"]
-            )
+            result = executor.dependency_installer.install_system_dependencies(["nano", "vim"])
 
             assert result.success is True
             assert "nano" in result.stdout or "vim" in result.stdout
@@ -90,7 +88,7 @@ def test_with_deps():
             patch.object(executor.function_executor, "execute") as mock_execute,
         ):
             # Mock successful dependency installations
-            from remote_execution import FunctionResponse
+            from tetra_rp.protos.remote_execution import FunctionResponse
 
             mock_sys_deps.return_value = FunctionResponse(
                 success=True, stdout="system deps installed"
@@ -128,9 +126,7 @@ def test_with_deps():
                 success=False, error="E: Unable to locate package nonexistent-package"
             )
 
-            result = executor.dependency_installer.install_dependencies(
-                ["nonexistent-package"]
-            )
+            result = executor.dependency_installer.install_dependencies(["nonexistent-package"])
 
             assert result.success is False
             assert "Unable to locate package" in result.error
@@ -177,7 +173,7 @@ def test_with_deps():
             patch.object(executor.function_executor, "execute") as mock_execute,
         ):
             # Mock failed dependency installation
-            from remote_execution import FunctionResponse
+            from tetra_rp.protos.remote_execution import FunctionResponse
 
             mock_deps.return_value = FunctionResponse(
                 success=False,
@@ -219,14 +215,10 @@ def test_with_deps():
         executor = RemoteExecutor()
 
         with patch("dependency_installer.run_logged_subprocess") as mock_subprocess:
-            mock_subprocess.return_value = FunctionResponse(
-                success=True, stdout="success"
-            )
+            mock_subprocess.return_value = FunctionResponse(success=True, stdout="success")
 
             # Test Python dependency command
-            executor.dependency_installer.install_dependencies(
-                ["package1", "package2>=1.0.0"]
-            )
+            executor.dependency_installer.install_dependencies(["package1", "package2>=1.0.0"])
 
             # Verify subprocess utility was called
             mock_subprocess.assert_called()
@@ -258,9 +250,7 @@ def test_with_deps():
             mock_subprocess.side_effect = [
                 FunctionResponse(success=True, stdout="/usr/bin/nala"),
                 FunctionResponse(success=True, stdout="Reading package lists..."),
-                FunctionResponse(
-                    success=True, stdout="Successfully installed build-essential"
-                ),
+                FunctionResponse(success=True, stdout="Successfully installed build-essential"),
             ]
 
             result = executor.dependency_installer.install_system_dependencies(
@@ -310,15 +300,11 @@ def test_with_deps():
             side_effect=Exception("Subprocess error"),
         ):
             # Test Python dependency exception
-            py_result = executor.dependency_installer.install_dependencies(
-                ["some-package"]
-            )
+            py_result = executor.dependency_installer.install_dependencies(["some-package"])
             assert py_result.success is False
             assert "Subprocess error" in py_result.error
 
             # Test system dependency exception
-            sys_result = executor.dependency_installer.install_system_dependencies(
-                ["some-package"]
-            )
+            sys_result = executor.dependency_installer.install_system_dependencies(["some-package"])
             assert sys_result.success is False
             assert "Subprocess error" in sys_result.error

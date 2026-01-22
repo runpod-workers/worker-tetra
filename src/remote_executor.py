@@ -6,7 +6,7 @@ import os
 from pathlib import Path
 from typing import List, Any, Optional
 import aiohttp
-from remote_execution import FunctionRequest, FunctionResponse, RemoteExecutorStub
+from tetra_rp.protos.remote_execution import FunctionRequest, FunctionResponse, RemoteExecutorStub  # type: ignore[import-untyped]
 from dependency_installer import DependencyInstaller
 from function_executor import FunctionExecutor
 from class_executor import ClassExecutor
@@ -17,10 +17,10 @@ from constants import NAMESPACE, DEFAULT_ENDPOINT_TIMEOUT, FLASH_MANIFEST_PATH
 
 # Service discovery for cross-endpoint routing
 try:
-    from tetra_rp.runtime.service_registry import (  # type: ignore[import-not-found]
+    from tetra_rp.runtime.service_registry import (  # type: ignore[import-untyped]
         ServiceRegistry,
     )
-    from tetra_rp.runtime.exceptions import (  # type: ignore[import-not-found]
+    from tetra_rp.runtime.exceptions import (  # type: ignore[import-untyped]
         ManifestServiceUnavailableError,
     )
 except ImportError:
@@ -48,12 +48,8 @@ class RemoteExecutor(RemoteExecutorStub):
         self.service_registry: Optional[ServiceRegistry] = None
         if ServiceRegistry is not None:
             try:
-                self.service_registry = ServiceRegistry(
-                    manifest_path=Path(FLASH_MANIFEST_PATH)
-                )
-                self.logger.debug(
-                    "Service registry initialized for cross-endpoint routing"
-                )
+                self.service_registry = ServiceRegistry(manifest_path=Path(FLASH_MANIFEST_PATH))
+                self.logger.debug("Service registry initialized for cross-endpoint routing")
             except Exception as e:
                 self.logger.debug(f"Failed to initialize service registry: {e}")
                 self.service_registry = None
@@ -129,17 +125,13 @@ class RemoteExecutor(RemoteExecutorStub):
             if not has_function_code and not has_class_code:
                 # Flash Deployed App: code pre-deployed in /app
                 # Check if function should be routed to another endpoint
-                self.logger.debug(
-                    "Flash deployment detected, checking cross-endpoint routing"
-                )
+                self.logger.debug("Flash deployment detected, checking cross-endpoint routing")
 
                 # Use ServiceRegistry for peer-to-peer routing
                 if self.service_registry:
                     try:
-                        endpoint_url = (
-                            await self.service_registry.get_endpoint_for_function(
-                                request.function_name
-                            )
+                        endpoint_url = await self.service_registry.get_endpoint_for_function(
+                            request.function_name
                         )
 
                         if endpoint_url:
@@ -147,9 +139,7 @@ class RemoteExecutor(RemoteExecutorStub):
                             self.logger.debug(
                                 f"Routing function '{request.function_name}' to {endpoint_url}"
                             )
-                            result = await self._route_to_endpoint(
-                                request, endpoint_url
-                            )
+                            result = await self._route_to_endpoint(request, endpoint_url)
                         else:
                             # Local: Execute on this endpoint
                             self.logger.debug(
@@ -171,9 +161,7 @@ class RemoteExecutor(RemoteExecutorStub):
                         result = await self._execute_flash_function(request)
                 else:
                     # ServiceRegistry not available - execute locally
-                    self.logger.debug(
-                        "Service registry not available, executing locally"
-                    )
+                    self.logger.debug("Service registry not available, executing locally")
                     result = await self._execute_flash_function(request)
             else:
                 # Live Serverless: dynamic code execution
@@ -202,9 +190,7 @@ class RemoteExecutor(RemoteExecutorStub):
             # Always stop log streaming to clean up
             stop_log_streaming()
 
-    async def _install_dependencies_parallel(
-        self, request: FunctionRequest
-    ) -> FunctionResponse:
+    async def _install_dependencies_parallel(self, request: FunctionRequest) -> FunctionResponse:
         """
         Install dependencies and cache models in parallel when acceleration is enabled.
 
@@ -236,9 +222,7 @@ class RemoteExecutor(RemoteExecutorStub):
         if not tasks:
             return FunctionResponse(success=True, stdout="No dependencies to install")
 
-        self.logger.debug(
-            f"Starting parallel installation of {len(tasks)} tasks: {task_names}"
-        )
+        self.logger.debug(f"Starting parallel installation of {len(tasks)} tasks: {task_names}")
 
         # Execute all tasks in parallel
         results = await asyncio.gather(*tasks, return_exceptions=True)
@@ -246,9 +230,7 @@ class RemoteExecutor(RemoteExecutorStub):
         # Process results and handle failures
         return self._process_parallel_results(results, task_names)
 
-    async def _install_dependencies_sequential(
-        self, request: FunctionRequest
-    ) -> FunctionResponse:
+    async def _install_dependencies_sequential(self, request: FunctionRequest) -> FunctionResponse:
         """
         Install dependencies and cache models sequentially when acceleration is disabled.
 
@@ -276,9 +258,7 @@ class RemoteExecutor(RemoteExecutorStub):
                 return py_installed
             self.logger.info(py_installed.stdout)
 
-        return FunctionResponse(
-            success=True, stdout="Dependencies installed successfully"
-        )
+        return FunctionResponse(success=True, stdout="Dependencies installed successfully")
 
     def _process_parallel_results(
         self, results: List[Any], task_names: List[str]
@@ -338,9 +318,7 @@ class RemoteExecutor(RemoteExecutorStub):
             + "\n".join(stdout_parts),
         )
 
-    async def _execute_flash_function(
-        self, request: FunctionRequest
-    ) -> FunctionResponse:
+    async def _execute_flash_function(self, request: FunctionRequest) -> FunctionResponse:
         """Execute pre-deployed Flash function from /app directory.
 
         Args:
@@ -380,9 +358,7 @@ class RemoteExecutor(RemoteExecutorStub):
 
             # Import the function from its module
             module_path = func_details["module"]
-            self.logger.debug(
-                f"Importing function '{function_name}' from module '{module_path}'"
-            )
+            self.logger.debug(f"Importing function '{function_name}' from module '{module_path}'")
             module = importlib.import_module(module_path)
             # function_name is guaranteed to be non-None by FunctionRequest validation
             func = getattr(module, function_name or "")
@@ -462,9 +438,7 @@ class RemoteExecutor(RemoteExecutorStub):
             timeout = aiohttp.ClientTimeout(total=DEFAULT_ENDPOINT_TIMEOUT)
 
             async with aiohttp.ClientSession(timeout=timeout) as session:
-                async with session.post(
-                    endpoint_url, json=payload, headers=headers
-                ) as response:
+                async with session.post(endpoint_url, json=payload, headers=headers) as response:
                     if response.status != 200:
                         error_text = await response.text()
                         return FunctionResponse(

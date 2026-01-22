@@ -573,7 +573,7 @@ cd worker-tetra
 # Install tetra-rp in editable mode
 uv pip install -e ~/Github/python/tetra-rp
 
-# Now edit files in tetra-rp/ - changes are reflected immediately
+# Now edit files in tetra-rp - changes are reflected immediately
 cd ~/Github/python/tetra-rp
 git checkout -b feature/my-change
 # ... make changes ...
@@ -1022,15 +1022,6 @@ curl -LsSf https://astral.sh/uv/install.sh | sh
 pip install uv
 ```
 
-**Submodule not initialized:**
-```bash
-# Initialize and update submodules
-git submodule update --init --recursive
-
-# Or clone with submodules
-git clone --recurse-submodules <repo-url>
-```
-
 **Virtual environment issues:**
 ```bash
 # Remove and recreate
@@ -1096,37 +1087,36 @@ docker system prune -a
 docker image prune
 ```
 
-### Submodule Sync Issues
+### tetra-rp Dependency Issues
 
-**Detached HEAD in submodule:**
+**Incompatible tetra-rp version:**
 ```bash
-cd tetra-rp
-git checkout main
-git pull
-cd ..
-git add tetra-rp
-git commit -m "chore: update tetra-rp to latest"
-```
+# Update to latest main branch
+uv pip install --upgrade tetra-rp @ git+https://github.com/runpod/tetra-rp.git@main
 
-**Protocol out of sync:**
-```bash
-# Re-sync protocol definitions
-make protocols
-
-# Verify tests still pass
+# Verify compatibility
 make test
 ```
 
-**Merge conflicts in submodule:**
+**Editable install not reflecting changes:**
 ```bash
-# Update to latest
-git submodule update --remote --rebase
+# Reinstall in editable mode
+uv pip install -e ~/Github/python/tetra-rp
 
-# If conflicts
-cd tetra-rp
-git status  # Check conflict
-git rebase --continue  # After resolving
-cd ..
+# If issues persist, rebuild
+uv pip install --force-reinstall -e ~/Github/python/tetra-rp
+```
+
+**Import errors from tetra-rp:**
+```bash
+# Verify tetra-rp is installed
+uv pip show tetra-rp
+
+# Check the import path
+python -c "import tetra_rp; print(tetra_rp.__file__)"
+
+# Reinstall if missing
+uv pip install tetra-rp @ git+https://github.com/runpod/tetra-rp.git@main
 ```
 
 ### CI/CD Issues
@@ -1157,8 +1147,8 @@ python --version  # Should be 3.11+ for lint, 3.9-3.13 for tests
 
 - **Architecture Details:** [CLAUDE.md](CLAUDE.md)
 - **Design Documents:** [docs/](docs/)
-- **Tetra SDK:** [tetra-rp/README.md](tetra-rp/README.md)
-- **Release Process:** [tetra-rp/RELEASE_SYSTEM.md](tetra-rp/RELEASE_SYSTEM.md)
+- **Tetra SDK Repository:** https://github.com/runpod/tetra-rp
+- **Tetra SDK Documentation:** https://github.com/runpod/tetra-rp#readme
 - **RunPod Docs:** https://docs.runpod.io/
 
 ## Getting Help

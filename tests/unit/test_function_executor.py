@@ -4,7 +4,7 @@ import base64
 import cloudpickle
 
 from function_executor import FunctionExecutor
-from remote_execution import FunctionRequest
+from tetra_rp.protos.remote_execution import FunctionRequest
 
 
 class TestFunctionExecution:
@@ -16,15 +16,12 @@ class TestFunctionExecution:
 
     def encode_args(self, *args):
         """Helper to encode arguments."""
-        return [
-            base64.b64encode(cloudpickle.dumps(arg)).decode("utf-8") for arg in args
-        ]
+        return [base64.b64encode(cloudpickle.dumps(arg)).decode("utf-8") for arg in args]
 
     def encode_kwargs(self, **kwargs):
         """Helper to encode keyword arguments."""
         return {
-            k: base64.b64encode(cloudpickle.dumps(v)).decode("utf-8")
-            for k, v in kwargs.items()
+            k: base64.b64encode(cloudpickle.dumps(v)).decode("utf-8") for k, v in kwargs.items()
         }
 
     async def test_execute_simple_function(self):
@@ -139,9 +136,7 @@ class TestAsyncFunctionSupport:
 
     def encode_args(self, *args):
         """Helper to encode arguments."""
-        return [
-            base64.b64encode(cloudpickle.dumps(arg)).decode("utf-8") for arg in args
-        ]
+        return [base64.b64encode(cloudpickle.dumps(arg)).decode("utf-8") for arg in args]
 
     async def test_execute_async_function(self):
         """Test execution of async function."""

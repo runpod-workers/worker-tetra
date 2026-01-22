@@ -70,9 +70,7 @@ class CacheSyncManager:
         try:
             os.makedirs(VOLUME_CACHE_PATH, exist_ok=True)
         except Exception as e:
-            self.logger.warning(
-                f"Failed to create volume cache directory {VOLUME_CACHE_PATH}: {e}"
-            )
+            self.logger.warning(f"Failed to create volume cache directory {VOLUME_CACHE_PATH}: {e}")
             self._should_sync_cached = False
             return False
 
@@ -112,14 +110,10 @@ class CacheSyncManager:
             tarball_path = self._tarball_path
             tarball_exists = os.path.exists(tarball_path)
 
-            self.logger.debug(
-                f"Sync cache to persist from {CACHE_DIR} to {tarball_path}"
-            )
+            self.logger.debug(f"Sync cache to persist from {CACHE_DIR} to {tarball_path}")
 
             # Format timestamp for find -newermt
-            baseline_str = datetime.fromtimestamp(baseline_time).strftime(
-                "%Y-%m-%d %H:%M:%S"
-            )
+            baseline_str = datetime.fromtimestamp(baseline_time).strftime("%Y-%m-%d %H:%M:%S")
 
             # Find files newer than baseline
             find_result = await asyncio.to_thread(
@@ -237,9 +231,7 @@ class CacheSyncManager:
                     )
 
                     if not concat_result.success:
-                        self.logger.warning(
-                            f"Failed to concatenate tarball: {concat_result.error}"
-                        )
+                        self.logger.warning(f"Failed to concatenate tarball: {concat_result.error}")
                         return
 
                     # Atomically move temp to final location
@@ -256,9 +248,7 @@ class CacheSyncManager:
                         )
                         self.mark_last_hydrated()
                     else:
-                        self.logger.warning(
-                            f"Failed to move tarball: {rename_result.error}"
-                        )
+                        self.logger.warning(f"Failed to move tarball: {rename_result.error}")
                 else:
                     # No existing tarball, just move new one to final location
                     rename_result = await asyncio.to_thread(
@@ -269,14 +259,10 @@ class CacheSyncManager:
                     )
 
                     if rename_result.success:
-                        self.logger.info(
-                            f"Successfully created cache tarball at {tarball_path}"
-                        )
+                        self.logger.info(f"Successfully created cache tarball at {tarball_path}")
                         self.mark_last_hydrated()
                     else:
-                        self.logger.warning(
-                            f"Failed to move tarball: {rename_result.error}"
-                        )
+                        self.logger.warning(f"Failed to move tarball: {rename_result.error}")
             finally:
                 # Clean up temporary files
                 self._cleanup_temp_file(file_list_path, "file list")
@@ -298,9 +284,7 @@ class CacheSyncManager:
 
         tarball_path = self._tarball_path
         if not os.path.exists(tarball_path):
-            self.logger.debug(
-                f"Tarball {tarball_path} does not exist, skipping hydration"
-            )
+            self.logger.debug(f"Tarball {tarball_path} does not exist, skipping hydration")
             return False
 
         # Check last hydrated marker
@@ -314,14 +298,10 @@ class CacheSyncManager:
             marker_mtime = os.path.getmtime(marker_path)
 
             if tarball_mtime > marker_mtime:
-                self.logger.debug(
-                    "Tarball is newer than last hydration, hydration needed"
-                )
+                self.logger.debug("Tarball is newer than last hydration, hydration needed")
                 return True
             else:
-                self.logger.debug(
-                    "Tarball is older than last hydration, skipping hydration"
-                )
+                self.logger.debug("Tarball is older than last hydration, skipping hydration")
                 return False
         except Exception as e:
             self.logger.warning(f"Failed to check hydration status: {e}")
@@ -334,9 +314,7 @@ class CacheSyncManager:
 
         try:
             Path(self._hydration_marker_path).touch()
-            self.logger.debug(
-                f"Marked cache last hydrated at {self._hydration_marker_path}"
-            )
+            self.logger.debug(f"Marked cache last hydrated at {self._hydration_marker_path}")
         except Exception as e:
             self.logger.warning(f"Failed to mark cache last hydrated: {e}")
 
@@ -353,9 +331,7 @@ class CacheSyncManager:
             try:
                 os.makedirs(CACHE_DIR, exist_ok=True)
             except Exception as e:
-                self.logger.warning(
-                    f"Failed to create cache directory {CACHE_DIR}: {e}"
-                )
+                self.logger.warning(f"Failed to create cache directory {CACHE_DIR}: {e}")
                 return
 
             # Extract tarball to cache directory

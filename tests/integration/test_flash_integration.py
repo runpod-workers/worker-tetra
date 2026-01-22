@@ -8,7 +8,7 @@ import pytest
 from unittest.mock import patch
 
 from remote_executor import RemoteExecutor
-from remote_execution import FunctionRequest
+from tetra_rp.protos.remote_execution import FunctionRequest
 
 
 class TestFlashIntegration:
@@ -56,9 +56,7 @@ class TestFlashIntegration:
         }
 
         with (
-            patch.object(
-                self.executor, "_load_flash_manifest", return_value=mock_manifest
-            ),
+            patch.object(self.executor, "_load_flash_manifest", return_value=mock_manifest),
             patch("importlib.import_module") as mock_import,
             patch("asyncio.to_thread") as mock_to_thread,
         ):
@@ -105,9 +103,7 @@ class TestFlashIntegration:
         )
 
         with (
-            patch.object(
-                self.executor, "_load_flash_manifest", return_value=mock_manifest
-            ),
+            patch.object(self.executor, "_load_flash_manifest", return_value=mock_manifest),
             patch("importlib.import_module") as mock_import,
             patch("asyncio.to_thread") as mock_to_thread,
         ):
@@ -153,9 +149,7 @@ class TestFlashIntegration:
         )
 
         with (
-            patch.object(
-                self.executor, "_load_flash_manifest", return_value=mock_manifest
-            ),
+            patch.object(self.executor, "_load_flash_manifest", return_value=mock_manifest),
             patch("importlib.import_module") as mock_import,
         ):
             from unittest.mock import Mock
@@ -183,9 +177,7 @@ class TestFlashIntegration:
             kwargs={},
         )
 
-        with patch.object(
-            self.executor, "_load_flash_manifest", return_value=mock_manifest
-        ):
+        with patch.object(self.executor, "_load_flash_manifest", return_value=mock_manifest):
             response = await self.executor.ExecuteFunction(request)
 
         assert response.success is False
@@ -232,14 +224,10 @@ class TestFlashIntegration:
         )
 
         with (
-            patch.object(
-                self.executor, "_load_flash_manifest", return_value=mock_manifest
-            ),
+            patch.object(self.executor, "_load_flash_manifest", return_value=mock_manifest),
             patch("importlib.import_module") as mock_import,
         ):
-            mock_import.side_effect = ModuleNotFoundError(
-                "No module named 'nonexistent_module'"
-            )
+            mock_import.side_effect = ModuleNotFoundError("No module named 'nonexistent_module'")
 
             response = await self.executor.ExecuteFunction(request)
 

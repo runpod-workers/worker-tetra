@@ -4,7 +4,7 @@ import asyncio
 import platform
 from typing import List
 
-from remote_execution import FunctionResponse
+from tetra_rp.protos.remote_execution import FunctionResponse  # type: ignore[import-untyped]
 from constants import LARGE_SYSTEM_PACKAGES, NAMESPACE
 from subprocess_utils import run_logged_subprocess
 
@@ -46,7 +46,9 @@ class DependencyInstaller:
             # Local: Always use uv with current python for consistency
             command = ["uv", "pip", "install", "--python", "python"] + packages
 
-        operation_name = f"Installing Python packages ({'accelerated' if accelerate_downloads else 'standard'})"
+        operation_name = (
+            f"Installing Python packages ({'accelerated' if accelerate_downloads else 'standard'})"
+        )
 
         try:
             result = run_logged_subprocess(
@@ -121,9 +123,7 @@ class DependencyInstaller:
             )
 
         if not packages:
-            return FunctionResponse(
-                success=True, stdout="No system packages to install"
-            )
+            return FunctionResponse(success=True, stdout="No system packages to install")
 
         self.logger.info(f"Installing System dependencies: {packages}")
 
@@ -199,9 +199,7 @@ class DependencyInstaller:
         error_text = (result.error or "") + (result.stdout or "")
         error_text_lower = error_text.lower()
 
-        return any(
-            indicator.lower() in error_text_lower for indicator in error_indicators
-        )
+        return any(indicator.lower() in error_text_lower for indicator in error_indicators)
 
     def _is_docker_environment(self) -> bool:
         """
@@ -262,9 +260,7 @@ class DependencyInstaller:
         )
 
         if not update_result.success:
-            self.logger.warning(
-                "nala update failed, falling back to standard installation"
-            )
+            self.logger.warning("nala update failed, falling back to standard installation")
             return self._install_system_standard(packages)
 
         # Install packages with nala
@@ -279,14 +275,10 @@ class DependencyInstaller:
         )
 
         if not install_result.success:
-            self.logger.warning(
-                "nala installation failed, falling back to standard installation"
-            )
+            self.logger.warning("nala installation failed, falling back to standard installation")
             return self._install_system_standard(packages)
         else:
-            self.logger.info(
-                f"Successfully installed system packages with nala: {packages}"
-            )
+            self.logger.info(f"Successfully installed system packages with nala: {packages}")
             return FunctionResponse(
                 success=True,
                 stdout=f"Installed with nala: {install_result.stdout}",
@@ -319,8 +311,7 @@ class DependencyInstaller:
 
             # Install the packages
             install_result = run_logged_subprocess(
-                command=["apt-get", "install", "-y", "--no-install-recommends"]
-                + packages,
+                command=["apt-get", "install", "-y", "--no-install-recommends"] + packages,
                 logger=self.logger,
                 operation_name="Installing system packages with apt-get",
                 env={
@@ -374,6 +365,4 @@ class DependencyInstaller:
         Returns:
             FunctionResponse: Object indicating success or failure with details
         """
-        return await asyncio.to_thread(
-            self.install_dependencies, packages, accelerate_downloads
-        )
+        return await asyncio.to_thread(self.install_dependencies, packages, accelerate_downloads)

@@ -7,7 +7,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 This is `worker-tetra`, a RunPod Serverless worker template that provides dynamic GPU provisioning for ML workloads with transparent execution and persistent workspace management. The project consists of two main components:
 
 1. **RunPod Worker Handler** (`src/handler.py`) - A serverless function that executes remote Python functions with dependency management and workspace support
-2. **Tetra SDK** (`tetra-rp/` submodule) - Python library for distributed inference and serving of ML models
+2. **Tetra SDK** (pip dependency) - Python library for distributed inference and serving of ML models
 
 ## Key Areas of Responsibility
 
@@ -33,15 +33,16 @@ This is `worker-tetra`, a RunPod Serverless worker template that provides dynami
 - **Timeout Management**: Configurable timeouts with proper cleanup on timeout/cancellation
 
 ### 4. Serialization & Protocol Management
-- **Protocol Definitions** (`src/remote_execution.py:13`): Pydantic models for request/response with validation
+- **Protocol Definitions** (`tetra_rp.protos.remote_execution`): Pydantic models for request/response with validation
 - **Serialization Utils** (`src/serialization_utils.py`): CloudPickle-based data serialization for function arguments and results
 - **Base Executor** (`src/base_executor.py`): Common execution interface and environment setup
 
-### 5. Tetra SDK Integration (`tetra-rp/` submodule)
+### 5. Tetra SDK Integration (pip dependency)
+- **Installation**: Installed via pip from GitHub repository
 - **Client Interface**: `@remote` decorator for marking functions for remote execution
 - **Resource Management**: GPU/CPU configuration and provisioning through LiveServerless objects
 - **Live Serverless**: Dynamic infrastructure provisioning with auto-scaling
-- **Protocol Buffers**: Communication protocol definitions for distributed execution
+- **Repository**: https://github.com/runpod/tetra-rp
 
 ### 6. Testing Infrastructure (`tests/`)
 - **Unit Tests** (`tests/unit/`): Component-level testing for individual modules with mocking
@@ -71,14 +72,10 @@ This is `worker-tetra`, a RunPod Serverless worker template that provides dynami
   - Serializes/deserializes function arguments and results using cloudpickle
   - Captures stdout, stderr, and logs from remote execution
 
-- **`src/remote_execution.py`**: Protocol definitions using Pydantic models
+- **`tetra_rp.protos.remote_execution`**: Protocol definitions from tetra-rp
   - `FunctionRequest`: Defines function execution requests with dependencies
   - `FunctionResponse`: Standardized response format with success/error handling
-
-- **`tetra-rp/`**: Git submodule containing the Tetra SDK
-  - `client.py`: `@remote` decorator for marking functions for remote execution
-  - `core/resources/`: Resource management for serverless endpoints
-  - Auto-provisions RunPod Serverless infrastructure
+  - Imported from installed tetra-rp package via `from tetra_rp.protos.remote_execution import ...`
 
 ### Key Patterns
 
@@ -94,7 +91,7 @@ This is `worker-tetra`, a RunPod Serverless worker template that provides dynami
 
 ### Setup and Dependencies
 ```bash
-make setup                    # Initialize project, sync dependencies, update submodules
+make setup                    # Initialize project and sync dependencies
 make dev                      # Install all development dependencies (includes pytest, ruff)
 uv sync                      # Sync production dependencies only
 uv sync --all-groups         # Sync all dependency groups (same as make dev)
@@ -124,11 +121,6 @@ make test-handler            # Test handler locally with all test_*.json files (
 make build                    # Build GPU Docker image (linux/amd64)
 make build-cpu               # Build CPU-only Docker image
 # Note: Docker push is automated via GitHub Actions on release
-```
-
-### Submodule Management
-```bash
-git submodule update --remote --rebase    # Update tetra-rp to latest
 ```
 
 ## Configuration
@@ -168,7 +160,7 @@ gpu_config = LiveServerless(
 
 ### Dependency Management
 - Root project uses `uv` with `pyproject.toml`
-- Tetra SDK has separate `pyproject.toml` in `tetra-rp/`
+- Tetra SDK installed as pip dependency from GitHub repository
 - System dependencies installed via `apt-get` in containerized environment
 - Python dependencies installed via `uv pip install` at runtime
 - **Differential Installation**: Only installs packages missing from environment
@@ -191,7 +183,6 @@ gpu_config = LiveServerless(
 ├── src/                       # Core implementation
 │   ├── handler.py            # Main serverless function handler
 │   ├── remote_executor.py    # Central execution orchestrator
-│   ├── remote_execution.py   # Protocol definitions
 │   ├── function_executor.py  # Function execution with output capture
 │   ├── class_executor.py     # Class execution with persistence
 │   ├── dependency_installer.py # Python and system dependency management
@@ -203,10 +194,6 @@ gpu_config = LiveServerless(
 │   ├── conftest.py          # Shared test fixtures
 │   ├── unit/                # Unit tests for individual components
 │   └── integration/         # End-to-end integration tests
-├── tetra-rp/                # Git submodule - Tetra SDK
-│   ├── src/tetra_rp/
-│   │   ├── client.py        # @remote decorator
-│   │   └── core/            # Resource and pool management
 ├── Dockerfile               # GPU container definition
 ├── Dockerfile-cpu          # CPU container definition
 └── Makefile                # Development commands and quality gates
@@ -235,8 +222,7 @@ Configure these in GitHub repository settings:
 
 ## Branch Information
 - Main branch: `main`
-- Current branch: `deanq/ae-1165-bug-pytorchs-not-found`
-- Submodule tracking: Updates pulled from remote automatically during setup
+- Current branch: `tmp/deployed-execution`
 
 ## Development Best Practices
 

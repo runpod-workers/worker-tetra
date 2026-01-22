@@ -23,8 +23,6 @@ dev: # Install development dependencies
 update: # Upgrade all dependencies
 	uv sync --upgrade --all-groups
 	uv lock --upgrade
-	git submodule update --remote
-	make protocols
 
 clean: # Remove build artifacts and cache files
 	rm -rf dist build *.egg-info
@@ -32,14 +30,8 @@ clean: # Remove build artifacts and cache files
 	find . -type f -name "*.pyc" -delete
 	find . -type f -name "*.pkl" -delete
 
-setup: dev # Initialize project, sync deps, update submodules
-	@if [ ! -f "tetra-rp/.git" ]; then \
-		git submodule update --init --recursive; \
-	fi
-	make protocols
-
-protocols: # Copy remote_execution protocol from submodule
-	cp tetra-rp/src/tetra_rp/protos/remote_execution.py src/
+setup: dev # Initialize project and sync dependencies
+	@echo "Setup complete. Development environment ready."
 
 build: # Build both GPU and CPU Docker images
 	make build-gpu

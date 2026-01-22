@@ -5,7 +5,7 @@ import inspect
 from contextlib import redirect_stdout, redirect_stderr
 from typing import Dict, Any
 
-from remote_execution import FunctionRequest, FunctionResponse
+from tetra_rp.protos.remote_execution import FunctionRequest, FunctionResponse  # type: ignore[import-untyped]
 from serialization_utils import SerializationUtils
 
 
@@ -61,9 +61,7 @@ class FunctionExecutor:
 
             except Exception as e:
                 # Combine output streams
-                combined_output = (
-                    stdout_io.getvalue() + stderr_io.getvalue() + log_io.getvalue()
-                )
+                combined_output = stdout_io.getvalue() + stderr_io.getvalue() + log_io.getvalue()
 
                 # Capture full traceback
                 traceback_str = traceback.format_exc()
@@ -84,9 +82,7 @@ class FunctionExecutor:
         serialized_result = SerializationUtils.serialize_result(result)
 
         # Combine output streams
-        combined_output = (
-            stdout_io.getvalue() + stderr_io.getvalue() + log_io.getvalue()
-        )
+        combined_output = stdout_io.getvalue() + stderr_io.getvalue() + log_io.getvalue()
 
         return FunctionResponse(
             success=True,
