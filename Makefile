@@ -14,7 +14,7 @@ endif
 help: # Show this help menu
 	@echo "Available make commands:"
 	@echo ""
-	@awk 'BEGIN {FS = ":.*# "; printf "%-20s %s\n", "Target", "Description"} /^[a-zA-Z_-]+:.*# / {printf "%-20s %s\n", $$1, $$2}' $(MAKEFILE_LIST)
+	@awk 'BEGIN {FS = ":.*# "; printf "%-20s %s\n", "Target", "Description"} /^[a-zA-Z0-9_-]+:.*# / {printf "%-20s %s\n", $$1, $$2}' $(MAKEFILE_LIST)
 	@echo ""
 
 dev: # Install development dependencies
@@ -71,6 +71,30 @@ build-lb-cpu: setup # Build CPU-only Load Balancer Docker image (linux/amd64)
 	-f Dockerfile-lb-cpu \
 	-t $(IMAGE)-lb-cpu:$(TAG) \
 	. --load
+
+# ARM64 Build Commands (CPU-only due to PyTorch limitations)
+
+build-arm64: # Build all ARM64 CPU images
+	make build-cpu-arm64
+	make build-lb-cpu-arm64
+
+build-cpu-arm64: setup # Build CPU-only Docker image (linux/arm64)
+	docker buildx build \
+	--platform linux/arm64 \
+	-f Dockerfile-cpu \
+	-t $(FULL_IMAGE_CPU)-arm64 \
+	. --load
+
+build-lb-cpu-arm64: setup # Build CPU-only Load Balancer Docker image (linux/arm64)
+	docker buildx build \
+	--platform linux/arm64 \
+	-f Dockerfile-lb-cpu \
+	-t $(IMAGE)-lb-cpu:$(TAG)-arm64 \
+	. --load
+
+push-arm64: # Push ARM64 Docker images to Docker Hub
+	docker push $(FULL_IMAGE_CPU)-arm64
+	docker push $(IMAGE)-lb-cpu:$(TAG)-arm64
 
 # Test commands
 test: # Run all tests
