@@ -1,753 +1,311 @@
-# Manifest Reconciliation
+# Manifest Reconciliation with TTL-Based Caching
 
 ## Overview
 
-Manifest reconciliation is a request-scoped mechanism that keeps the local Flash manifest synchronized with RunPod's State Manager. It ensures that cross-endpoint routing has access to fresh endpoint URLs without blocking worker startup or requiring background threads (which are incompatible with serverless containers).
-
-### What Is Manifest Reconciliation?
-
-In Flash deployments, endpoints are pre-deployed with a local manifest artifact (`/app/flash_manifest.json`) that contains function definitions. However, endpoint URLs are not known until provisioning completes. These URLs are stored in State Manager (the authoritative source). Without synchronization, ServiceRegistry cannot route functions to their proper endpoints.
-
-### Why TTL-Based Approach?
-
-Traditional approaches present problems:
-- **Boot-time blocking**: Querying State Manager at startup blocks cold starts (serverless incompatible)
-- **Background threads**: Daemon threads don't work in ephemeral containers that disappear after requests
-- **Completeness checking**: Requires knowing expected endpoints upfront (changes dynamically)
-
-The TTL-based approach solves this by:
-- Checking manifest file modification time (≤1ms, no API call)
-- Only querying State Manager if manifest is older than 5 minutes
-- Doing this during cross-endpoint routing (when URLs are actually needed)
-- Gracefully degrading if State Manager is unavailable
-
-### Serverless Compatibility
-
-This implementation is serverless-compatible because:
-- **No boot-time queries**: Workers start immediately with local manifest
-- **No background threads**: All operations are request-scoped
-- **Non-blocking**: TTL checks use file stats, not API calls
-- **Graceful degradation**: State Manager unavailability doesn't crash the worker
-
----
-
-## How It Works
-
-### Request-Scoped Refresh Flow
-
-```mermaid
-graph TD
-    A["FunctionRequest Received"] --> B["RemoteExecutor.ExecuteFunction"]
-    B --> C["Call refresh_manifest_if_stale"]
-    C --> D{Is Flash Deployment?}
-
-    D -->|No| E["Return False<br/>Skip refresh"]
-    D -->|Yes| F{API Key Set?}
-    F -->|No| E
-    F -->|Yes| G{Endpoint ID Set?}
-    G -->|No| E
-
-    G -->|Yes| H["Check file mtime"]
-    H --> I{Manifest<br/>Fresh?}
-
-    I -->|Yes| J["Return True<br/>No State Manager query"]
-    I -->|No| K["Query State Manager"]
-
-    K --> L{State Manager<br/>Success?}
-    L -->|Yes| M["Write to disk"]
-    M --> N["Return True<br/>ServiceRegistry updated"]
-
-    L -->|No| O["Log warning<br/>Non-fatal"]
-    O --> P["Return True<br/>Continue with stale"]
-
-    E --> Q["Continue Routing"]
-    J --> Q
-    N --> Q
-    P --> Q
-```
-
-### TTL-Based Staleness Detection
-
-The manifest staleness check is simple and efficient:
-
-```python
-age_seconds = time.time() - manifest_path.stat().st_mtime
-is_stale = age_seconds >= ttl_seconds  # Default ttl_seconds = 300
-```
-
-**Key points:**
-- Uses file modification time (filesystem metadata, no I/O)
-- Default TTL is 5 minutes (300 seconds)
-- Boundary: manifest at exactly TTL is considered stale (≥ check)
-- Missing manifest is always considered stale
-
-### State Manager as Source of Truth
-
-When refresh succeeds:
-1. StateManagerClient queries the GraphQL endpoint
-2. State Manager returns complete manifest with endpoint URLs
-3. Local manifest on disk is replaced entirely
-4. ServiceRegistry reads the updated manifest
-
-**Conflict resolution**: State Manager always wins. If there's a difference between local and State Manager manifests, the State Manager version is used.
-
----
+Manifest reconciliation is the process of keeping the local endpoint's function registry synchronized with the State Manager. This enables cross-endpoint routing in Flash deployments where multiple resource types (CPU, GPU) handle different functions.
 
 ## Architecture
 
-### Core Module: `src/manifest_reconciliation.py`
+### Core Concept
 
-The manifest reconciliation module (`src/manifest_reconciliation.py:1-196`) provides:
+Each endpoint maintains a cached copy of the complete function manifest that maps:
+- **Function names** → Resource types (e.g., `process_image` → `gpu_resource`)
+- **Resource types** → Endpoint URLs (e.g., `gpu_resource` → `https://api.runpod.io/v2/gpu-endpoint/run`)
 
-**Main function:**
-- `refresh_manifest_if_stale()` - Entry point called by RemoteExecutor
-  - Args: `manifest_path`, `ttl_seconds`
-  - Returns: `bool` (True = fresh or refresh succeeded)
-  - Non-fatal errors: Returns True to continue execution
+This allows any endpoint to route incoming function calls to the appropriate resource without needing a central hub.
 
-**Helper functions:**
-- `is_flash_deployment()` - Detects if running in Flash mode
-- `_is_manifest_stale()` - Checks if manifest is older than TTL
-- `_load_local_manifest()` - Loads manifest from disk
-- `_save_manifest()` - Writes manifest to disk
-- `_fetch_and_save_manifest()` - Queries State Manager and saves result
+```mermaid
+graph TB
+    Client["Client<br/>Request"]
 
-### Integration Point: `src/remote_executor.py`
+    CPU["CPU Endpoint<br/>(tetra-rp)"]
+    GPU["GPU Endpoint<br/>(tetra-rp)"]
 
-RemoteExecutor integrates manifest refresh (`src/remote_executor.py:95-101`):
+    SM["State Manager<br/>(Manifest Store)"]
+
+    Client -->|process_image| CPU
+    Client -->|count_items| GPU
+
+    CPU -->|cache expired?<br/>query manifest| SM
+    GPU -->|cache expired?<br/>query manifest| SM
+
+    CPU -->|"process_image<br/>→ gpu_resource<br/>→ GPU endpoint"| GPU
+    GPU -->|"count_items<br/>→ cpu_resource<br/>→ CPU endpoint"| CPU
+
+    style Client fill:#1976d2,stroke:#0d47a1,stroke-width:3px,color:#fff
+    style CPU fill:#388e3c,stroke:#1b5e20,stroke-width:3px,color:#fff
+    style GPU fill:#388e3c,stroke:#1b5e20,stroke-width:3px,color:#fff
+    style SM fill:#f57c00,stroke:#e65100,stroke-width:3px,color:#fff
+```
+
+### TTL-Based Caching Strategy
+
+Instead of querying State Manager on every function call, endpoints use **time-to-live (TTL) based caching**:
+
+1. **Cache Miss (Fresh Start or Expired)**: Query State Manager for full manifest
+2. **Cache Hit (Within TTL)**: Use cached manifest (default: 300 seconds)
+3. **Cache Expiry**: TTL resets after next State Manager query
+
+**Benefits:**
+- Reduces State Manager query load by ~99% (1 query per 300s per endpoint vs 1 per function call)
+- Minimizes latency impact on function routing
+- Graceful fallback if State Manager is unavailable
+
+### Thread Safety
+
+Manifest reconciliation uses `asyncio.Lock` to protect concurrent access:
 
 ```python
-# Refresh manifest from State Manager if stale (before routing decisions)
-# This ensures ServiceRegistry has fresh endpoint URLs for cross-endpoint routing
-try:
-    await refresh_manifest_if_stale(Path(FLASH_MANIFEST_PATH))
-except Exception as e:
-    self.logger.debug(f"Manifest refresh failed (non-fatal): {e}")
-    # Continue with potentially stale manifest
+async with self._endpoint_registry_lock:
+    now = time.time()
+    cache_age = now - self._endpoint_registry_loaded_at
+
+    if cache_age > self.cache_ttl:
+        # Refresh manifest atomically
+        self._endpoint_registry = updated_registry
+        self._endpoint_registry_loaded_at = now
 ```
 
-This call happens **before** cross-endpoint routing (`src/remote_executor.py:147-184`), ensuring ServiceRegistry has fresh URLs when needed.
+This ensures only one coroutine queries State Manager at a time, preventing thundering herd when cache expires.
 
-### Flash Deployment Detection
+## Implementation Details
 
-Detection uses environment variables set by RunPod provisioning:
+### File: `src/manifest_reconciliation.py`
+
+The `ManifestReconciliationManager` handles:
+
+1. **Manifest Loading** - Fetch from State Manager via StateManagerClient
+2. **Cache Expiry Checks** - Compare current time against last_loaded timestamp
+3. **Registry Updates** - Parse `resources_endpoints` mapping from manifest
+4. **Error Handling** - Gracefully degrade if State Manager unavailable
+
+### Integration Points
+
+#### In `RemoteExecutor` (src/remote_executor.py)
+
+When Flash mode is detected (no function code), routing uses ServiceRegistry:
 
 ```python
-def is_flash_deployment() -> bool:
-    endpoint_id = os.getenv("RUNPOD_ENDPOINT_ID")
-    is_flash = any([
-        os.getenv("FLASH_IS_MOTHERSHIP") == "true",
-        os.getenv("FLASH_MOTHERSHIP_ID"),
-        os.getenv("FLASH_RESOURCE_NAME"),
-    ])
-    return bool(endpoint_id and is_flash)
+if not has_function_code and not has_class_code:
+    # Flash deployment - use ServiceRegistry for routing
+    endpoint_url = self.service_registry.get_endpoint_for_function(
+        request.function_name
+    )
+    if endpoint_url:
+        result = await self._route_to_endpoint(request, endpoint_url)
+    else:
+        result = await self._execute_flash_function(request)
 ```
 
-All three conditions must be true:
-1. `RUNPOD_ENDPOINT_ID` must be set
-2. At least one Flash indicator must be set
+#### In `ServiceRegistry` (tetra-rp)
 
-### ServiceRegistry Interaction
-
-ServiceRegistry is initialized with the manifest path (`src/remote_executor.py:48`):
+The ServiceRegistry automatically calls `_ensure_manifest_loaded()`:
 
 ```python
-self.service_registry = ServiceRegistry(manifest_path=Path(FLASH_MANIFEST_PATH))
+async def _ensure_manifest_loaded(self) -> None:
+    """Load manifest from State Manager if cache expired."""
+    async with self._endpoint_registry_lock:
+        now = time.time()
+        cache_age = now - self._endpoint_registry_loaded_at
+
+        if cache_age > self.cache_ttl:
+            manifest = await self._manifest_client.get_persisted_manifest(
+                os.getenv("RUNPOD_ENDPOINT_ID")
+            )
+            self._endpoint_registry = manifest.get("resources_endpoints", {})
+            self._endpoint_registry_loaded_at = now
 ```
 
-When manifest is refreshed, ServiceRegistry automatically picks up changes on next read (it reads the file fresh for each lookup).
+## State Manager Query Flow
 
----
+```mermaid
+flowchart TD
+    A["ServiceRegistry.get_endpoint_for_function(func_name)"] -->|fetch function| B{"Cache<br/>expired?"}
+    B -->|no| C["Use cached<br/>manifest"]
+    B -->|yes| D["_ensure_manifest_loaded()"]
+    D --> E["StateManagerClient.get_persisted_manifest()"]
+    E --> F["GraphQL Query:<br/>environment_id → build_id"]
+    F --> G["Parse manifest<br/>extract resources_endpoints"]
+    G --> H["Update cache<br/>300s TTL"]
+    C --> I["Lookup function<br/>in registry"]
+    H --> I
+    I --> J{"Function<br/>found?"}
+    J -->|yes| K["Return endpoint URL"]
+    J -->|no| L["Return None"]
 
-## Key Functions
-
-### `refresh_manifest_if_stale()`
-
-**Signature:**
-```python
-async def refresh_manifest_if_stale(
-    manifest_path: Path = Path(FLASH_MANIFEST_PATH),
-    ttl_seconds: int = DEFAULT_MANIFEST_TTL_SECONDS,
-) -> bool:
+    style A fill:#1976d2,stroke:#0d47a1,stroke-width:3px,color:#fff
+    style B fill:#d32f2f,stroke:#b71c1c,stroke-width:3px,color:#fff
+    style C fill:#388e3c,stroke:#1b5e20,stroke-width:3px,color:#fff
+    style D fill:#f57c00,stroke:#e65100,stroke-width:3px,color:#fff
+    style E fill:#f57c00,stroke:#e65100,stroke-width:3px,color:#fff
+    style F fill:#f57c00,stroke:#e65100,stroke-width:3px,color:#fff
+    style G fill:#f57c00,stroke:#e65100,stroke-width:3px,color:#fff
+    style H fill:#388e3c,stroke:#1b5e20,stroke-width:3px,color:#fff
+    style I fill:#1976d2,stroke:#0d47a1,stroke-width:3px,color:#fff
+    style J fill:#d32f2f,stroke:#b71c1c,stroke-width:3px,color:#fff
+    style K fill:#388e3c,stroke:#1b5e20,stroke-width:3px,color:#fff
+    style L fill:#388e3c,stroke:#1b5e20,stroke-width:3px,color:#fff
 ```
-
-**Behavior:**
-1. Skip if not in Flash deployment
-2. Skip if `RUNPOD_ENDPOINT_ID` or `RUNPOD_API_KEY` not set
-3. Check if manifest is fresh (< TTL old)
-4. If stale: Query State Manager, write to disk
-5. Return True on success or fresh manifest
-6. Return False only if Flash deployment not detected
-
-**Example:**
-```python
-from pathlib import Path
-from manifest_reconciliation import refresh_manifest_if_stale
-
-# Use defaults (5-minute TTL)
-success = await refresh_manifest_if_stale()
-
-# Custom TTL (10 minutes)
-success = await refresh_manifest_if_stale(ttl_seconds=600)
-```
-
-### `_is_manifest_stale()`
-
-**Signature:**
-```python
-def _is_manifest_stale(
-    manifest_path: Path,
-    ttl_seconds: int = DEFAULT_MANIFEST_TTL_SECONDS,
-) -> bool:
-```
-
-**Returns:**
-- `True`: Manifest is missing or older than TTL
-- `False`: Manifest is fresh (newer than TTL)
-
-**Example:**
-```python
-from manifest_reconciliation import _is_manifest_stale
-from pathlib import Path
-
-manifest_path = Path("/app/flash_manifest.json")
-if _is_manifest_stale(manifest_path, ttl_seconds=300):
-    print("Manifest needs refresh")
-```
-
-### `_fetch_and_save_manifest()`
-
-**Signature:**
-```python
-async def _fetch_and_save_manifest(
-    manifest_path: Path,
-    endpoint_id: str,
-) -> bool:
-```
-
-**Behavior:**
-- Imports StateManagerClient from tetra_rp
-- Calls `get_persisted_manifest(endpoint_id)`
-- Writes result to `manifest_path`
-- Returns True on success, False on error
-
-**Error handling:** Non-fatal. Logs warnings but doesn't raise.
-
-### `is_flash_deployment()`
-
-**Signature:**
-```python
-def is_flash_deployment() -> bool:
-```
-
-**Returns:** `True` if running in Flash deployment mode
-
-**Example:**
-```python
-from manifest_reconciliation import is_flash_deployment
-
-if is_flash_deployment():
-    print("Running in Flash deployment")
-else:
-    print("Running in Live Serverless or other mode")
-```
-
----
-
-## Environment Variables
-
-### Required Variables
-
-**`RUNPOD_ENDPOINT_ID`**
-- Set by RunPod provisioning system
-- Uniquely identifies this endpoint
-- Used to query State Manager for this endpoint's manifest
-
-**`RUNPOD_API_KEY`**
-- Set by RunPod provisioning system
-- Authentication for State Manager API
-- Refresh is skipped if not set
-
-### Flash Detection Variables
-
-At least one of these must be set to detect Flash deployment:
-
-**`FLASH_IS_MOTHERSHIP`**
-- Set to `"true"` for mothership endpoints
-- Indicates this is a Flash deployed endpoint
-
-**`FLASH_MOTHERSHIP_ID`**
-- Set to mothership endpoint ID
-- Indicates this endpoint is part of a Flash deployment
-
-**`FLASH_RESOURCE_NAME`**
-- Set to resource name (e.g., "cpu_endpoint", "gpu_endpoint")
-- Indicates which resource this worker is running
-
-### Optional Variables
-
-**`FLASH_MANIFEST_PATH`**
-- Default: `/app/flash_manifest.json`
-- Can be overridden for testing or special deployments
-
----
-
-## Usage Examples
-
-### Default Behavior (In RemoteExecutor)
-
-Manifest refresh is called automatically before cross-endpoint routing:
-
-```python
-# In RemoteExecutor.ExecuteFunction()
-try:
-    await refresh_manifest_if_stale(Path(FLASH_MANIFEST_PATH))
-except Exception as e:
-    self.logger.debug(f"Manifest refresh failed (non-fatal): {e}")
-    # Continue with potentially stale manifest
-```
-
-No additional setup required - just call and ignore non-fatal errors.
-
-### Custom TTL Configuration
-
-Change how often manifest refreshes:
-
-```python
-from pathlib import Path
-from manifest_reconciliation import refresh_manifest_if_stale
-
-# Refresh every 10 minutes instead of 5
-await refresh_manifest_if_stale(ttl_seconds=600)
-
-# Aggressive: refresh every 1 minute
-await refresh_manifest_if_stale(ttl_seconds=60)
-
-# Conservative: refresh every 30 minutes
-await refresh_manifest_if_stale(ttl_seconds=1800)
-```
-
-### Manual Staleness Check
-
-Check if manifest is stale without refreshing:
-
-```python
-from pathlib import Path
-from manifest_reconciliation import _is_manifest_stale
-
-manifest_path = Path("/app/flash_manifest.json")
-
-if _is_manifest_stale(manifest_path):
-    print("Manifest is stale and will refresh on next routing request")
-else:
-    print(f"Manifest is fresh (refreshed within last 5 minutes)")
-```
-
----
-
-## Error Handling
-
-### Non-Fatal Error Strategy
-
-All errors during refresh are non-fatal:
-
-| Error | Behavior | Log Level |
-|-------|----------|-----------|
-| State Manager query fails | Continue with stale manifest | Warning |
-| State Manager returns empty | Continue with stale manifest | Warning |
-| Disk write fails | Continue with stale manifest | Error |
-| API key missing | Skip refresh | Debug |
-| Endpoint ID missing | Skip refresh | Debug |
-| Not Flash deployment | Skip refresh | N/A |
-
-### State Manager Unavailability
-
-If State Manager is temporarily unavailable:
-
-1. `_fetch_and_save_manifest()` logs warning
-2. Refresh returns False
-3. Worker continues with potentially stale manifest
-4. Next request after 5 minutes retries refresh
-5. Workers degrade gracefully (may fail routing, but don't crash)
-
-### Missing API Key
-
-If `RUNPOD_API_KEY` is not set:
-
-```python
-api_key = os.getenv("RUNPOD_API_KEY")
-if not api_key:
-    logger.debug("RUNPOD_API_KEY not set, skipping manifest refresh")
-    return False
-```
-
-This is expected in Live Serverless mode (non-Flash deployments).
-
-### Disk Write Errors
-
-If manifest cannot be written to disk (disk full, permissions):
-
-```python
-try:
-    manifest_path.write_text(json.dumps(manifest, indent=2))
-    return True
-except OSError as e:
-    logger.error(f"Failed to write manifest to {manifest_path}: {e}")
-    return False
-```
-
-Worker continues with old manifest - this prevents crashes from filling the disk.
-
----
-
-## Performance Characteristics
-
-### Boot-Time Latency
-
-**0 additional milliseconds**
-
-Manifest refresh is not called at boot. Workers start immediately with local manifest.
-
-### Fresh Manifest Check
-
-**~1 millisecond**
-
-Checking if manifest is fresh uses only `stat()` system call (filesystem metadata):
-
-```python
-mtime = manifest_path.stat().st_mtime
-age_seconds = time.time() - mtime
-```
-
-No I/O, no API calls.
-
-### Stale Manifest Refresh
-
-**100-500 milliseconds**
-
-When manifest is stale, a GraphQL query to State Manager is executed:
-
-```
-GraphQL query time: 50-400ms (dependent on State Manager latency)
-Disk write time: 10-50ms (dependent on manifest size)
-Total: 100-500ms
-```
-
-### Query Frequency
-
-Maximum once per 5 minutes (default TTL)
-
-- First routing request after manifest becomes stale: Full refresh (100-500ms)
-- All subsequent requests within 5 minutes: Only stat() check (1ms)
-- After 5 minutes: Next refresh happens
-
-### Memory Usage
-
-**~100KB for manifest + StateManagerClient**
-
-- Average Flash manifest: 5-50KB (function registry + resource definitions)
-- StateManagerClient library: ~50KB
-- Total per worker: <100KB
-
----
 
 ## Manifest Structure
 
-### Local Manifest (Build Artifact)
+The State Manager returns manifests with this structure:
 
-```json
+```python
 {
-  "version": "1.0",
-  "generated_at": "2026-01-22T00:00:00Z",
-  "project_name": "my_app",
-  "resources": {
-    "cpu_endpoint": {
-      "resource_type": "CpuLiveLoadBalancer",
-      "handler_file": "handler.py",
-      "config_hash": "abc123",
-      "functions": [
-        {
-          "name": "cpu_task",
-          "module": "workers.cpu",
-          "is_async": true,
-          "is_class": false
-        }
-      ]
+    "function_registry": {
+        "process_image": "gpu_resource",
+        "count_items": "cpu_resource",
+        "validate_data": "cpu_resource"
+    },
+    "resources_endpoints": {
+        "gpu_resource": "https://api.runpod.io/v2/gpu-abc123/run",
+        "cpu_resource": "https://api.runpod.io/v2/cpu-def456/run"
     }
-  },
-  "function_registry": {
-    "cpu_task": "cpu_endpoint"
-  }
 }
 ```
 
-**Note:** No `endpoint_url` fields in local manifest (not known until provisioning).
+This allows:
+- **Local lookups**: O(1) function to resource mapping
+- **Endpoint discovery**: O(1) resource to URL mapping
+- **Graceful degradation**: If a resource is missing, function executes locally
 
-### State Manager Manifest (With URLs)
+## Configuration
 
-State Manager adds endpoint URLs to the manifest:
+### Environment Variables
 
-```json
-{
-  "version": "1.0",
-  "generated_at": "2026-01-22T00:00:00Z",
-  "project_name": "my_app",
-  "resources": {
-    "cpu_endpoint": {
-      "resource_type": "CpuLiveLoadBalancer",
-      "handler_file": "handler.py",
-      "config_hash": "abc123",
-      "endpoint_url": "https://ep-cpu-001.runpod.io",
-      "status": "healthy",
-      "functions": [
-        {
-          "name": "cpu_task",
-          "module": "workers.cpu",
-          "is_async": true,
-          "is_class": false
-        }
-      ]
-    }
-  },
-  "function_registry": {
-    "cpu_task": "cpu_endpoint"
-  }
-}
+- `RUNPOD_ENDPOINT_ID` - Identifies this endpoint to State Manager
+- `RUNPOD_API_KEY` - Authenticates requests to State Manager
+- `FLASH_RESOURCE_NAME` - (Optional) Override resource name for this endpoint
+
+### Tuning
+
+TTL can be configured via `ServiceRegistry` initialization:
+
+```python
+service_registry = ServiceRegistry(cache_ttl=600)  # 10 minutes instead of default 5
 ```
 
-**Added fields:**
-- `endpoint_url`: Full URL to this endpoint
-- `status`: Endpoint health status
+**Guidelines:**
+- **Short TTL (60s)**: For rapidly changing deployments, higher State Manager load
+- **Default TTL (300s)**: Balanced for typical deployments
+- **Long TTL (900s+)**: For stable deployments with fewer changes
 
----
+## Error Handling
+
+### Scenario: State Manager Unavailable
+
+```mermaid
+flowchart TD
+    A["_ensure_manifest_loaded()"] --> B["Query State Manager"]
+    B --> C["Exception raised"]
+    C --> D["Catch exception<br/>Log warning"]
+    D --> E["Registry stays empty<br/>{}"]
+    E --> F["All incoming functions<br/>execute locally"]
+    F --> G["✓ Graceful fallback<br/>No routing"]
+
+    style A fill:#1976d2,stroke:#0d47a1,stroke-width:3px,color:#fff
+    style B fill:#f57c00,stroke:#e65100,stroke-width:3px,color:#fff
+    style C fill:#d32f2f,stroke:#b71c1c,stroke-width:3px,color:#fff
+    style D fill:#d32f2f,stroke:#b71c1c,stroke-width:3px,color:#fff
+    style E fill:#388e3c,stroke:#1b5e20,stroke-width:3px,color:#fff
+    style F fill:#388e3c,stroke:#1b5e20,stroke-width:3px,color:#fff
+    style G fill:#388e3c,stroke:#1b5e20,stroke-width:3px,color:#fff
+```
+
+### Scenario: Function Not in Manifest
+
+```mermaid
+flowchart TD
+    A["lookup function_registry"] --> B{"Function<br/>found?"}
+    B -->|no| C["KeyError"]
+    C --> D["Return None"]
+    D --> E["RemoteExecutor<br/>receives None"]
+    E --> F["Fall back to<br/>_execute_flash_function()"]
+    F --> G["✓ Local execution<br/>with original request"]
+
+    style A fill:#1976d2,stroke:#0d47a1,stroke-width:3px,color:#fff
+    style B fill:#d32f2f,stroke:#b71c1c,stroke-width:3px,color:#fff
+    style C fill:#d32f2f,stroke:#b71c1c,stroke-width:3px,color:#fff
+    style D fill:#388e3c,stroke:#1b5e20,stroke-width:3px,color:#fff
+    style E fill:#388e3c,stroke:#1b5e20,stroke-width:3px,color:#fff
+    style F fill:#388e3c,stroke:#1b5e20,stroke-width:3px,color:#fff
+    style G fill:#388e3c,stroke:#1b5e20,stroke-width:3px,color:#fff
+```
 
 ## Testing
 
-### Unit Test Coverage
+### Unit Tests
 
-30+ unit tests in `tests/unit/test_manifest_reconciliation.py`:
+- `test_manifest_loading_with_ttl` - Verify cache expiry logic
+- `test_concurrent_manifest_refresh` - Verify asyncio.Lock prevents thundering herd
+- `test_state_manager_error_fallback` - Verify graceful degradation
+- `test_endpoint_registry_parsing` - Verify `resources_endpoints` extraction
 
-**Test categories:**
-- Flash deployment detection (5 tests)
-- Manifest staleness checks (8 tests)
-- Manifest loading and saving (6 tests)
-- State Manager integration (7 tests)
-- Error handling (4 tests)
+### Integration Tests
 
-**Run unit tests:**
-```bash
-make test-unit
-# or
-python -m pytest tests/unit/test_manifest_reconciliation.py -xvs
+- Mock State Manager GraphQL responses
+- Verify ServiceRegistry queries exactly once per TTL period
+- Verify routing decisions made correctly based on manifest
+- Verify local fallback on State Manager unavailability
+
+## Observability
+
+### Log Levels
+
+- **DEBUG**: Manifest loading, cache hits/misses
+- **WARNING**: State Manager unavailable, missing endpoints
+- **ERROR**: Unexpected failures during manifest loading
+
+Example logs:
+
+```
+DEBUG: Manifest loaded from State Manager: 3 endpoints, cache TTL 300s
+DEBUG: Routing 'process_image' to https://api.runpod.io/v2/gpu-abc123/run
+DEBUG: Cache hit for manifest (87 seconds old, TTL 300s)
+WARNING: State Manager unavailable: Connection timeout. Cross-endpoint routing unavailable.
 ```
 
-### Integration Test Coverage
-
-15+ integration tests in `tests/integration/test_manifest_state_manager.py`:
-
-**Test scenarios:**
-- First deployment (stale manifest refresh)
-- Update deployment (fresh manifest, no refresh)
-- Scale-out (new endpoints)
-- State Manager failures
-- Concurrent worker refreshes
-- Custom TTL configurations
-
-**Run integration tests:**
-```bash
-make test-integration
-# or
-python -m pytest tests/integration/test_manifest_state_manager.py -xvs
-```
-
-### Full Quality Check
-
-All tests, linting, type checking:
-
-```bash
-make quality-check
-```
-
-This runs:
-- `pytest` with coverage reporting
-- `ruff format --check`
-- `ruff check`
-- `mypy`
-- Coverage threshold validation (35% minimum)
-
----
-
-## Troubleshooting
-
-### Debug Logging
-
-Enable debug-level logging to see detailed refresh information:
-
-```bash
-# Set logging level
-export LOG_LEVEL=DEBUG
-
-# Run worker
-python -m handler
-```
-
-Debug logs will show:
-- Flash deployment detection
-- TTL staleness checks
-- State Manager queries
-- Manifest refresh success/failure
-
-### Check Manifest Age
-
-View how old the local manifest is:
-
-```bash
-stat /app/flash_manifest.json
-# Look for "Modify:" timestamp
-
-# Or calculate age:
-python3 -c "
-import time
-from pathlib import Path
-mtime = Path('/app/flash_manifest.json').stat().st_mtime
-age = time.time() - mtime
-print(f'Manifest age: {age:.0f} seconds')
-"
-```
-
-### Verify State Manager Connectivity
-
-Check if State Manager is reachable:
-
-```python
-import asyncio
-from tetra_rp.runtime.state_manager_client import StateManagerClient
-
-async def test_state_manager():
-    client = StateManagerClient()
-    manifest = await client.get_persisted_manifest("YOUR_ENDPOINT_ID")
-    if manifest:
-        print("State Manager: Connected")
-        print(f"Resources: {list(manifest.get('resources', {}).keys())}")
-    else:
-        print("State Manager: No manifest found")
-
-asyncio.run(test_state_manager())
-```
-
-### Common Issues
-
-**Issue: Manifest never refreshes**
-- Check: Is `RUNPOD_ENDPOINT_ID` set?
-- Check: Is `RUNPOD_API_KEY` set?
-- Check: Is Flash deployment detected? (Check env vars)
-- Solution: Refresh only happens in Flash deployments with both env vars set
-
-**Issue: Routing fails with "endpoint_url not found"**
-- Check: Is manifest fresh? (`stat /app/flash_manifest.json`)
-- Check: Did State Manager have endpoint URLs? (Check in UI)
-- Solution: Wait for next refresh (5-min TTL) or force refresh by touching manifest
-
-**Issue: State Manager query times out**
-- Check: Is network connectivity available?
-- Check: Is State Manager service running?
-- Solution: Worker continues with stale manifest, no crash
-
-**Issue: Disk write fails**
-- Check: Is disk full? (`df -h`)
-- Check: Are permissions correct? (`ls -la /app`)
-- Solution: Worker continues with old manifest, may need disk cleanup
-
----
-
-## Design Decisions
-
-### Request-Scoped Refresh (Not Boot-Time)
-
-**Decision:** Manifest refresh happens during cross-endpoint routing, not at boot.
-
-**Why:**
-- Serverless containers don't persist between requests
-- Background threads don't work in ephemeral containers
-- Boot-time queries would block cold starts
-
-**Tradeoff:** First routing request after 5 minutes may have 100-500ms latency (State Manager query).
-
-### TTL-Based Staleness (Not Completeness Check)
-
-**Decision:** Use file modification time to detect staleness, not manifest content validation.
-
-**Why:**
-- Simple and requires no external state
-- Expected endpoints change dynamically (can't hardcode list)
-- File stat() is much faster than comparing manifests
-
-**Tradeoff:** May use slightly stale manifest (up to 5 minutes old) in rare cases.
-
-### Non-Fatal Error Handling
-
-**Decision:** State Manager errors don't crash the worker, continue with stale manifest.
-
-**Why:**
-- Manifest staleness is less critical than worker availability
-- Gradual degradation is better than hard failures
-- Auto-recovery on next request
-
-**Tradeoff:** May use very stale manifest if State Manager is down for extended period.
-
-### Workers Never Write State Manager
-
-**Decision:** Only CLI/provisioning system writes to State Manager, workers only read.
-
-**Why:**
-- Avoids race conditions and concurrent writes
-- CLI is single writer with atomic updates
-- Simple concurrency model
-
-**Tradeoff:** Workers can't trigger immediate manifest updates, must wait for TTL.
-
----
-
-## Backward Compatibility
-
-### Live Serverless Mode
-
-Live Serverless deployments (dynamic code sent with each request) are unaffected:
-
-- Manifest refresh only runs in Flash deployments (env var check)
-- Live Serverless doesn't set Flash environment variables
-- Refresh is skipped, no behavior change
-
-### Flash Without State Manager
-
-Flash deployments without State Manager available work gracefully:
-
-- Refresh fails with warning (non-fatal)
-- Worker continues with local manifest
-- Routing uses local endpoints only
-- No crashes or failures
-
-### Existing APIs
-
-All handler and executor APIs remain unchanged:
-
-- `RemoteExecutor.ExecuteFunction()` - same interface
-- `FunctionRequest` / `FunctionResponse` - same format
-- All serialization utilities - unchanged
-
-No breaking changes for clients.
-
----
-
-## Related Documentation
-
-- **PRD**: `docs/State_Manager_Manifest_Integration_PRD.md` - Implementation requirements and design decisions
-- **ServiceRegistry**: tetra-rp ServiceRegistry documentation - Manifest reading and function lookup
-- **State Manager**: RunPod State Manager API - Manifest storage and retrieval
-- **Flash Deployments**: RunPod Flash deployment guide - Manifest artifacts and provisioning
-
----
-
-## Summary
-
-Manifest reconciliation is a request-scoped, TTL-based mechanism that keeps Flash deployments synchronized with State Manager without blocking startup or requiring background threads. It provides serverless-compatible, graceful handling of endpoint routing with automatic recovery from transient failures.
+### Metrics (Future)
+
+- State Manager query latency
+- Cache hit rate (should be 99%+)
+- Endpoints available per refresh
+- Function execution routing decisions
+
+## Design Rationale
+
+### Why TTL-Based Instead of Event-Driven?
+
+**TTL-Based (Current):**
+- ✅ Simple, stateless design
+- ✅ Automatic fallback when State Manager offline
+- ✅ No dependency on event streaming infrastructure
+- ✅ Reduces State Manager load by 99%
+
+**Event-Driven Alternative:**
+- ❌ Requires webhook/event streaming (more complex)
+- ❌ State Manager must notify all endpoints of manifest changes
+- ❌ More infrastructure to maintain
+- ❌ Higher operational overhead
+
+### Why Peer-to-Peer Instead of Hub-and-Spoke?
+
+**Peer-to-Peer (Current):**
+- ✅ All endpoints query State Manager directly
+- ✅ No central Mothership endpoint
+- ✅ Scales horizontally without coordinator
+- ✅ Each endpoint independent
+
+**Hub-and-Spoke Alternative (Rejected):**
+- ❌ Requires Mothership endpoint
+- ❌ Mothership becomes bottleneck
+- ❌ Complex coordination logic
+- ❌ Single point of failure
+
+## Future Enhancements
+
+1. **Dynamic TTL Tuning** - Adjust cache TTL based on manifest change frequency
+2. **Manifest Versioning** - Detect manifest changes and prioritize hot reloads
+3. **Metrics Collection** - Track State Manager query patterns
+4. **Circuit Breaker** - Temporarily skip State Manager queries if it's consistently unavailable
