@@ -5,6 +5,7 @@ description = "Dynamic GPU provisioning for ML workloads with transparent execut
 readme = "README.md"
 requires-python = ">=3.10,<3.15"
 dependencies = [
+    "aiohttp>=3.9.0",
     "cloudpickle>=3.1.1",
     "pydantic>=2.11.4",
     "requests>=2.25.0",

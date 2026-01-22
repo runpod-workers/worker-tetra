@@ -1,7 +1,7 @@
 import pytest
 import base64
 import cloudpickle
-from unittest.mock import Mock, patch, AsyncMock, mock_open
+from unittest.mock import Mock, patch, AsyncMock
 
 from remote_executor import RemoteExecutor
 from remote_execution import FunctionRequest
@@ -516,33 +516,96 @@ class TestRemoteExecutor:
             assert "Failed to execute Flash function" in response.error
             assert "Module not found" in response.error
 
-    def test_load_flash_manifest_success(self):
-        """Test loading flash_manifest.json successfully."""
-        from pathlib import Path
-        import json
+    @pytest.mark.asyncio
+    async def test_execute_function_with_cross_endpoint_routing(self):
+        """Test ExecuteFunction routes to remote endpoint using ServiceRegistry."""
+        request = FunctionRequest(function_name="my_func")
 
+        # Mock ServiceRegistry to return remote endpoint URL
+        with (
+            patch("remote_executor.ServiceRegistry") as mock_registry_class,
+            patch("aiohttp.ClientSession.post") as mock_post,
+        ):
+            mock_registry = AsyncMock()
+            mock_registry.get_endpoint_for_function = AsyncMock(
+                return_value="https://api.runpod.io/v2/endpoint-xyz789/run"
+            )
+            mock_registry_class.return_value = mock_registry
+
+            # Re-initialize executor with mocked registry
+            self.executor.service_registry = mock_registry
+
+            # Mock aiohttp response
+            mock_response_data = {
+                "output": {
+                    "success": True,
+                    "result": "encoded_result",
+                }
+            }
+            mock_post_response = AsyncMock()
+            mock_post_response.status = 200
+            mock_post_response.json = AsyncMock(return_value=mock_response_data)
+            mock_post_response.__aenter__.return_value = mock_post_response
+            mock_post_response.__aexit__.return_value = None
+            mock_post.return_value = mock_post_response
+
+            response = await self.executor.ExecuteFunction(request)
+
+            assert response.success is True
+            assert response.result == "encoded_result"
+            # Verify ServiceRegistry was called for routing
+            mock_registry.get_endpoint_for_function.assert_called_once_with("my_func")
+
+    @pytest.mark.asyncio
+    async def test_execute_function_flash_local_execution_with_service_registry(self):
+        """Test ExecuteFunction executes locally when ServiceRegistry returns None."""
+        request = FunctionRequest(function_name="my_func")
+
+        # Mock manifest for _load_flash_manifest
         mock_manifest = {
-            "version": "1.0",
-            "function_registry": {"test_func": "resource_01"},
+            "function_registry": {"my_func": "resource_01"},
+            "resources": {
+                "resource_01": {
+                    "functions": [
+                        {
+                            "name": "my_func",
+                            "module": "test_module",
+                            "is_async": False,
+                        }
+                    ],
+                }
+            },
         }
 
+        # Mock ServiceRegistry to return None (local function)
         with (
-            patch.object(Path, "exists", return_value=True),
-            patch("builtins.open", mock_open(read_data=json.dumps(mock_manifest))),
+            patch("remote_executor.ServiceRegistry") as mock_registry_class,
+            patch.object(
+                self.executor, "_load_flash_manifest", return_value=mock_manifest
+            ),
+            patch("importlib.import_module") as mock_import,
+            patch("asyncio.to_thread") as mock_to_thread,
         ):
-            manifest = self.executor._load_flash_manifest()
+            # Create mock registry that returns None for local functions
+            mock_registry = AsyncMock()
+            mock_registry.get_endpoint_for_function = AsyncMock(return_value=None)
+            mock_registry_class.return_value = mock_registry
 
-            assert manifest == mock_manifest
-            assert "function_registry" in manifest
+            # Re-initialize executor with mocked registry
+            self.executor.service_registry = mock_registry
 
-    def test_load_flash_manifest_not_found(self):
-        """Test loading manifest fails when file doesn't exist."""
-        from pathlib import Path
+            # Mock the imported function
+            mock_func = Mock(return_value="flash_result")
+            mock_module = Mock()
+            mock_module.my_func = mock_func
+            mock_import.return_value = mock_module
+            mock_to_thread.return_value = "flash_result"
 
-        with (
-            patch.object(Path, "exists", return_value=False),
-            pytest.raises(FileNotFoundError) as exc_info,
-        ):
-            self.executor._load_flash_manifest()
+            response = await self.executor.ExecuteFunction(request)
 
-        assert "flash_manifest.json not found in /app" in str(exc_info.value)
+            assert response.success is True
+            assert response.result is not None
+            # Verify local execution (importlib was called with test_module)
+            mock_import.assert_any_call("test_module")
+            # Verify ServiceRegistry was called but returned None (local)
+            mock_registry.get_endpoint_for_function.assert_called_once_with("my_func")

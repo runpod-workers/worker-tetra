@@ -2,8 +2,10 @@ import logging
 import asyncio
 import importlib
 import json
+import os
 from pathlib import Path
-from typing import List, Any
+from typing import List, Any, Optional
+import aiohttp
 from remote_execution import FunctionRequest, FunctionResponse, RemoteExecutorStub
 from dependency_installer import DependencyInstaller
 from function_executor import FunctionExecutor
@@ -11,7 +13,19 @@ from class_executor import ClassExecutor
 from log_streamer import start_log_streaming, stop_log_streaming, get_streamed_logs
 from cache_sync_manager import CacheSyncManager
 from serialization_utils import SerializationUtils
-from constants import NAMESPACE
+from constants import NAMESPACE, DEFAULT_ENDPOINT_TIMEOUT, FLASH_MANIFEST_PATH
+
+# Service discovery for cross-endpoint routing
+try:
+    from tetra_rp.runtime.service_registry import (  # type: ignore[import-not-found]
+        ServiceRegistry,
+    )
+    from tetra_rp.runtime.exceptions import (  # type: ignore[import-not-found]
+        ManifestServiceUnavailableError,
+    )
+except ImportError:
+    ServiceRegistry = None
+    ManifestServiceUnavailableError = None
 
 
 class RemoteExecutor(RemoteExecutorStub):
@@ -29,6 +43,22 @@ class RemoteExecutor(RemoteExecutorStub):
         self.function_executor = FunctionExecutor()
         self.class_executor = ClassExecutor()
         self.cache_sync = CacheSyncManager()
+
+        # Service discovery for cross-endpoint routing (peer-to-peer model)
+        self.service_registry: Optional[ServiceRegistry] = None
+        if ServiceRegistry is not None:
+            try:
+                self.service_registry = ServiceRegistry(
+                    manifest_path=Path(FLASH_MANIFEST_PATH)
+                )
+                self.logger.debug(
+                    "Service registry initialized for cross-endpoint routing"
+                )
+            except Exception as e:
+                self.logger.debug(f"Failed to initialize service registry: {e}")
+                self.service_registry = None
+        else:
+            self.logger.debug("ServiceRegistry not available (tetra-rp not installed)")
 
     async def ExecuteFunction(self, request: FunctionRequest) -> FunctionResponse:
         """
@@ -98,8 +128,53 @@ class RemoteExecutor(RemoteExecutorStub):
 
             if not has_function_code and not has_class_code:
                 # Flash Deployed App: code pre-deployed in /app
-                self.logger.debug("Flash deployment detected, loading from /app")
-                result = await self._execute_flash_function(request)
+                # Check if function should be routed to another endpoint
+                self.logger.debug(
+                    "Flash deployment detected, checking cross-endpoint routing"
+                )
+
+                # Use ServiceRegistry for peer-to-peer routing
+                if self.service_registry:
+                    try:
+                        endpoint_url = (
+                            await self.service_registry.get_endpoint_for_function(
+                                request.function_name
+                            )
+                        )
+
+                        if endpoint_url:
+                            # Remote: Route to different endpoint
+                            self.logger.debug(
+                                f"Routing function '{request.function_name}' to {endpoint_url}"
+                            )
+                            result = await self._route_to_endpoint(
+                                request, endpoint_url
+                            )
+                        else:
+                            # Local: Execute on this endpoint
+                            self.logger.debug(
+                                f"Executing function '{request.function_name}' locally"
+                            )
+                            result = await self._execute_flash_function(request)
+
+                    except ValueError as e:
+                        # Function not in manifest - try local execution
+                        self.logger.warning(
+                            f"Function lookup failed: {e}, attempting local execution"
+                        )
+                        result = await self._execute_flash_function(request)
+                    except Exception as e:
+                        # State Manager unavailable or other error - fallback to local
+                        self.logger.warning(
+                            f"Service registry error: {e}, attempting local execution"
+                        )
+                        result = await self._execute_flash_function(request)
+                else:
+                    # ServiceRegistry not available - execute locally
+                    self.logger.debug(
+                        "Service registry not available, executing locally"
+                    )
+                    result = await self._execute_flash_function(request)
             else:
                 # Live Serverless: dynamic code execution
                 self.logger.debug("Live Serverless mode, executing dynamic code")
@@ -310,7 +385,7 @@ class RemoteExecutor(RemoteExecutorStub):
             )
             module = importlib.import_module(module_path)
             # function_name is guaranteed to be non-None by FunctionRequest validation
-            func = getattr(module, function_name)
+            func = getattr(module, function_name or "")
 
             # Deserialize args/kwargs (same as Live Serverless)
             args = SerializationUtils.deserialize_args(request.args)
@@ -360,3 +435,70 @@ class RemoteExecutor(RemoteExecutorStub):
         with open(manifest_path) as f:
             manifest: dict[str, Any] = json.load(f)
             return manifest
+
+    async def _route_to_endpoint(
+        self, request: FunctionRequest, endpoint_url: str
+    ) -> FunctionResponse:
+        """Route FunctionRequest to target endpoint via RunPod API.
+
+        Args:
+            request: Function request to route
+            endpoint_url: Full endpoint URL (e.g., https://api.runpod.io/v2/abc123/run)
+
+        Returns:
+            FunctionResponse with result from target endpoint
+        """
+        try:
+            # Prepare payload for RunPod API
+            payload = {"input": request.model_dump(exclude_none=True)}
+
+            # Make HTTP request to target endpoint
+            api_key = os.getenv("RUNPOD_API_KEY")
+            headers = {"Content-Type": "application/json"}
+
+            if api_key:
+                headers["Authorization"] = f"Bearer {api_key}"
+
+            timeout = aiohttp.ClientTimeout(total=DEFAULT_ENDPOINT_TIMEOUT)
+
+            async with aiohttp.ClientSession(timeout=timeout) as session:
+                async with session.post(
+                    endpoint_url, json=payload, headers=headers
+                ) as response:
+                    if response.status != 200:
+                        error_text = await response.text()
+                        return FunctionResponse(
+                            success=False,
+                            error=f"Remote endpoint returned status {response.status}: {error_text}",
+                        )
+
+                    result_data = await response.json()
+
+                    # Parse response
+                    # RunPod API wraps result in "output" field for async requests
+                    if "output" in result_data:
+                        output_data = result_data["output"]
+                    else:
+                        output_data = result_data
+
+                    try:
+                        return FunctionResponse(**output_data)
+                    except Exception as e:
+                        self.logger.error(
+                            f"Failed to parse endpoint response: {e}",
+                            exc_info=True,
+                        )
+                        return FunctionResponse(
+                            success=False,
+                            error=f"Failed to parse response from endpoint: {str(e)}",
+                        )
+
+        except Exception as e:
+            self.logger.error(
+                f"Failed to route to {endpoint_url}: {e}",
+                exc_info=True,
+            )
+            return FunctionResponse(
+                success=False,
+                error=f"Failed to route to endpoint: {str(e)}",
+            )
