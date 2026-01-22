@@ -11,7 +11,7 @@ Developer guide for contributing to worker-tetra, a RunPod Serverless worker for
 - [Architecture Overview](#architecture-overview)
 - [Common Development Tasks](#common-development-tasks)
 - [Docker Development](#docker-development)
-- [Submodule Management](#submodule-management)
+- [tetra-rp Dependency Management](#tetra-rp-dependency-management)
 - [CI/CD Pipeline](#cicd-pipeline)
 - [Contributing Guidelines](#contributing-guidelines)
 - [Debugging Guide](#debugging-guide)
@@ -24,22 +24,42 @@ Developer guide for contributing to worker-tetra, a RunPod Serverless worker for
 - Python 3.10+ (3.12 recommended)
 - Docker Desktop (for container testing)
 - `uv` package manager ([installation](https://github.com/astral-sh/uv))
-- Git with submodule support
+- Git
 
 ### Initial Setup
 
 ```bash
-# Clone repository with submodules
-git clone --recurse-submodules https://github.com/runpod/worker-tetra.git
+# Clone repository
+git clone https://github.com/runpod/worker-tetra.git
 cd worker-tetra
 
-# Initialize project (creates venv, syncs deps, updates submodules)
+# Initialize project (creates venv, syncs deps)
 make setup
 
 # Activate virtual environment
 source .venv/bin/activate
 
 # Verify setup with tests
+make test
+```
+
+### Local Development with tetra-rp
+
+For local development on both worker-tetra and tetra-rp:
+
+```bash
+# Install tetra-rp in editable mode from your local checkout
+uv pip install -e ~/Github/python/tetra-rp
+
+# Now your changes to tetra-rp are reflected immediately in worker-tetra
+make test
+```
+
+To switch back to the remote version:
+
+```bash
+# Reinstall from remote repository
+uv pip install tetra-rp @ git+https://github.com/runpod/tetra-rp.git@main
 make test
 ```
 
@@ -522,68 +542,75 @@ CI builds for multiple platforms:
 - GPU: `linux/amd64`
 - CPU: `linux/amd64`, `linux/arm64`
 
-## Submodule Management
+## tetra-rp Dependency Management
 
 ### Understanding tetra-rp
 
-The `tetra-rp/` submodule contains the Tetra SDK:
+The `tetra-rp` package is a pip dependency containing the Tetra SDK:
 - Client library with `@remote` decorator
 - Resource management (`LiveServerless`)
 - Protocol definitions
+- Peer-to-peer cross-endpoint routing
 
-### Updating Submodule
+### Default Configuration
 
-```bash
-# Update to latest tetra-rp
-git submodule update --remote --rebase
-
-# Sync protocol definitions
-make protocols
-
-# Test with updated submodule
-make test
-
-# Commit submodule update
-git add tetra-rp
-git commit -m "chore: update tetra-rp submodule to latest"
+By default, worker-tetra uses the remote tetra-rp from GitHub:
+```
+tetra-rp @ git+https://github.com/runpod/tetra-rp.git@main
 ```
 
-### Protocol Synchronization
+### Local Development Workflow
 
-Protocol definitions must stay in sync:
-
-```bash
-# Copy remote_execution.py from submodule
-make protocols
-
-# Verify no breaking changes
-make test
-```
-
-### Submodule Development Workflow
-
-Working on both worker and SDK:
+When making changes to both projects:
 
 ```bash
-# Make changes in tetra-rp/
-cd tetra-rp
+# Clone both repositories
+cd ~/Github/python
+git clone https://github.com/runpod/tetra-rp.git
+git clone https://github.com/runpod/worker-tetra.git
+cd worker-tetra
+
+# Install tetra-rp in editable mode
+uv pip install -e ~/Github/python/tetra-rp
+
+# Now edit files in tetra-rp/ - changes are reflected immediately
+cd ~/Github/python/tetra-rp
 git checkout -b feature/my-change
 # ... make changes ...
+make test  # Run tetra-rp tests
+
+# Run worker-tetra tests to verify integration
+cd ~/Github/python/worker-tetra
+make test
+
+# Commit changes in tetra-rp first
+cd ~/Github/python/tetra-rp
 git commit -m "feat: my change"
-cd ..
+git push origin feature/my-change
+# Create PR and merge
 
-# Update worker to use new tetra-rp
-git add tetra-rp
-git commit -m "chore: use tetra-rp feature branch"
-
-# After tetra-rp PR merges, update to main
-cd tetra-rp
-git checkout main
-git pull
-cd ..
-git add tetra-rp
-git commit -m "chore: update tetra-rp to latest main"
+# After tetra-rp PR merges, switch back to remote
+cd ~/Github/python/worker-tetra
+uv pip install tetra-rp @ git+https://github.com/runpod/tetra-rp.git@main
+make test
 ```
+
+### Updating to Latest tetra-rp
+
+```bash
+# Update tetra-rp to latest main from remote
+uv pip install --upgrade tetra-rp @ git+https://github.com/runpod/tetra-rp.git@main
+
+# Verify compatibility
+make test
+```
+
+### Benefits of This Approach
+
+- **Independent release cycles**: Both projects can be versioned separately
+- **Flexible local development**: Use `-e` flag to test changes immediately
+- **Cleaner git history**: No submodule commit noise
+- **CI/CD simplification**: Standard pip dependency management
 
 ## CI/CD Pipeline
 
