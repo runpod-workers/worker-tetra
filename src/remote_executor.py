@@ -13,6 +13,7 @@ from class_executor import ClassExecutor
 from log_streamer import start_log_streaming, stop_log_streaming, get_streamed_logs
 from cache_sync_manager import CacheSyncManager
 from serialization_utils import SerializationUtils
+from manifest_reconciliation import refresh_manifest_if_stale
 from constants import NAMESPACE, DEFAULT_ENDPOINT_TIMEOUT, FLASH_MANIFEST_PATH
 
 # Service discovery for cross-endpoint routing
@@ -20,12 +21,8 @@ try:
     from tetra_rp.runtime.service_registry import (  # type: ignore[import-untyped]
         ServiceRegistry,
     )
-    from tetra_rp.runtime.exceptions import (  # type: ignore[import-untyped]
-        ManifestServiceUnavailableError,
-    )
 except ImportError:
     ServiceRegistry = None
-    ManifestServiceUnavailableError = None
 
 
 class RemoteExecutor(RemoteExecutorStub):
@@ -56,6 +53,20 @@ class RemoteExecutor(RemoteExecutorStub):
         else:
             self.logger.debug("ServiceRegistry not available (tetra-rp not installed)")
 
+    def _is_flash_deployment(self) -> bool:
+        """Check if running in Flash deployment mode.
+
+        Returns:
+            True if running as a Flash endpoint, False otherwise.
+        """
+        return any(
+            [
+                os.getenv("FLASH_IS_MOTHERSHIP") == "true",
+                os.getenv("FLASH_MOTHERSHIP_ID"),
+                os.getenv("FLASH_RESOURCE_NAME"),
+            ]
+        )
+
     async def ExecuteFunction(self, request: FunctionRequest) -> FunctionResponse:
         """
         Execute a function or class method on the remote resource.
@@ -81,6 +92,14 @@ class RemoteExecutor(RemoteExecutorStub):
         )
 
         try:
+            # Refresh manifest from State Manager if stale (before routing decisions)
+            # This ensures ServiceRegistry has fresh endpoint URLs for cross-endpoint routing
+            try:
+                await refresh_manifest_if_stale(Path(FLASH_MANIFEST_PATH))
+            except Exception as e:
+                self.logger.debug(f"Manifest refresh failed (non-fatal): {e}")
+                # Continue with potentially stale manifest
+
             # Hydrate cache from volume if needed (before any installations)
             has_installations = request.dependencies or request.system_dependencies
             if has_installations:
