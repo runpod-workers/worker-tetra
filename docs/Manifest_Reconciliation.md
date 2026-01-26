@@ -10,7 +10,7 @@ Manifest reconciliation is the process of keeping the local endpoint's function 
 
 Each endpoint maintains a cached copy of the complete function manifest that maps:
 - **Function names** → Resource types (e.g., `process_image` → `gpu_resource`)
-- **Resource types** → Endpoint URLs (e.g., `gpu_resource` → `https://api.runpod.io/v2/gpu-endpoint/run`)
+- **Resource types** → Endpoint URLs (e.g., `gpu_resource` → `https://api.runpod.ai/v2/gpu-endpoint/run`)
 
 This allows any endpoint to route incoming function calls to the appropriate resource without needing a central hub.
 
@@ -159,8 +159,8 @@ The State Manager returns manifests with this structure:
         "validate_data": "cpu_resource"
     },
     "resources_endpoints": {
-        "gpu_resource": "https://api.runpod.io/v2/gpu-abc123/run",
-        "cpu_resource": "https://api.runpod.io/v2/cpu-def456/run"
+        "gpu_resource": "https://api.runpod.ai/v2/gpu-abc123/run",
+        "cpu_resource": "https://api.runpod.ai/v2/cpu-def456/run"
     }
 }
 ```
@@ -261,7 +261,7 @@ Example logs:
 
 ```
 DEBUG: Manifest loaded from State Manager: 3 endpoints, cache TTL 300s
-DEBUG: Routing 'process_image' to https://api.runpod.io/v2/gpu-abc123/run
+DEBUG: Routing 'process_image' to https://api.runpod.ai/v2/gpu-abc123/run
 DEBUG: Cache hit for manifest (87 seconds old, TTL 300s)
 WARNING: State Manager unavailable: Connection timeout. Cross-endpoint routing unavailable.
 ```

@@ -438,7 +438,7 @@ class RemoteExecutor(RemoteExecutorStub):
 
         Args:
             request: Function request to route
-            endpoint_url: Full endpoint URL (e.g., https://api.runpod.io/v2/abc123/run)
+            endpoint_url: Full endpoint URL (e.g., https://api.runpod.ai/v2/abc123/run)
 
         Returns:
             FunctionResponse with result from target endpoint

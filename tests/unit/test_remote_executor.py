@@ -493,7 +493,7 @@ class TestRemoteExecutor:
         ):
             mock_registry = AsyncMock()
             mock_registry.get_endpoint_for_function = AsyncMock(
-                return_value="https://api.runpod.io/v2/endpoint-xyz789/run"
+                return_value="https://api.runpod.ai/v2/endpoint-xyz789/run"
             )
             mock_registry_class.return_value = mock_registry
 
