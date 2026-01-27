@@ -405,7 +405,7 @@ class RemoteExecutor(RemoteExecutorStub):
             FileNotFoundError: If manifest not found
             json.JSONDecodeError: If manifest is invalid
         """
-        manifest_path = Path("/app/flash_manifest.json")
+        manifest_path = Path(FLASH_MANIFEST_PATH)
 
         if not manifest_path.exists():
             raise FileNotFoundError(
