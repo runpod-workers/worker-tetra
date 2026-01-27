@@ -222,7 +222,7 @@ class TestShouldUnpackFromVolume:
         with patch.dict(
             os.environ,
             {
-                "RUNPOD_POD_ID": "test-pod-id",
+                "RUNPOD_ENDPOINT_ID": "test-endpoint-id",
                 "FLASH_IS_MOTHERSHIP": "true",
             },
             clear=False,
@@ -236,7 +236,6 @@ class TestShouldUnpackFromVolume:
             os.environ,
             {
                 "RUNPOD_ENDPOINT_ID": "test-endpoint-id",
-                "FLASH_MOTHERSHIP_ID": "mothership-endpoint-id",
                 "FLASH_RESOURCE_NAME": "gpu_worker",
             },
             clear=False,
@@ -254,7 +253,6 @@ class TestShouldUnpackFromVolume:
         ):
             os.environ.pop("FLASH_DISABLE_UNPACK", None)
             os.environ.pop("FLASH_IS_MOTHERSHIP", None)
-            os.environ.pop("FLASH_MOTHERSHIP_ID", None)
             os.environ.pop("FLASH_RESOURCE_NAME", None)
             assert _should_unpack_from_volume() is False
 
@@ -307,7 +305,7 @@ class TestShouldUnpackFromVolume:
         with patch.dict(
             os.environ,
             {
-                "RUNPOD_POD_ID": "test-pod-id",
+                "RUNPOD_ENDPOINT_ID": "test-endpoint-id",
                 "FLASH_IS_MOTHERSHIP": "true",
                 "FLASH_DISABLE_UNPACK": "false",
             },

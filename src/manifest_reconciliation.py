@@ -31,7 +31,6 @@ def is_flash_deployment() -> bool:
     is_flash = any(
         [
             os.getenv("FLASH_IS_MOTHERSHIP") == "true",
-            os.getenv("FLASH_MOTHERSHIP_ID"),
             os.getenv("FLASH_RESOURCE_NAME"),
         ]
     )

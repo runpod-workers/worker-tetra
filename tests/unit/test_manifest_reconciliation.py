@@ -55,18 +55,6 @@ class TestIsFlashDeployment:
         ):
             assert is_flash_deployment() is True
 
-    def test_is_flash_deployment_mothership_id(self) -> None:
-        """Test detection with FLASH_MOTHERSHIP_ID."""
-        with patch.dict(
-            "os.environ",
-            {
-                "RUNPOD_ENDPOINT_ID": "ep-001",
-                "FLASH_MOTHERSHIP_ID": "ep-mothership-001",
-            },
-            clear=False,
-        ):
-            assert is_flash_deployment() is True
-
     def test_is_flash_deployment_resource_name(self) -> None:
         """Test detection with FLASH_RESOURCE_NAME."""
         with patch.dict(
