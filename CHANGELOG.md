@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.7.4](https://github.com/runpod-workers/worker-tetra/compare/v0.7.3...v0.7.4) (2026-01-27)
+
+
+### Features
+
+* state manager manifest integration with TTL-based reconciliation ([#52](https://github.com/runpod-workers/worker-tetra/issues/52)) ([3683d6d](https://github.com/runpod-workers/worker-tetra/commit/3683d6dd5a3092a7c92e0226e2105ea45f2a2ab7))
+
 ## [0.7.3](https://github.com/runpod-workers/worker-tetra/compare/v0.7.2...v0.7.3) (2026-01-16)
 
 
