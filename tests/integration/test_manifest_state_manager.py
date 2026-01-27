@@ -449,23 +449,20 @@ class TestErrorHandling:
         mock_path.stat.return_value.st_mtime = time.time() - 400
         mock_path.write_text.side_effect = OSError("Permission denied")
 
-        with patch(
-            "manifest_reconciliation._load_local_manifest", return_value=local_manifest_data
+        with patch.dict(
+            "os.environ",
+            {
+                "RUNPOD_ENDPOINT_ID": "ep-test-001",
+                "FLASH_IS_MOTHERSHIP": "true",
+                "RUNPOD_API_KEY": "test-api-key",
+            },
+            clear=True,
         ):
-            with patch.dict(
-                "os.environ",
-                {
-                    "RUNPOD_ENDPOINT_ID": "ep-test-001",
-                    "FLASH_IS_MOTHERSHIP": "true",
-                    "RUNPOD_API_KEY": "test-api-key",
-                },
-                clear=True,
+            with patch(
+                "tetra_rp.runtime.state_manager_client.StateManagerClient",
+                return_value=mock_client,
             ):
-                with patch(
-                    "tetra_rp.runtime.state_manager_client.StateManagerClient",
-                    return_value=mock_client,
-                ):
-                    result = await refresh_manifest_if_stale(mock_path)
+                result = await refresh_manifest_if_stale(mock_path)
 
         assert result is True  # Non-fatal error
 
