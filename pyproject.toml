@@ -14,7 +14,7 @@ dependencies = [
     "huggingface_hub>=0.32.0",
     "fastapi>=0.115.0",
     "uvicorn[standard]>=0.34.0",
-    "tetra-rp @ git+https://github.com/runpod/tetra-rp.git@main",
+    "tetra-rp",
 ]
 
 [dependency-groups]
