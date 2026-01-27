@@ -53,20 +53,6 @@ class RemoteExecutor(RemoteExecutorStub):
         else:
             self.logger.debug("ServiceRegistry not available (tetra-rp not installed)")
 
-    def _is_flash_deployment(self) -> bool:
-        """Check if running in Flash deployment mode.
-
-        Returns:
-            True if running as a Flash endpoint, False otherwise.
-        """
-        return any(
-            [
-                os.getenv("FLASH_IS_MOTHERSHIP") == "true",
-                os.getenv("FLASH_MOTHERSHIP_ID"),
-                os.getenv("FLASH_RESOURCE_NAME"),
-            ]
-        )
-
     async def ExecuteFunction(self, request: FunctionRequest) -> FunctionResponse:
         """
         Execute a function or class method on the remote resource.
