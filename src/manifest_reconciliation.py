@@ -10,7 +10,7 @@ import logging
 import os
 import time
 from pathlib import Path
-from typing import Any, Dict, Optional
+from typing import Any, Dict
 
 from constants import FLASH_MANIFEST_PATH
 
@@ -35,27 +35,6 @@ def is_flash_deployment() -> bool:
         ]
     )
     return bool(endpoint_id and is_flash)
-
-
-def _load_local_manifest(manifest_path: Path) -> Optional[Dict[str, Any]]:
-    """Load local manifest from file.
-
-    Args:
-        manifest_path: Path to manifest file.
-
-    Returns:
-        Parsed manifest dict, or None if file doesn't exist or is invalid.
-    """
-    if not manifest_path.exists():
-        logger.warning(f"Local manifest not found at {manifest_path}")
-        return None
-
-    try:
-        with open(manifest_path) as f:
-            return json.load(f)  # type: ignore[no-any-return]
-    except (json.JSONDecodeError, IOError) as e:
-        logger.error(f"Failed to load local manifest: {e}")
-        return None
 
 
 def _save_manifest(manifest: Dict[str, Any], manifest_path: Path) -> bool:

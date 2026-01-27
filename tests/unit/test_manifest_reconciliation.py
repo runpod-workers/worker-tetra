@@ -10,7 +10,6 @@ from manifest_reconciliation import (
     refresh_manifest_if_stale,
     is_flash_deployment,
     _is_manifest_stale,
-    _load_local_manifest,
     _save_manifest,
     _fetch_and_save_manifest,
 )
@@ -88,32 +87,6 @@ class TestIsFlashDeployment:
             clear=True,
         ):
             assert is_flash_deployment() is False
-
-
-class TestLoadLocalManifest:
-    """Test local manifest loading."""
-
-    def test_load_existing_manifest(self, tmp_path: Path, sample_manifest: dict) -> None:
-        """Test loading existing manifest file."""
-        manifest_file = tmp_path / "manifest.json"
-        manifest_file.write_text(json.dumps(sample_manifest))
-
-        result = _load_local_manifest(manifest_file)
-        assert result == sample_manifest
-
-    def test_load_nonexistent_manifest(self, tmp_path: Path) -> None:
-        """Test loading non-existent manifest file."""
-        manifest_file = tmp_path / "nonexistent.json"
-        result = _load_local_manifest(manifest_file)
-        assert result is None
-
-    def test_load_invalid_json(self, tmp_path: Path) -> None:
-        """Test loading invalid JSON file."""
-        manifest_file = tmp_path / "invalid.json"
-        manifest_file.write_text("invalid json {")
-
-        result = _load_local_manifest(manifest_file)
-        assert result is None
 
 
 class TestSaveManifest:
