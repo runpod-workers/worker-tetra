@@ -2,7 +2,7 @@ import pytest
 import base64
 import cloudpickle
 from pydantic import ValidationError
-from remote_execution import FunctionRequest, FunctionResponse
+from tetra_rp.protos.remote_execution import FunctionRequest, FunctionResponse
 
 
 class TestFunctionRequest:
@@ -38,9 +38,7 @@ class TestFunctionRequest:
 
     def test_function_request_with_kwargs(self):
         """Test FunctionRequest with serialized keyword arguments."""
-        kwarg_value = base64.b64encode(cloudpickle.dumps({"nested": "value"})).decode(
-            "utf-8"
-        )
+        kwarg_value = base64.b64encode(cloudpickle.dumps({"nested": "value"})).decode("utf-8")
 
         request = FunctionRequest(
             function_name="test_func",
@@ -79,9 +77,7 @@ class TestFunctionRequest:
 
         errors = exc_info.value.errors()
         assert len(errors) == 1
-        assert "function_name is required when execution_type is" in str(
-            errors[0]["ctx"]["error"]
-        )
+        assert "function_name is required when execution_type is" in str(errors[0]["ctx"]["error"])
 
         # function_code is now optional to support Flash deployments
         # This should succeed (Flash deployment case)
@@ -176,9 +172,7 @@ class TestFunctionResponse:
 
     def test_function_response_serialization(self):
         """Test FunctionResponse model serialization."""
-        response = FunctionResponse(
-            success=True, result="base64encodedresult", stdout="output"
-        )
+        response = FunctionResponse(success=True, result="base64encodedresult", stdout="output")
 
         # Test model_dump
         data = response.model_dump()
@@ -199,9 +193,7 @@ class TestFunctionResponse:
             "boolean": True,
         }
 
-        serialized_result = base64.b64encode(cloudpickle.dumps(complex_data)).decode(
-            "utf-8"
-        )
+        serialized_result = base64.b64encode(cloudpickle.dumps(complex_data)).decode("utf-8")
 
         response = FunctionResponse(success=True, result=serialized_result)
 

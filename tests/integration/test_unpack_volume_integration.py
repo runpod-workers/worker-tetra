@@ -64,9 +64,7 @@ def multiply(a, b):
         app_dir = tmp_path / "app"
 
         # Perform extraction
-        with patch(
-            "unpack_volume._canonical_project_artifact_path", return_value=artifact_path
-        ):
+        with patch("unpack_volume._canonical_project_artifact_path", return_value=artifact_path):
             result = unpack_app_from_volume(app_dir=app_dir)
 
         # Verify results
@@ -153,9 +151,7 @@ def multiply(a, b):
         app_dir = tmp_path / "app"
 
         # Perform extraction
-        with patch(
-            "unpack_volume._canonical_project_artifact_path", return_value=artifact_path
-        ):
+        with patch("unpack_volume._canonical_project_artifact_path", return_value=artifact_path):
             result = unpack_app_from_volume(app_dir=app_dir)
 
         # Verify all files were extracted

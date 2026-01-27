@@ -8,6 +8,7 @@ import threading
 from pathlib import Path
 
 from constants import DEFAULT_APP_DIR, DEFAULT_ARTIFACT_PATH
+from manifest_reconciliation import is_flash_deployment
 
 logger = logging.getLogger(__name__)
 
@@ -79,7 +80,7 @@ def _should_unpack_from_volume() -> bool:
     Detection logic:
     1. Honor explicit disable flag (FLASH_DISABLE_UNPACK)
     2. Must be in RunPod environment (RUNPOD_POD_ID or RUNPOD_ENDPOINT_ID)
-    3. Must be Flash deployment (any of FLASH_IS_MOTHERSHIP, FLASH_MOTHERSHIP_ID, FLASH_RESOURCE_NAME)
+    3. Must be Flash deployment (any of FLASH_IS_MOTHERSHIP, FLASH_RESOURCE_NAME)
 
     Returns:
         bool: True if unpacking should occur, False otherwise
@@ -90,20 +91,8 @@ def _should_unpack_from_volume() -> bool:
         logger.debug("unpacking disabled via FLASH_DISABLE_UNPACK")
         return False
 
-    # Must be in RunPod environment
-    in_runpod = os.getenv("RUNPOD_POD_ID") or os.getenv("RUNPOD_ENDPOINT_ID")
-    if not in_runpod:
-        logger.debug("not in RunPod environment, skipping unpacking")
-        return False
-
     # Check if Flash deployment (any Flash-specific env var set)
-    is_flash = any(
-        [
-            os.getenv("FLASH_IS_MOTHERSHIP") == "true",
-            os.getenv("FLASH_MOTHERSHIP_ID"),
-            os.getenv("FLASH_RESOURCE_NAME"),
-        ]
-    )
+    is_flash = is_flash_deployment()
 
     if is_flash:
         logger.debug("Flash deployment detected, will unpack artifact")

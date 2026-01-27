@@ -27,7 +27,6 @@ jobs:
       - name: Checkout repository
         uses: actions/checkout@v4
         with:
-          submodules: recursive
           fetch-depth: 0
 
       - name: Set up Python ${{ matrix.python-version }}
@@ -57,8 +56,6 @@ jobs:
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
-        with:
-          submodules: recursive
 
       - name: Set up Python
         uses: actions/setup-python@v5
@@ -94,7 +91,6 @@ jobs:
       - name: Checkout repository
         uses: actions/checkout@v4
         with:
-          submodules: recursive
           fetch-depth: 0
 
       - name: Set up QEMU
@@ -109,10 +105,7 @@ jobs:
           enable-cache: true
 
       - name: Setup dependencies
-        run: |
-          uv sync
-          git submodule update
-          cp tetra-rp/src/tetra_rp/protos/remote_execution.py src/
+        run: uv sync
 
       - name: Build CPU Docker image
         uses: docker/build-push-action@v6
@@ -153,7 +146,6 @@ jobs:
       - name: Checkout repository
         uses: actions/checkout@v4
         with:
-          submodules: recursive
           fetch-depth: 0
 
       - name: Set up QEMU
@@ -168,10 +160,7 @@ jobs:
           enable-cache: true
 
       - name: Setup dependencies
-        run: |
-          uv sync
-          git submodule update
-          cp tetra-rp/src/tetra_rp/protos/remote_execution.py src/
+        run: uv sync
 
       - name: Build Load Balancer Docker image
         uses: docker/build-push-action@v6
@@ -207,7 +196,6 @@ jobs:
       - name: Checkout repository
         uses: actions/checkout@v4
         with:
-          submodules: recursive
           fetch-depth: 0
 
       - name: Set up QEMU
@@ -222,10 +210,7 @@ jobs:
           enable-cache: true
 
       - name: Setup dependencies
-        run: |
-          uv sync
-          git submodule update
-          cp tetra-rp/src/tetra_rp/protos/remote_execution.py src/
+        run: uv sync
 
       - name: Build CPU Load Balancer Docker image
         uses: docker/build-push-action@v6
@@ -282,7 +267,6 @@ jobs:
       - name: Checkout repository
         uses: actions/checkout@v4
         with:
-          submodules: recursive
           fetch-depth: 0
 
       - name: Set up QEMU
@@ -304,10 +288,7 @@ jobs:
           enable-cache: true
 
       - name: Setup dependencies
-        run: |
-          uv sync
-          git submodule update
-          cp tetra-rp/src/tetra_rp/protos/remote_execution.py src/
+        run: uv sync
 
       - name: Build and push GPU Docker image (main)
         uses: docker/build-push-action@v6
@@ -337,7 +318,6 @@ jobs:
       - name: Checkout repository
         uses: actions/checkout@v4
         with:
-          submodules: recursive
           fetch-depth: 0
 
       - name: Set up QEMU
@@ -359,10 +339,7 @@ jobs:
           enable-cache: true
 
       - name: Setup dependencies
-        run: |
-          uv sync
-          git submodule update
-          cp tetra-rp/src/tetra_rp/protos/remote_execution.py src/
+        run: uv sync
 
       - name: Build and push CPU Docker image (main)
         uses: docker/build-push-action@v6
@@ -398,7 +375,6 @@ jobs:
       - name: Checkout repository
         uses: actions/checkout@v4
         with:
-          submodules: recursive
           fetch-depth: 0
 
       - name: Set up QEMU
@@ -420,10 +396,7 @@ jobs:
           enable-cache: true
 
       - name: Setup dependencies
-        run: |
-          uv sync
-          git submodule update
-          cp tetra-rp/src/tetra_rp/protos/remote_execution.py src/
+        run: uv sync
 
       - name: Build and push Load Balancer Docker image (main)
         uses: docker/build-push-action@v6
@@ -459,7 +432,6 @@ jobs:
       - name: Checkout repository
         uses: actions/checkout@v4
         with:
-          submodules: recursive
           fetch-depth: 0
 
       - name: Set up QEMU
@@ -481,10 +453,7 @@ jobs:
           enable-cache: true
 
       - name: Setup dependencies
-        run: |
-          uv sync
-          git submodule update
-          cp tetra-rp/src/tetra_rp/protos/remote_execution.py src/
+        run: uv sync
 
       - name: Build and push CPU Load Balancer Docker image (main)
         uses: docker/build-push-action@v6
@@ -520,7 +489,6 @@ jobs:
       - name: Checkout repository
         uses: actions/checkout@v4
         with:
-          submodules: recursive
           fetch-depth: 0
 
       - name: Set up QEMU
@@ -551,10 +519,7 @@ jobs:
           enable-cache: true
 
       - name: Setup dependencies
-        run: |
-          uv sync
-          git submodule update
-          cp tetra-rp/src/tetra_rp/protos/remote_execution.py src/
+        run: uv sync
 
       - name: Build and push GPU Docker image (prod)
         uses: docker/build-push-action@v6
@@ -585,7 +550,6 @@ jobs:
       - name: Checkout repository
         uses: actions/checkout@v4
         with:
-          submodules: recursive
           fetch-depth: 0
 
       - name: Set up QEMU
@@ -616,10 +580,7 @@ jobs:
           enable-cache: true
 
       - name: Setup dependencies
-        run: |
-          uv sync
-          git submodule update
-          cp tetra-rp/src/tetra_rp/protos/remote_execution.py src/
+        run: uv sync
 
       - name: Build and push CPU Docker image (prod)
         uses: docker/build-push-action@v6
@@ -656,7 +617,6 @@ jobs:
       - name: Checkout repository
         uses: actions/checkout@v4
         with:
-          submodules: recursive
           fetch-depth: 0
 
       - name: Set up QEMU
@@ -687,10 +647,7 @@ jobs:
           enable-cache: true
 
       - name: Setup dependencies
-        run: |
-          uv sync
-          git submodule update
-          cp tetra-rp/src/tetra_rp/protos/remote_execution.py src/
+        run: uv sync
 
       - name: Build and push Load Balancer Docker image (prod)
         uses: docker/build-push-action@v6
@@ -727,7 +684,6 @@ jobs:
       - name: Checkout repository
         uses: actions/checkout@v4
         with:
-          submodules: recursive
           fetch-depth: 0
 
       - name: Set up QEMU
@@ -758,10 +714,7 @@ jobs:
           enable-cache: true
 
       - name: Setup dependencies
-        run: |
-          uv sync
-          git submodule update
-          cp tetra-rp/src/tetra_rp/protos/remote_execution.py src/
+        run: uv sync
 
       - name: Build and push CPU Load Balancer Docker image (prod)
         uses: docker/build-push-action@v6

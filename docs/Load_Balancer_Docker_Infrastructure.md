@@ -13,7 +13,7 @@ This document covers the Docker infrastructure supporting **LiveLoadBalancerSLSR
 
 ### Integration with tetra-rp
 
-The tetra-rp submodule (branch `deanq/ae-1102-load-balancer-sls-resource`) provides:
+The tetra-rp pip dependency provides:
 
 - **Resource Classes**: `LoadBalancerSlsResource` (base) and `LiveLoadBalancer` (local dev with /execute)
 - **Stub Implementation**: `LoadBalancerSlsStub` routes HTTP requests to handler functions
@@ -335,6 +335,5 @@ Note: Arguments must be base64-encoded cloudpickle serialized values.
 
 - [Docker Build Pipeline](./Docker_Build_Pipeline.md) - CI/CD infrastructure for building and pushing images
 - [System Python Runtime Architecture](./System_Python_Runtime_Architecture.md) - Details on the execution engine
-- [tetra-rp Load Balancer Runtime Architecture](../tetra-rp/docs/LoadBalancer_Runtime_Architecture.md) - SDK-level architecture
-- [Using @remote with Load Balancer](../tetra-rp/docs/Using_Remote_With_LoadBalancer.md) - SDK usage guide
-- [Load Balancer Endpoints](../tetra-rp/docs/Load_Balancer_Endpoints.md) - Endpoint configuration
+- [tetra-rp Repository](https://github.com/runpod/tetra-rp) - SDK source code and documentation
+- [tetra-rp LiveLoadBalancer Documentation](https://github.com/runpod/tetra-rp#liveloadbalancer) - Load balancer resource documentation

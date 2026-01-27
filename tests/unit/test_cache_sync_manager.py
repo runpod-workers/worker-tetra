@@ -3,7 +3,7 @@ import pytest
 from unittest.mock import patch
 from pathlib import Path
 from cache_sync_manager import CacheSyncManager
-from remote_execution import FunctionResponse
+from tetra_rp.protos.remote_execution import FunctionResponse
 
 
 @pytest.fixture
@@ -48,9 +48,7 @@ class TestShouldSync:
 
             mock_exists.side_effect = exists_side_effect
             assert cache_sync.should_sync() is True
-            mock_makedirs.assert_called_once_with(
-                "/runpod-volume/.cache", exist_ok=True
-            )
+            mock_makedirs.assert_called_once_with("/runpod-volume/.cache", exist_ok=True)
 
     def test_should_sync_cached_result(self, mock_env):
         """Test that should_sync caches its result."""
@@ -136,9 +134,7 @@ class TestCollectAndTarball:
             patch.object(cache_sync, "should_sync", return_value=True),
             patch("os.path.exists", return_value=True),
             patch("os.path.getmtime", return_value=1234567890.0),
-            patch(
-                "asyncio.to_thread", side_effect=[mock_find_result]
-            ) as mock_to_thread,
+            patch("asyncio.to_thread", side_effect=[mock_find_result]) as mock_to_thread,
         ):
             await cache_sync.sync_to_volume()
 
@@ -259,9 +255,7 @@ class TestCollectAndTarball:
             success=True, stdout="/root/.cache/file3\n/root/.cache/file4"
         )
         mock_create_result = FunctionResponse(success=True, stdout="")
-        mock_mv_to_temp_result = FunctionResponse(
-            success=False, error="Move to temp failed"
-        )
+        mock_mv_to_temp_result = FunctionResponse(success=False, error="Move to temp failed")
 
         with (
             patch.object(cache_sync, "should_sync", return_value=True),
@@ -299,9 +293,7 @@ class TestCollectAndTarball:
         with (
             patch.object(cache_sync, "should_sync", return_value=True),
             patch("os.path.exists", return_value=True),
-            patch(
-                "asyncio.to_thread", side_effect=[mock_find_result]
-            ) as mock_to_thread,
+            patch("asyncio.to_thread", side_effect=[mock_find_result]) as mock_to_thread,
         ):
             await cache_sync.sync_to_volume()
 

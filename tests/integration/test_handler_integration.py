@@ -5,7 +5,7 @@ import cloudpickle
 from pathlib import Path
 
 from handler import handler, RemoteExecutor
-from remote_execution import FunctionRequest
+from tetra_rp.protos.remote_execution import FunctionRequest
 
 
 class TestHandlerIntegration:
@@ -281,9 +281,7 @@ def log_test():
             "tuple": (4, 5, 6),
         }
 
-        serialized_input = base64.b64encode(cloudpickle.dumps(complex_input)).decode(
-            "utf-8"
-        )
+        serialized_input = base64.b64encode(cloudpickle.dumps(complex_input)).decode("utf-8")
 
         event = {
             "input": {
@@ -449,9 +447,7 @@ def process_data(data):
         'processed': True
     }
 """,
-                "args": [
-                    base64.b64encode(cloudpickle.dumps(test_data)).decode("utf-8")
-                ],
+                "args": [base64.b64encode(cloudpickle.dumps(test_data)).decode("utf-8")],
                 "kwargs": {},
             }
         }

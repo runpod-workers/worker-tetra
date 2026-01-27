@@ -5,7 +5,7 @@ import cloudpickle
 from datetime import datetime
 
 from class_executor import ClassExecutor
-from remote_execution import FunctionRequest
+from tetra_rp.protos.remote_execution import FunctionRequest
 
 
 class TestClassExecution:
@@ -17,15 +17,12 @@ class TestClassExecution:
 
     def encode_args(self, *args):
         """Helper to encode arguments."""
-        return [
-            base64.b64encode(cloudpickle.dumps(arg)).decode("utf-8") for arg in args
-        ]
+        return [base64.b64encode(cloudpickle.dumps(arg)).decode("utf-8") for arg in args]
 
     def encode_kwargs(self, **kwargs):
         """Helper to encode keyword arguments."""
         return {
-            k: base64.b64encode(cloudpickle.dumps(v)).decode("utf-8")
-            for k, v in kwargs.items()
+            k: base64.b64encode(cloudpickle.dumps(v)).decode("utf-8") for k, v in kwargs.items()
         }
 
     async def test_execute_class_method_basic(self):
@@ -161,9 +158,7 @@ class TestInstanceManagement:
 
     def encode_args(self, *args):
         """Helper to encode arguments."""
-        return [
-            base64.b64encode(cloudpickle.dumps(arg)).decode("utf-8") for arg in args
-        ]
+        return [base64.b64encode(cloudpickle.dumps(arg)).decode("utf-8") for arg in args]
 
     async def test_create_new_instance(self):
         """Test creating a new class instance."""
@@ -336,9 +331,7 @@ class TestAsyncMethodSupport:
 
     def encode_args(self, *args):
         """Helper to encode arguments."""
-        return [
-            base64.b64encode(cloudpickle.dumps(arg)).decode("utf-8") for arg in args
-        ]
+        return [base64.b64encode(cloudpickle.dumps(arg)).decode("utf-8") for arg in args]
 
     async def test_execute_async_method(self):
         """Test execution of async method."""

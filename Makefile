@@ -14,7 +14,7 @@ endif
 help: # Show this help menu
 	@echo "Available make commands:"
 	@echo ""
-	@awk 'BEGIN {FS = ":.*# "; printf "%-20s %s\n", "Target", "Description"} /^[a-zA-Z_-]+:.*# / {printf "%-20s %s\n", $$1, $$2}' $(MAKEFILE_LIST)
+	@awk 'BEGIN {FS = ":.*# "; printf "%-20s %s\n", "Target", "Description"} /^[a-zA-Z_][a-zA-Z0-9_-]*:.*# / {printf "%-20s %s\n", $$1, $$2}' $(MAKEFILE_LIST)
 	@echo ""
 
 dev: # Install development dependencies
@@ -23,8 +23,6 @@ dev: # Install development dependencies
 update: # Upgrade all dependencies
 	uv sync --upgrade --all-groups
 	uv lock --upgrade
-	git submodule update --remote
-	make protocols
 
 clean: # Remove build artifacts and cache files
 	rm -rf dist build *.egg-info
@@ -32,14 +30,8 @@ clean: # Remove build artifacts and cache files
 	find . -type f -name "*.pyc" -delete
 	find . -type f -name "*.pkl" -delete
 
-setup: dev # Initialize project, sync deps, update submodules
-	@if [ ! -f "tetra-rp/.git" ]; then \
-		git submodule update --init --recursive; \
-	fi
-	make protocols
-
-protocols: # Copy remote_execution protocol from submodule
-	cp tetra-rp/src/tetra_rp/protos/remote_execution.py src/
+setup: dev # Initialize project and sync dependencies
+	@echo "Setup complete. Development environment ready."
 
 build: # Build both GPU and CPU Docker images
 	make build-gpu
@@ -71,6 +63,30 @@ build-lb-cpu: setup # Build CPU-only Load Balancer Docker image (linux/amd64)
 	-f Dockerfile-lb-cpu \
 	-t $(IMAGE)-lb-cpu:$(TAG) \
 	. --load
+
+# ARM64 Build Commands (CPU-only due to PyTorch limitations)
+
+build-arm64: # Build all ARM64 CPU images
+	make build-cpu-arm64
+	make build-lb-cpu-arm64
+
+build-cpu-arm64: setup # Build CPU-only Docker image (linux/arm64)
+	docker buildx build \
+	--platform linux/arm64 \
+	-f Dockerfile-cpu \
+	-t $(FULL_IMAGE_CPU)-arm64 \
+	. --load
+
+build-lb-cpu-arm64: setup # Build CPU-only Load Balancer Docker image (linux/arm64)
+	docker buildx build \
+	--platform linux/arm64 \
+	-f Dockerfile-lb-cpu \
+	-t $(IMAGE)-lb-cpu:$(TAG)-arm64 \
+	. --load
+
+push-arm64: # Push ARM64 Docker images to Docker Hub
+	docker push $(FULL_IMAGE_CPU)-arm64
+	docker push $(IMAGE)-lb-cpu:$(TAG)-arm64
 
 # Test commands
 test: # Run all tests

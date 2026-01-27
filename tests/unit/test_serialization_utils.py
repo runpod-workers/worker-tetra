@@ -40,9 +40,7 @@ class TestSerializationUtils:
     def test_deserialize_args_simple(self):
         """Test deserializing simple arguments."""
         args = [42, "hello", True]
-        encoded_args = [
-            base64.b64encode(cloudpickle.dumps(arg)).decode("utf-8") for arg in args
-        ]
+        encoded_args = [base64.b64encode(cloudpickle.dumps(arg)).decode("utf-8") for arg in args]
 
         deserialized = SerializationUtils.deserialize_args(encoded_args)
         assert deserialized == args
@@ -55,9 +53,7 @@ class TestSerializationUtils:
     def test_deserialize_args_complex(self):
         """Test deserializing complex arguments."""
         args = [{"nested": {"data": [1, 2, 3]}}, [1, 2, 3], {"key": "value"}]
-        encoded_args = [
-            base64.b64encode(cloudpickle.dumps(arg)).decode("utf-8") for arg in args
-        ]
+        encoded_args = [base64.b64encode(cloudpickle.dumps(arg)).decode("utf-8") for arg in args]
 
         deserialized = SerializationUtils.deserialize_args(encoded_args)
         assert deserialized == args
@@ -66,8 +62,7 @@ class TestSerializationUtils:
         """Test deserializing simple keyword arguments."""
         kwargs = {"name": "Alice", "age": 30, "active": True}
         encoded_kwargs = {
-            k: base64.b64encode(cloudpickle.dumps(v)).decode("utf-8")
-            for k, v in kwargs.items()
+            k: base64.b64encode(cloudpickle.dumps(v)).decode("utf-8") for k, v in kwargs.items()
         }
 
         deserialized = SerializationUtils.deserialize_kwargs(encoded_kwargs)
@@ -86,8 +81,7 @@ class TestSerializationUtils:
             "items": [{"id": 1}, {"id": 2}],
         }
         encoded_kwargs = {
-            k: base64.b64encode(cloudpickle.dumps(v)).decode("utf-8")
-            for k, v in kwargs.items()
+            k: base64.b64encode(cloudpickle.dumps(v)).decode("utf-8") for k, v in kwargs.items()
         }
 
         deserialized = SerializationUtils.deserialize_kwargs(encoded_kwargs)
@@ -102,12 +96,9 @@ class TestSerializationUtils:
 
         # Serialize
         serialized_result = SerializationUtils.serialize_result(result)
-        encoded_args = [
-            base64.b64encode(cloudpickle.dumps(arg)).decode("utf-8") for arg in args
-        ]
+        encoded_args = [base64.b64encode(cloudpickle.dumps(arg)).decode("utf-8") for arg in args]
         encoded_kwargs = {
-            k: base64.b64encode(cloudpickle.dumps(v)).decode("utf-8")
-            for k, v in kwargs.items()
+            k: base64.b64encode(cloudpickle.dumps(v)).decode("utf-8") for k, v in kwargs.items()
         }
 
         # Deserialize

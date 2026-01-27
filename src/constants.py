@@ -38,3 +38,10 @@ Can be overridden via FLASH_BUILD_ARTIFACT_PATH environment variable.
 # Environment Variables for Volume Unpacking
 # FLASH_BUILD_ARTIFACT_PATH: Custom path to build artifact tarball
 # FLASH_DISABLE_UNPACK: Set to "1", "true", or "yes" to disable unpacking
+
+# Cross-Endpoint Function Routing
+FLASH_MANIFEST_PATH = "/app/flash_manifest.json"
+"""Path to Flash manifest with function routing configuration."""
+
+DEFAULT_ENDPOINT_TIMEOUT = 300
+"""Default timeout in seconds for cross-endpoint HTTP requests."""
