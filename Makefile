@@ -161,3 +161,20 @@ typecheck: # Check types with mypy
 
 # Quality gates (used in CI)
 quality-check: format-check lint typecheck test-coverage test-handler
+
+# Code intelligence commands
+index: # Generate code intelligence index
+	@echo "🔍 Indexing codebase..."
+	@uv run python scripts/ast_to_sqlite.py
+
+query: # Query symbols (usage: make query SYMBOL=name)
+	@test -n "$(SYMBOL)" || (echo "Usage: make query SYMBOL=<name>" && exit 1)
+	@uv run python scripts/code_intel.py find "$(SYMBOL)"
+
+query-interface: # Show class interface (usage: make query-interface CLASS=ClassName)
+	@test -n "$(CLASS)" || (echo "Usage: make query-interface CLASS=<ClassName>" && exit 1)
+	@uv run python scripts/code_intel.py interface "$(CLASS)"
+
+query-file: # Show file symbols (usage: make query-file FILE=path)
+	@test -n "$(FILE)" || (echo "Usage: make query-file FILE=<path>" && exit 1)
+	@uv run python scripts/code_intel.py file "$(FILE)"

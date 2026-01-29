@@ -161,3 +161,10 @@ cython_debug/
 #.idea/
 remote_execution.py
 *.pkl
+
+# Code intelligence
+.code-intel/
+
+# Claude Code project-specific files
+.claude/hooks.json
+.claude/projects/
