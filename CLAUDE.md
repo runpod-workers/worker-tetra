@@ -87,6 +87,47 @@ This is `worker-tetra`, a RunPod Serverless worker template that provides dynami
 6. **Serialization**: Uses cloudpickle + base64 encoding for function arguments and results
 7. **Resource Configuration**: `LiveServerless` objects define GPU requirements, scaling, and worker configuration
 
+## Code Intelligence with MCP
+
+This project has a worker-tetra-code-intel MCP server configured for efficient codebase exploration.
+
+### MCP Tools for Code Intelligence
+
+**Always prefer these MCP tools over Grep/Glob for semantic code searches:**
+
+- **`find_symbol(symbol)`** - Find classes, functions, methods by name (supports partial matches)
+  - Example: Finding `RemoteExecutor` class or `handler` function
+  - Use instead of: `grep -r "class RemoteExecutor"` or `glob "**/*.py"`
+
+- **`list_classes()`** - Get all classes in codebase
+  - Use instead of: `grep -r "^class "`
+
+- **`get_class_interface(class_name)`** - Get class methods without implementations
+  - Example: `get_class_interface("DependencyInstaller")` to see available methods
+  - Use instead of: Reading full file and parsing manually
+
+- **`list_file_symbols(file_path)`** - List all symbols (classes, functions) in a specific file
+  - Use instead of: `grep` on individual files for symbol discovery
+
+- **`find_by_decorator(decorator)`** - Find functions/classes with specific decorators
+  - Example: `find_by_decorator("remote")` to find all @remote decorated functions
+  - Use instead of: `grep -r "@remote"`
+
+### Tool Selection Guidelines
+
+**When to use MCP vs Grep/Glob:**
+- **MCP tools**: Semantic searches (class names, function definitions, decorators, symbols)
+- **Grep**: Content searches (error messages, comments, string literals, log statements)
+- **Glob**: File path patterns when you know the exact file structure
+- **Task tool with Explore agent**: Complex multi-step exploration requiring multiple searches
+
+**Example workflow:**
+- "Find all @remote functions" → use `find_by_decorator("remote")`
+- "Where is RemoteExecutor defined" → use `find_symbol("RemoteExecutor")`
+- "What methods does DependencyInstaller have" → use `get_class_interface("DependencyInstaller")`
+- "Where is error 'API timeout' logged" → use Grep
+- "Find all test_*.json files" → use Glob
+
 ## Development Commands
 
 ### Setup and Dependencies
