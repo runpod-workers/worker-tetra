@@ -89,14 +89,27 @@ This is `worker-tetra`, a RunPod Serverless worker template that provides dynami
 
 ## Code Intelligence with MCP
 
-This project has a worker-tetra-code-intel MCP server configured for efficient codebase exploration.
+This project has a worker-tetra-code-intel MCP server configured for efficient codebase exploration. The code intelligence index includes both project source code and the tetra_rp dependency.
+
+### Indexed Codebase
+
+The following are automatically indexed and searchable via MCP tools:
+- **Project source** (`src/`) - All 83 worker-tetra symbols
+- **tetra_rp dependency** - All 552 protocol definitions, resources, and core components
+  - Protocol definitions: `tetra_rp.protos.remote_execution` (`FunctionRequest`, `FunctionResponse`, etc.)
+  - Resources: `tetra_rp.core.resources` (`LiveServerless`, `Serverless`, `NetworkVolume`, etc.)
+  - Stubs: `tetra_rp.stubs` (stub implementations for local development)
+
+To regenerate the index (when dependencies change), run: `make index`
+
+To add more dependencies to the index, edit `DEPENDENCIES_TO_INDEX` in `scripts/ast_to_sqlite.py`.
 
 ### MCP Tools for Code Intelligence
 
 **Always prefer these MCP tools over Grep/Glob for semantic code searches:**
 
 - **`find_symbol(symbol)`** - Find classes, functions, methods by name (supports partial matches)
-  - Example: Finding `RemoteExecutor` class or `handler` function
+  - Example: Finding `RemoteExecutor` class, `FunctionRequest` protocol, or `handler` function
   - Use instead of: `grep -r "class RemoteExecutor"` or `glob "**/*.py"`
 
 - **`list_classes()`** - Get all classes in codebase
@@ -104,6 +117,7 @@ This project has a worker-tetra-code-intel MCP server configured for efficient c
 
 - **`get_class_interface(class_name)`** - Get class methods without implementations
   - Example: `get_class_interface("DependencyInstaller")` to see available methods
+  - Example: `get_class_interface("FunctionRequest")` to see protocol fields
   - Use instead of: Reading full file and parsing manually
 
 - **`list_file_symbols(file_path)`** - List all symbols (classes, functions) in a specific file
@@ -116,7 +130,7 @@ This project has a worker-tetra-code-intel MCP server configured for efficient c
 ### Tool Selection Guidelines
 
 **When to use MCP vs Grep/Glob:**
-- **MCP tools**: Semantic searches (class names, function definitions, decorators, symbols)
+- **MCP tools**: Semantic searches (class names, function definitions, decorators, symbols) - including tetra_rp
 - **Grep**: Content searches (error messages, comments, string literals, log statements)
 - **Glob**: File path patterns when you know the exact file structure
 - **Task tool with Explore agent**: Complex multi-step exploration requiring multiple searches
@@ -124,7 +138,8 @@ This project has a worker-tetra-code-intel MCP server configured for efficient c
 **Example workflow:**
 - "Find all @remote functions" → use `find_by_decorator("remote")`
 - "Where is RemoteExecutor defined" → use `find_symbol("RemoteExecutor")`
-- "What methods does DependencyInstaller have" → use `get_class_interface("DependencyInstaller")`
+- "What fields does FunctionRequest protocol have" → use `get_class_interface("FunctionRequest")`
+- "Where is LiveServerless used" → use `find_symbol("LiveServerless")`
 - "Where is error 'API timeout' logged" → use Grep
 - "Find all test_*.json files" → use Glob
 
