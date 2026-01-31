@@ -40,7 +40,7 @@ async def list_tools() -> list[Tool]:
     return [
         Tool(
             name="find_symbol",
-            description="Find classes, functions, or methods by name (partial match)",
+            description="Find classes, functions, or methods by name (partial match). Returns up to 50 results.",
             inputSchema={
                 "type": "object",
                 "properties": {
@@ -141,7 +141,10 @@ async def find_symbol(symbol: str) -> CallToolResult:
                 isError=False,
             )
 
-        result_text = f"Found {len(rows)} symbol(s) matching '{symbol}':\n\n"
+        result_text = f"Found {len(rows)} symbol(s) matching '{symbol}'"
+        if len(rows) == 50:
+            result_text += " (showing first 50 results, there may be more)"
+        result_text += ":\n\n"
         for row in rows:
             result_text += f"**{row['symbol_name']}** ({row['kind']})\n"
             result_text += f"  File: {row['file_path']}:{row['start_line']}\n"

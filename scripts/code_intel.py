@@ -43,7 +43,10 @@ def get_connection(db_path: Path) -> sqlite3.Connection:
 
 @app.command()
 def find(symbol: str) -> None:
-    """Find classes, functions, or methods by name (partial match)."""
+    """Find classes, functions, or methods by name (partial match).
+
+    Returns up to 50 results. If you need more results, use a more specific search term.
+    """
     db_path = check_db_exists()
     conn = get_connection(db_path)
     cursor = conn.cursor()
@@ -66,7 +69,10 @@ def find(symbol: str) -> None:
         console.print(f"[yellow]No symbols found matching[/yellow] '{symbol}'")
         return
 
-    table = Table(title=f"Symbols matching '{symbol}'", show_lines=True)
+    title = f"Symbols matching '{symbol}'"
+    if len(rows) == 50:
+        title += " (showing first 50 results)"
+    table = Table(title=title, show_lines=True)
     table.add_column("Name", style="cyan")
     table.add_column("Kind", style="magenta")
     table.add_column("Location", style="green")

@@ -197,7 +197,9 @@ def index_directory(
         directory: The directory to scan
         base_path: The base path for relative path calculation
         cursor: Database cursor for inserting symbols
-        skip_private: If True, skip files starting with underscore
+        skip_private: If True, skip files whose names start with underscore (_).
+                     Project files typically skip private files, while dependency
+                     indexing includes them to capture internal APIs.
 
     Returns:
         Number of symbols indexed
