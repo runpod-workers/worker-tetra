@@ -78,14 +78,6 @@ class RemoteExecutor(RemoteExecutorStub):
         )
 
         try:
-            # Refresh manifest from State Manager if stale (before routing decisions)
-            # This ensures ServiceRegistry has fresh endpoint URLs for cross-endpoint routing
-            try:
-                await refresh_manifest_if_stale(Path(FLASH_MANIFEST_PATH))
-            except Exception as e:
-                self.logger.debug(f"Manifest refresh failed (non-fatal): {e}")
-                # Continue with potentially stale manifest
-
             # Hydrate cache from volume if needed (before any installations)
             has_installations = request.dependencies or request.system_dependencies
             if has_installations:
@@ -129,28 +121,52 @@ class RemoteExecutor(RemoteExecutorStub):
 
             if not has_function_code and not has_class_code:
                 # Flash Deployed App: code pre-deployed in /app
-                # Check if function should be routed to another endpoint
-                self.logger.debug("Flash deployment detected, checking cross-endpoint routing")
+                # Optimize: check if local BEFORE refreshing manifest
+                self.logger.debug("Flash deployment detected, checking execution path")
 
-                # Use ServiceRegistry for peer-to-peer routing
-                if self.service_registry:
+                # ServiceRegistry not available - execute locally
+                if not self.service_registry:
+                    self.logger.debug("Service registry not available, executing locally")
+                    result = await self._execute_flash_function(request)
+                else:
+                    # Use ServiceRegistry for smart routing
                     try:
-                        endpoint_url = await self.service_registry.get_endpoint_for_function(
-                            request.function_name
-                        )
+                        # Check if local using cached manifest (no State Manager query)
+                        is_local = self.service_registry.is_local_function(request.function_name)
 
-                        if endpoint_url:
-                            # Remote: Route to different endpoint
+                        if is_local:
+                            # Local execution - skip manifest refresh entirely
                             self.logger.debug(
-                                f"Routing function '{request.function_name}' to {endpoint_url}"
-                            )
-                            result = await self._route_to_endpoint(request, endpoint_url)
-                        else:
-                            # Local: Execute on this endpoint
-                            self.logger.debug(
-                                f"Executing function '{request.function_name}' locally"
+                                f"Executing function '{request.function_name}' locally (no refresh)"
                             )
                             result = await self._execute_flash_function(request)
+                        else:
+                            # Remote routing - refresh manifest THEN route
+                            self.logger.debug(
+                                "Remote function detected, refreshing manifest before routing"
+                            )
+                            try:
+                                await refresh_manifest_if_stale(Path(FLASH_MANIFEST_PATH))
+                            except Exception as e:
+                                self.logger.debug(f"Manifest refresh failed (non-fatal): {e}")
+
+                            # Get fresh endpoint URL after refresh
+                            endpoint_url = await self.service_registry.get_endpoint_for_function(
+                                request.function_name
+                            )
+
+                            if endpoint_url:
+                                self.logger.debug(
+                                    f"Routing function '{request.function_name}' to {endpoint_url}"
+                                )
+                                result = await self._route_to_endpoint(request, endpoint_url)
+                            else:
+                                # URL not found after refresh - fallback to local
+                                self.logger.warning(
+                                    f"No endpoint URL for '{request.function_name}' after refresh, "
+                                    f"executing locally"
+                                )
+                                result = await self._execute_flash_function(request)
 
                     except ValueError as e:
                         # Function not in manifest - try local execution
@@ -164,10 +180,6 @@ class RemoteExecutor(RemoteExecutorStub):
                             f"Service registry error: {e}, attempting local execution"
                         )
                         result = await self._execute_flash_function(request)
-                else:
-                    # ServiceRegistry not available - execute locally
-                    self.logger.debug("Service registry not available, executing locally")
-                    result = await self._execute_flash_function(request)
             else:
                 # Live Serverless: dynamic code execution
                 self.logger.debug("Live Serverless mode, executing dynamic code")
