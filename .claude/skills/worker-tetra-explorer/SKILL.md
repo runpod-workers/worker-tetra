@@ -22,7 +22,7 @@ The skill uses two components:
 
 2. **MCP Server** (`scripts/mcp_code_intel_server.py`)
    - Auto-starts when Claude Code loads
-   - Provides 5 query tools
+   - Provides 6 query tools
    - Uses stdio transport for communication
 
 ## Recommended Workflow
@@ -112,6 +112,17 @@ Example: "What functions use @remote?"
 → Shows decorator combinations
 ```
 
+### parse_test_output(output)
+**Parse pytest output to extract failures and coverage**
+
+Example: "Analyze the test results from make test-unit"
+```
+→ Takes: raw pytest output text
+→ Returns: structured summary of passed/failed/errors/coverage
+→ Replaces: tail/grep/cat on test output files
+→ Benefit: 99% token reduction (200 tokens vs 20,000+)
+```
+
 ## Best Practices
 
 ### DO ✅
@@ -119,6 +130,7 @@ Example: "What functions use @remote?"
 - Use file locations from queries to navigate to specific implementations
 - Ask about class interfaces before reading implementations
 - Use decorator searches to find patterns
+- Use parse_test_output after running pytest commands instead of grepping output files
 - Re-run `make index` after making significant code changes
 
 ### DON'T ❌
@@ -126,6 +138,8 @@ Example: "What functions use @remote?"
 - Ask "What's in this file?" without using `list_file_symbols`
 - Read `src/remote_executor.py` to find the RemoteExecutor class (use `find_symbol` first)
 - Assume file structure - always query first
+- Use tail/grep/cat on test output when parse_test_output is available
+- Manually parse test counts or coverage percentages
 - Forget to update index when code changes significantly
 
 ## Integration with Claude Code
@@ -220,6 +234,24 @@ Solution: Run `make index` to rebuild the index
 → Read: src/remote_executor.py lines 80-120 (specific lines)
 → Tokens: 2K
 → Total exploration: ~4K tokens vs ~15K for reading files
+```
+
+### Scenario: Analyzing Test Results
+
+**Step 1: Run tests**
+```
+make test-unit
+→ Output: 474 tests run with some failures
+→ Challenge: 20K+ tokens of output
+```
+
+**Step 2: Parse output**
+```
+"Parse these test results"
+→ Tool: parse_test_output(output)
+→ Result: Structured summary of failures and coverage
+→ Tokens: 200 (99% reduction)
+→ See exactly which tests failed and why
 ```
 
 ## Technical Details
