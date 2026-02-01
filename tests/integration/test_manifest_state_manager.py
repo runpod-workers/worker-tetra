@@ -19,7 +19,6 @@ def complete_manifest_data() -> dict:
         "resources": {
             "cpu_endpoint": {
                 "resource_type": "CpuLiveLoadBalancer",
-                "handler_file": "handler_cpu.py",
                 "endpoint_url": "https://ep-cpu-001.runpod.io",
                 "config_hash": "abc123",
                 "status": "healthy",
@@ -34,7 +33,6 @@ def complete_manifest_data() -> dict:
             },
             "gpu_endpoint": {
                 "resource_type": "LiveLoadBalancer",
-                "handler_file": "handler_gpu.py",
                 "endpoint_url": "https://ep-gpu-001.runpod.io",
                 "config_hash": "def456",
                 "status": "healthy",
@@ -70,7 +68,6 @@ def local_manifest_data() -> dict:
         "resources": {
             "cpu_endpoint": {
                 "resource_type": "CpuLiveLoadBalancer",
-                "handler_file": "handler_cpu.py",
                 "config_hash": "abc123",
                 "functions": [
                     {
@@ -83,7 +80,6 @@ def local_manifest_data() -> dict:
             },
             "gpu_endpoint": {
                 "resource_type": "LiveLoadBalancer",
-                "handler_file": "handler_gpu.py",
                 "config_hash": "def456",
                 "functions": [
                     {

@@ -84,7 +84,6 @@ class TestFlashIntegration:
             "resources": {
                 "resource_01": {
                     "resource_type": "LiveServerless",
-                    "handler_file": "handler_01.py",
                     "functions": [
                         {
                             "name": "test_function",
