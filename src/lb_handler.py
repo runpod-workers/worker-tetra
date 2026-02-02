@@ -72,7 +72,7 @@ if is_mothership:
         logger.info(f"Successfully imported FastAPI app '{app_variable}' from {main_file}")
 
         # Add /ping endpoint if not already present
-        # Check if /ping route exists (compare by path)
+        # Check if /ping route already exists to avoid adding a duplicate health check endpoint
         ping_exists = any(getattr(route, "path", None) == "/ping" for route in app.routes)
 
         if not ping_exists:

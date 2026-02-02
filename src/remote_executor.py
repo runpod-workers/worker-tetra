@@ -135,7 +135,6 @@ class RemoteExecutor(RemoteExecutorStub):
                         is_local = self.service_registry.is_local_function(request.function_name)
 
                         if is_local:
-                            # Local execution - skip manifest refresh entirely
                             self.logger.debug(
                                 f"Executing function '{request.function_name}' locally (no refresh)"
                             )
@@ -161,7 +160,6 @@ class RemoteExecutor(RemoteExecutorStub):
                                 )
                                 result = await self._route_to_endpoint(request, endpoint_url)
                             else:
-                                # URL not found after refresh - fallback to local
                                 self.logger.warning(
                                     f"No endpoint URL for '{request.function_name}' after refresh, "
                                     f"executing locally"
