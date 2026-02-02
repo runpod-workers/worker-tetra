@@ -66,17 +66,32 @@ build-lb-cpu: setup # Build CPU-only Load Balancer Docker image (linux/amd64)
 	-t $(IMAGE)-lb-cpu:$(TAG) \
 	. --load
 
-# ARM64 Build Commands (CPU-only due to PyTorch limitations)
+# ARM64 Build Commands
 
-build-arm64: # Build all ARM64 CPU images
+build-arm64: # Build both GPU and CPU ARM64 Docker images
+	make build-gpu-arm64
 	make build-cpu-arm64
+	make build-lb-gpu-arm64
 	make build-lb-cpu-arm64
+
+build-gpu-arm64: setup # Build GPU Docker image (linux/arm64)
+	docker buildx build \
+	--platform linux/arm64 \
+	-t $(FULL_IMAGE)-arm64 \
+	. --load
 
 build-cpu-arm64: setup # Build CPU-only Docker image (linux/arm64)
 	docker buildx build \
 	--platform linux/arm64 \
 	-f Dockerfile-cpu \
 	-t $(FULL_IMAGE_CPU)-arm64 \
+	. --load
+
+build-lb-gpu-arm64: setup # Build Load Balancer Docker image (linux/arm64)
+	docker buildx build \
+	--platform linux/arm64 \
+	-f Dockerfile-lb \
+	-t $(IMAGE)-lb:$(TAG)-arm64 \
 	. --load
 
 build-lb-cpu-arm64: setup # Build CPU-only Load Balancer Docker image (linux/arm64)
@@ -87,7 +102,9 @@ build-lb-cpu-arm64: setup # Build CPU-only Load Balancer Docker image (linux/arm
 	. --load
 
 push-arm64: # Push ARM64 Docker images to Docker Hub
+	docker push $(FULL_IMAGE)-arm64
 	docker push $(FULL_IMAGE_CPU)-arm64
+	docker push $(IMAGE)-lb:$(TAG)-arm64
 	docker push $(IMAGE)-lb-cpu:$(TAG)-arm64
 
 # Test commands
