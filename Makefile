@@ -3,6 +3,18 @@ TAG = $(or $(TETRA_IMAGE_TAG),local)
 FULL_IMAGE = $(IMAGE):$(TAG)
 FULL_IMAGE_CPU = $(IMAGE)-cpu:$(TAG)
 
+# Detect host platform for local builds
+ARCH := $(shell uname -m)
+ifeq ($(ARCH),x86_64)
+	PLATFORM := linux/amd64
+else ifeq ($(ARCH),aarch64)
+	PLATFORM := linux/arm64
+else ifeq ($(ARCH),arm64)
+	PLATFORM := linux/arm64
+else
+	PLATFORM := linux/amd64
+endif
+
 .PHONY: setup help
 
 # Check if 'uv' is installed
@@ -39,73 +51,32 @@ build: # Build both GPU and CPU Docker images
 	make build-lb
 	make build-lb-cpu
 
-build-gpu: setup # Build GPU Docker image (linux/amd64)
+build-gpu: setup # Build GPU Docker image for host platform
 	docker buildx build \
-	--platform linux/amd64 \
+	--platform $(PLATFORM) \
 	-t $(FULL_IMAGE) \
 	. --load
 
-build-cpu: setup # Build CPU-only Docker image (linux/amd64)
+build-cpu: setup # Build CPU-only Docker image for host platform
 	docker buildx build \
-	--platform linux/amd64 \
+	--platform $(PLATFORM) \
 	-f Dockerfile-cpu \
 	-t $(FULL_IMAGE_CPU) \
 	. --load
 
-build-lb: setup # Build Load Balancer Docker image (linux/amd64)
+build-lb: setup # Build Load Balancer Docker image for host platform
 	docker buildx build \
-	--platform linux/amd64 \
+	--platform $(PLATFORM) \
 	-f Dockerfile-lb \
 	-t $(IMAGE)-lb:$(TAG) \
 	. --load
 
-build-lb-cpu: setup # Build CPU-only Load Balancer Docker image (linux/amd64)
+build-lb-cpu: setup # Build CPU-only Load Balancer Docker image for host platform
 	docker buildx build \
-	--platform linux/amd64 \
+	--platform $(PLATFORM) \
 	-f Dockerfile-lb-cpu \
 	-t $(IMAGE)-lb-cpu:$(TAG) \
 	. --load
-
-# ARM64 Build Commands
-
-build-arm64: # Build both GPU and CPU ARM64 Docker images
-	make build-gpu-arm64
-	make build-cpu-arm64
-	make build-lb-gpu-arm64
-	make build-lb-cpu-arm64
-
-build-gpu-arm64: setup # Build GPU Docker image (linux/arm64)
-	docker buildx build \
-	--platform linux/arm64 \
-	-t $(FULL_IMAGE)-arm64 \
-	. --load
-
-build-cpu-arm64: setup # Build CPU-only Docker image (linux/arm64)
-	docker buildx build \
-	--platform linux/arm64 \
-	-f Dockerfile-cpu \
-	-t $(FULL_IMAGE_CPU)-arm64 \
-	. --load
-
-build-lb-gpu-arm64: setup # Build Load Balancer Docker image (linux/arm64)
-	docker buildx build \
-	--platform linux/arm64 \
-	-f Dockerfile-lb \
-	-t $(IMAGE)-lb:$(TAG)-arm64 \
-	. --load
-
-build-lb-cpu-arm64: setup # Build CPU-only Load Balancer Docker image (linux/arm64)
-	docker buildx build \
-	--platform linux/arm64 \
-	-f Dockerfile-lb-cpu \
-	-t $(IMAGE)-lb-cpu:$(TAG)-arm64 \
-	. --load
-
-push-arm64: # Push ARM64 Docker images to Docker Hub
-	docker push $(FULL_IMAGE)-arm64
-	docker push $(FULL_IMAGE_CPU)-arm64
-	docker push $(IMAGE)-lb:$(TAG)-arm64
-	docker push $(IMAGE)-lb-cpu:$(TAG)-arm64
 
 # Test commands
 test: # Run all tests
@@ -129,37 +100,37 @@ test-handler: # Test handler locally with all test_*.json files
 test-lb-handler: # Test Load Balancer handler with /execute endpoint
 	cd src && ./test-lb-handler.sh
 
-# Smoke Tests (local on Mac OS)
+# Smoke Tests (local)
 
-smoketest-macos-build: setup # Build Mac OS Docker image (macos/arm64)
+smoketest-build: setup # Build Docker image for host platform
 	docker buildx build \
-	--platform linux/arm64 \
+	--platform $(PLATFORM) \
 	-f Dockerfile \
-	-t $(FULL_IMAGE)-mac \
+	-t $(FULL_IMAGE) \
 	. --load
 
-smoketest-macos: smoketest-macos-build # Test Docker image locally
-	docker run --rm $(FULL_IMAGE)-mac ./test-handler.sh
+smoketest: smoketest-build # Test Docker image locally
+	docker run --rm $(FULL_IMAGE) ./test-handler.sh
 
-smoketest-macos-lb-build: setup # Build Mac OS Load Balancer Docker image (macos/arm64)
+smoketest-lb-build: setup # Build Load Balancer Docker image for host platform
 	docker buildx build \
-	--platform linux/arm64 \
+	--platform $(PLATFORM) \
 	-f Dockerfile-lb \
-	-t $(IMAGE)-lb:mac \
+	-t $(IMAGE)-lb:$(TAG) \
 	. --load
 
-smoketest-macos-lb: smoketest-macos-lb-build # Test Load Balancer Docker image locally
-	docker run --rm $(IMAGE)-lb:mac ./test-lb-handler.sh
+smoketest-lb: smoketest-lb-build # Test Load Balancer Docker image locally
+	docker run --rm $(IMAGE)-lb:$(TAG) ./test-lb-handler.sh
 
-smoketest-macos-lb-cpu-build: setup # Build Mac OS CPU-only Load Balancer Docker image (macos/arm64)
+smoketest-lb-cpu-build: setup # Build CPU-only Load Balancer Docker image for host platform
 	docker buildx build \
-	--platform linux/arm64 \
+	--platform $(PLATFORM) \
 	-f Dockerfile-lb-cpu \
-	-t $(IMAGE)-lb-cpu:mac \
+	-t $(IMAGE)-lb-cpu:$(TAG) \
 	. --load
 
-smoketest-macos-lb-cpu: smoketest-macos-lb-cpu-build # Test CPU-only Load Balancer Docker image locally
-	docker run --rm $(IMAGE)-lb-cpu:mac ./test-lb-handler.sh
+smoketest-lb-cpu: smoketest-lb-cpu-build # Test CPU-only Load Balancer Docker image locally
+	docker run --rm $(IMAGE)-lb-cpu:$(TAG) ./test-lb-handler.sh
 
 # Linting commands
 lint: # Check code with ruff
