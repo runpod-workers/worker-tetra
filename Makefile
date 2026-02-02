@@ -152,36 +152,15 @@ test-handler: # Test handler locally with all test_*.json files
 test-lb-handler: # Test Load Balancer handler with /execute endpoint
 	cd src && ./test-lb-handler.sh
 
-# Smoke Tests (local)
+# Smoke Tests (local Docker validation)
 
-smoketest-build: setup # Build Docker image for host platform
-	docker buildx build \
-	--platform $(PLATFORM) \
-	-f Dockerfile \
-	-t $(FULL_IMAGE) \
-	. --load
-
-smoketest: smoketest-build # Test Docker image locally
+smoketest: build-gpu # Test Docker image locally
 	docker run --rm $(FULL_IMAGE) ./test-handler.sh
 
-smoketest-lb-build: setup # Build Load Balancer Docker image for host platform
-	docker buildx build \
-	--platform $(PLATFORM) \
-	-f Dockerfile-lb \
-	-t $(IMAGE)-lb:$(TAG) \
-	. --load
-
-smoketest-lb: smoketest-lb-build # Test Load Balancer Docker image locally
+smoketest-lb: build-lb # Test Load Balancer Docker image locally
 	docker run --rm $(IMAGE)-lb:$(TAG) ./test-lb-handler.sh
 
-smoketest-lb-cpu-build: setup # Build CPU-only Load Balancer Docker image for host platform
-	docker buildx build \
-	--platform $(PLATFORM) \
-	-f Dockerfile-lb-cpu \
-	-t $(IMAGE)-lb-cpu:$(TAG) \
-	. --load
-
-smoketest-lb-cpu: smoketest-lb-cpu-build # Test CPU-only Load Balancer Docker image locally
+smoketest-lb-cpu: build-lb-cpu # Test CPU-only Load Balancer Docker image locally
 	docker run --rm $(IMAGE)-lb-cpu:$(TAG) ./test-lb-handler.sh
 
 # Linting commands
