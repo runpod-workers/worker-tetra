@@ -15,6 +15,10 @@ else
 	PLATFORM := linux/amd64
 endif
 
+# WIP testing configuration (multi-platform builds)
+WIP_TAG ?= wip
+MULTI_PLATFORM := linux/amd64,linux/arm64
+
 .PHONY: setup help
 
 # Check if 'uv' is installed
@@ -77,6 +81,54 @@ build-lb-cpu: setup # Build CPU-only Load Balancer Docker image for host platfor
 	-f Dockerfile-lb-cpu \
 	-t $(IMAGE)-lb-cpu:$(TAG) \
 	. --load
+
+# WIP Build Targets (multi-platform, requires Docker Hub push)
+# Usage: make build-wip
+# Custom tag: make build-wip WIP_TAG=myname-feature
+# Then deploy with: export TETRA_IMAGE_TAG=wip (or your custom tag)
+
+build-wip: # Build and push all WIP images (multi-platform)
+	@echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+	@echo "Building multi-platform WIP images with tag :$(WIP_TAG)"
+	@echo "This will push to Docker Hub registry (requires docker login)"
+	@echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+	make build-wip-gpu
+	make build-wip-cpu
+	make build-wip-lb
+	make build-wip-lb-cpu
+	@echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+	@echo "✅ WIP images pushed to Docker Hub with tag :$(WIP_TAG)"
+	@echo "Next steps:"
+	@echo "  1. export TETRA_IMAGE_TAG=$(WIP_TAG)"
+	@echo "  2. Deploy to RunPod and test"
+	@echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+
+build-wip-gpu: setup # Build and push GPU image (multi-platform)
+	docker buildx build \
+	--platform $(MULTI_PLATFORM) \
+	-t $(IMAGE):$(WIP_TAG) \
+	. --push
+
+build-wip-cpu: setup # Build and push CPU image (multi-platform)
+	docker buildx build \
+	--platform $(MULTI_PLATFORM) \
+	-f Dockerfile-cpu \
+	-t $(IMAGE)-cpu:$(WIP_TAG) \
+	. --push
+
+build-wip-lb: setup # Build and push LB image (multi-platform)
+	docker buildx build \
+	--platform $(MULTI_PLATFORM) \
+	-f Dockerfile-lb \
+	-t $(IMAGE)-lb:$(WIP_TAG) \
+	. --push
+
+build-wip-lb-cpu: setup # Build and push LB CPU image (multi-platform)
+	docker buildx build \
+	--platform $(MULTI_PLATFORM) \
+	-f Dockerfile-lb-cpu \
+	-t $(IMAGE)-lb-cpu:$(WIP_TAG) \
+	. --push
 
 # Test commands
 test: # Run all tests
