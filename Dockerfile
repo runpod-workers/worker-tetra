@@ -22,7 +22,7 @@ RUN mkdir -p /root/.cache/apt/archives/partial \
 # Automatic detection will install it when needed (no manual action required)
 # Advanced: Users can pre-install via system_dependencies=["build-essential"]
 RUN DEBIAN_FRONTEND=noninteractive apt-get update && apt-get install -y --no-install-recommends \
-    curl ca-certificates nala git \
+    curl ca-certificates git \
  && curl -LsSf https://astral.sh/uv/install.sh | sh \
  && cp ~/.local/bin/uv /usr/local/bin/uv \
  && chmod +x /usr/local/bin/uv \
