@@ -24,12 +24,10 @@ def sample_manifest() -> dict:
         "resources": {
             "cpu_endpoint": {
                 "resource_type": "CpuLiveLoadBalancer",
-                "handler_file": "handler_cpu.py",
                 "endpoint_url": "https://ep-cpu-001.runpod.io",
             },
             "gpu_endpoint": {
                 "resource_type": "LiveLoadBalancer",
-                "handler_file": "handler_gpu.py",
                 "endpoint_url": "https://ep-gpu-001.runpod.io",
             },
         },

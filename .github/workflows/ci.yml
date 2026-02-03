@@ -295,7 +295,7 @@ jobs:
         with:
           context: .
           file: ./Dockerfile
-          platforms: linux/amd64
+          platforms: linux/amd64,linux/arm64
           push: true
           tags: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:main
           cache-from: type=gha
@@ -346,7 +346,7 @@ jobs:
         with:
           context: .
           file: ./Dockerfile-cpu
-          platforms: linux/amd64
+          platforms: linux/amd64,linux/arm64
           push: true
           tags: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}-cpu:main
           cache-from: type=gha
@@ -403,7 +403,7 @@ jobs:
         with:
           context: .
           file: ./Dockerfile-lb
-          platforms: linux/amd64
+          platforms: linux/amd64,linux/arm64
           push: true
           tags: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}-lb:main
           cache-from: type=gha
@@ -460,7 +460,7 @@ jobs:
         with:
           context: .
           file: ./Dockerfile-lb-cpu
-          platforms: linux/amd64
+          platforms: linux/amd64,linux/arm64
           push: true
           tags: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}-lb-cpu:main
           cache-from: type=gha
@@ -526,7 +526,7 @@ jobs:
         with:
           context: .
           file: ./Dockerfile
-          platforms: linux/amd64
+          platforms: linux/amd64,linux/arm64
           push: true
           tags: ${{ steps.meta-gpu.outputs.tags }}
           labels: ${{ steps.meta-gpu.outputs.labels }}
@@ -587,7 +587,7 @@ jobs:
         with:
           context: .
           file: ./Dockerfile-cpu
-          platforms: linux/amd64
+          platforms: linux/amd64,linux/arm64
           push: true
           tags: ${{ steps.meta-cpu.outputs.tags }}
           labels: ${{ steps.meta-cpu.outputs.labels }}
@@ -654,7 +654,7 @@ jobs:
         with:
           context: .
           file: ./Dockerfile-lb
-          platforms: linux/amd64
+          platforms: linux/amd64,linux/arm64
           push: true
           tags: ${{ steps.meta-lb.outputs.tags }}
           labels: ${{ steps.meta-lb.outputs.labels }}
@@ -721,7 +721,7 @@ jobs:
         with:
           context: .
           file: ./Dockerfile-lb-cpu
-          platforms: linux/amd64
+          platforms: linux/amd64,linux/arm64
           push: true
           tags: ${{ steps.meta-lb-cpu.outputs.tags }}
           labels: ${{ steps.meta-lb-cpu.outputs.labels }}

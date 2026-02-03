@@ -3,6 +3,22 @@ TAG = $(or $(TETRA_IMAGE_TAG),local)
 FULL_IMAGE = $(IMAGE):$(TAG)
 FULL_IMAGE_CPU = $(IMAGE)-cpu:$(TAG)
 
+# Detect host platform for local builds
+ARCH := $(shell uname -m)
+ifeq ($(ARCH),x86_64)
+	PLATFORM := linux/amd64
+else ifeq ($(ARCH),aarch64)
+	PLATFORM := linux/arm64
+else ifeq ($(ARCH),arm64)
+	PLATFORM := linux/arm64
+else
+	PLATFORM := linux/amd64
+endif
+
+# WIP testing configuration (multi-platform builds)
+WIP_TAG ?= wip
+MULTI_PLATFORM := linux/amd64,linux/arm64
+
 .PHONY: setup help
 
 # Check if 'uv' is installed
@@ -36,57 +52,83 @@ setup: dev # Initialize project and sync dependencies
 build: # Build both GPU and CPU Docker images
 	make build-gpu
 	make build-cpu
+	make build-lb
+	make build-lb-cpu
 
-build-gpu: setup # Build GPU Docker image (linux/amd64)
+build-gpu: setup # Build GPU Docker image for host platform
 	docker buildx build \
-	--platform linux/amd64 \
+	--platform $(PLATFORM) \
 	-t $(FULL_IMAGE) \
 	. --load
 
-build-cpu: setup # Build CPU-only Docker image (linux/amd64)
+build-cpu: setup # Build CPU-only Docker image for host platform
 	docker buildx build \
-	--platform linux/amd64 \
+	--platform $(PLATFORM) \
 	-f Dockerfile-cpu \
 	-t $(FULL_IMAGE_CPU) \
 	. --load
 
-build-lb: setup # Build Load Balancer Docker image (linux/amd64)
+build-lb: setup # Build Load Balancer Docker image for host platform
 	docker buildx build \
-	--platform linux/amd64 \
+	--platform $(PLATFORM) \
 	-f Dockerfile-lb \
 	-t $(IMAGE)-lb:$(TAG) \
 	. --load
 
-build-lb-cpu: setup # Build CPU-only Load Balancer Docker image (linux/amd64)
+build-lb-cpu: setup # Build CPU-only Load Balancer Docker image for host platform
 	docker buildx build \
-	--platform linux/amd64 \
+	--platform $(PLATFORM) \
 	-f Dockerfile-lb-cpu \
 	-t $(IMAGE)-lb-cpu:$(TAG) \
 	. --load
 
-# ARM64 Build Commands (CPU-only due to PyTorch limitations)
+# WIP Build Targets (multi-platform, requires Docker Hub push)
+# Usage: make build-wip
+# Custom tag: make build-wip WIP_TAG=myname-feature
+# Then deploy with: export TETRA_IMAGE_TAG=wip (or your custom tag)
 
-build-arm64: # Build all ARM64 CPU images
-	make build-cpu-arm64
-	make build-lb-cpu-arm64
+build-wip: # Build and push all WIP images (multi-platform)
+	@echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+	@echo "Building multi-platform WIP images with tag :$(WIP_TAG)"
+	@echo "This will push to Docker Hub registry (requires docker login)"
+	@echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+	make build-wip-gpu
+	make build-wip-cpu
+	make build-wip-lb
+	make build-wip-lb-cpu
+	@echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+	@echo "✅ WIP images pushed to Docker Hub with tag :$(WIP_TAG)"
+	@echo "Next steps:"
+	@echo "  1. export TETRA_IMAGE_TAG=$(WIP_TAG)"
+	@echo "  2. Deploy to RunPod and test"
+	@echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
 
-build-cpu-arm64: setup # Build CPU-only Docker image (linux/arm64)
+build-wip-gpu: setup # Build and push GPU image (multi-platform)
 	docker buildx build \
-	--platform linux/arm64 \
+	--platform $(MULTI_PLATFORM) \
+	-t $(IMAGE):$(WIP_TAG) \
+	. --push
+
+build-wip-cpu: setup # Build and push CPU image (multi-platform)
+	docker buildx build \
+	--platform $(MULTI_PLATFORM) \
 	-f Dockerfile-cpu \
-	-t $(FULL_IMAGE_CPU)-arm64 \
-	. --load
+	-t $(IMAGE)-cpu:$(WIP_TAG) \
+	. --push
 
-build-lb-cpu-arm64: setup # Build CPU-only Load Balancer Docker image (linux/arm64)
+build-wip-lb: setup # Build and push LB image (multi-platform)
 	docker buildx build \
-	--platform linux/arm64 \
-	-f Dockerfile-lb-cpu \
-	-t $(IMAGE)-lb-cpu:$(TAG)-arm64 \
-	. --load
+	--platform $(MULTI_PLATFORM) \
+	-f Dockerfile-lb \
+	-t $(IMAGE)-lb:$(WIP_TAG) \
+	. --push
 
-push-arm64: # Push ARM64 Docker images to Docker Hub
-	docker push $(FULL_IMAGE_CPU)-arm64
-	docker push $(IMAGE)-lb-cpu:$(TAG)-arm64
+build-wip-lb-cpu: setup # Build and push LB CPU image (multi-platform)
+	docker buildx build \
+	--platform $(MULTI_PLATFORM) \
+	-f Dockerfile-lb-cpu \
+	-t $(IMAGE)-lb-cpu:$(WIP_TAG) \
+	. --push
 
 # Test commands
 test: # Run all tests
@@ -110,37 +152,16 @@ test-handler: # Test handler locally with all test_*.json files
 test-lb-handler: # Test Load Balancer handler with /execute endpoint
 	cd src && ./test-lb-handler.sh
 
-# Smoke Tests (local on Mac OS)
+# Smoke Tests (local Docker validation)
 
-smoketest-macos-build: setup # Build Mac OS Docker image (macos/arm64)
-	docker buildx build \
-	--platform linux/arm64 \
-	-f Dockerfile \
-	-t $(FULL_IMAGE)-mac \
-	. --load
+smoketest: build-gpu # Test Docker image locally
+	docker run --rm $(FULL_IMAGE) ./test-handler.sh
 
-smoketest-macos: smoketest-macos-build # Test Docker image locally
-	docker run --rm $(FULL_IMAGE)-mac ./test-handler.sh
+smoketest-lb: build-lb # Test Load Balancer Docker image locally
+	docker run --rm $(IMAGE)-lb:$(TAG) ./test-lb-handler.sh
 
-smoketest-macos-lb-build: setup # Build Mac OS Load Balancer Docker image (macos/arm64)
-	docker buildx build \
-	--platform linux/arm64 \
-	-f Dockerfile-lb \
-	-t $(IMAGE)-lb:mac \
-	. --load
-
-smoketest-macos-lb: smoketest-macos-lb-build # Test Load Balancer Docker image locally
-	docker run --rm $(IMAGE)-lb:mac ./test-lb-handler.sh
-
-smoketest-macos-lb-cpu-build: setup # Build Mac OS CPU-only Load Balancer Docker image (macos/arm64)
-	docker buildx build \
-	--platform linux/arm64 \
-	-f Dockerfile-lb-cpu \
-	-t $(IMAGE)-lb-cpu:mac \
-	. --load
-
-smoketest-macos-lb-cpu: smoketest-macos-lb-cpu-build # Test CPU-only Load Balancer Docker image locally
-	docker run --rm $(IMAGE)-lb-cpu:mac ./test-lb-handler.sh
+smoketest-lb-cpu: build-lb-cpu # Test CPU-only Load Balancer Docker image locally
+	docker run --rm $(IMAGE)-lb-cpu:$(TAG) ./test-lb-handler.sh
 
 # Linting commands
 lint: # Check code with ruff
@@ -161,3 +182,20 @@ typecheck: # Check types with mypy
 
 # Quality gates (used in CI)
 quality-check: format-check lint typecheck test-coverage test-handler
+
+# Code intelligence commands
+index: # Generate code intelligence index
+	@echo "🔍 Indexing codebase..."
+	@uv run python scripts/ast_to_sqlite.py
+
+query: # Query symbols (usage: make query SYMBOL=name)
+	@test -n "$(SYMBOL)" || (echo "Usage: make query SYMBOL=<name>" && exit 1)
+	@uv run python scripts/code_intel.py find "$(SYMBOL)"
+
+query-interface: # Show class interface (usage: make query-interface CLASS=ClassName)
+	@test -n "$(CLASS)" || (echo "Usage: make query-interface CLASS=<ClassName>" && exit 1)
+	@uv run python scripts/code_intel.py interface "$(CLASS)"
+
+query-file: # Show file symbols (usage: make query-file FILE=path)
+	@test -n "$(FILE)" || (echo "Usage: make query-file FILE=<path>" && exit 1)
+	@uv run python scripts/code_intel.py file "$(FILE)"

@@ -489,9 +489,11 @@ class TestRemoteExecutor:
         # Mock ServiceRegistry to return remote endpoint URL
         with (
             patch("remote_executor.ServiceRegistry") as mock_registry_class,
+            patch("remote_executor.refresh_manifest_if_stale") as mock_refresh,
             patch("aiohttp.ClientSession.post") as mock_post,
         ):
             mock_registry = AsyncMock()
+            mock_registry.is_local_function = Mock(return_value=False)
             mock_registry.get_endpoint_for_function = AsyncMock(
                 return_value="https://api.runpod.ai/v2/endpoint-xyz789/run"
             )
@@ -499,6 +501,9 @@ class TestRemoteExecutor:
 
             # Re-initialize executor with mocked registry
             self.executor.service_registry = mock_registry
+
+            # Mock refresh as successful
+            mock_refresh.return_value = True
 
             # Mock aiohttp response
             mock_response_data = {
@@ -518,12 +523,16 @@ class TestRemoteExecutor:
 
             assert response.success is True
             assert response.result == "encoded_result"
-            # Verify ServiceRegistry was called for routing
+            # Verify is_local_function was called first
+            mock_registry.is_local_function.assert_called_once_with("my_func")
+            # Verify manifest refresh WAS called for remote function
+            mock_refresh.assert_called_once()
+            # Verify routing occurred
             mock_registry.get_endpoint_for_function.assert_called_once_with("my_func")
 
     @pytest.mark.asyncio
     async def test_execute_function_flash_local_execution_with_service_registry(self):
-        """Test ExecuteFunction executes locally when ServiceRegistry returns None."""
+        """Test ExecuteFunction executes locally when ServiceRegistry identifies local function."""
         request = FunctionRequest(function_name="my_func")
 
         # Mock manifest for _load_flash_manifest
@@ -542,16 +551,17 @@ class TestRemoteExecutor:
             },
         }
 
-        # Mock ServiceRegistry to return None (local function)
+        # Mock ServiceRegistry to identify function as local
         with (
             patch("remote_executor.ServiceRegistry") as mock_registry_class,
             patch.object(self.executor, "_load_flash_manifest", return_value=mock_manifest),
             patch("importlib.import_module") as mock_import,
             patch("asyncio.to_thread") as mock_to_thread,
+            patch("remote_executor.refresh_manifest_if_stale") as mock_refresh,
         ):
-            # Create mock registry that returns None for local functions
+            # Create mock registry that identifies function as local
             mock_registry = AsyncMock()
-            mock_registry.get_endpoint_for_function = AsyncMock(return_value=None)
+            mock_registry.is_local_function = Mock(return_value=True)
             mock_registry_class.return_value = mock_registry
 
             # Re-initialize executor with mocked registry
@@ -570,5 +580,130 @@ class TestRemoteExecutor:
             assert response.result is not None
             # Verify local execution (importlib was called with test_module)
             mock_import.assert_any_call("test_module")
-            # Verify ServiceRegistry was called but returned None (local)
-            mock_registry.get_endpoint_for_function.assert_called_once_with("my_func")
+            # Verify is_local_function was called
+            mock_registry.is_local_function.assert_called_once_with("my_func")
+            # Verify manifest refresh was NOT called for local function
+            mock_refresh.assert_not_called()
+
+    @pytest.mark.asyncio
+    async def test_local_function_skips_manifest_refresh(self):
+        """Test local functions skip manifest refresh entirely."""
+        request = FunctionRequest(function_name="local_func")
+
+        # Mock manifest for _load_flash_manifest
+        mock_manifest = {
+            "function_registry": {"local_func": "resource_01"},
+            "resources": {
+                "resource_01": {
+                    "functions": [
+                        {
+                            "name": "local_func",
+                            "module": "test_module",
+                            "is_async": False,
+                        }
+                    ],
+                }
+            },
+        }
+
+        with (
+            patch("remote_executor.ServiceRegistry") as mock_registry_class,
+            patch.object(self.executor, "_load_flash_manifest", return_value=mock_manifest),
+            patch("importlib.import_module") as mock_import,
+            patch("asyncio.to_thread") as mock_to_thread,
+            patch("remote_executor.refresh_manifest_if_stale") as mock_refresh,
+        ):
+            # Mock registry that identifies function as local
+            mock_registry = AsyncMock()
+            mock_registry.is_local_function = Mock(return_value=True)
+            mock_registry_class.return_value = mock_registry
+            self.executor.service_registry = mock_registry
+
+            # Mock function execution
+            mock_func = Mock(return_value="local_result")
+            mock_module = Mock()
+            mock_module.local_func = mock_func
+            mock_import.return_value = mock_module
+            mock_to_thread.return_value = "local_result"
+
+            response = await self.executor.ExecuteFunction(request)
+
+            # Verify success
+            assert response.success is True
+
+            # CRITICAL: Verify manifest refresh was NOT called
+            mock_refresh.assert_not_called()
+
+            # Verify local execution happened
+            mock_registry.is_local_function.assert_called_once_with("local_func")
+            mock_import.assert_any_call("test_module")
+
+    @pytest.mark.asyncio
+    async def test_remote_function_refreshes_manifest(self):
+        """Test remote functions refresh manifest before routing."""
+        request = FunctionRequest(function_name="remote_func")
+
+        with (
+            patch("remote_executor.ServiceRegistry") as mock_registry_class,
+            patch("remote_executor.refresh_manifest_if_stale") as mock_refresh,
+            patch("aiohttp.ClientSession.post") as mock_post,
+        ):
+            # Mock registry that identifies function as remote
+            mock_registry = AsyncMock()
+            mock_registry.is_local_function = Mock(return_value=False)
+            mock_registry.get_endpoint_for_function = AsyncMock(
+                return_value="https://api.runpod.ai/v2/remote-ep/run"
+            )
+            mock_registry_class.return_value = mock_registry
+            self.executor.service_registry = mock_registry
+
+            # Mock refresh as successful
+            mock_refresh.return_value = True
+
+            # Mock HTTP response
+            mock_response_data = {"output": {"success": True, "result": "remote_result"}}
+            mock_post_response = AsyncMock()
+            mock_post_response.status = 200
+            mock_post_response.json = AsyncMock(return_value=mock_response_data)
+            mock_post_response.__aenter__.return_value = mock_post_response
+            mock_post_response.__aexit__.return_value = None
+            mock_post.return_value = mock_post_response
+
+            response = await self.executor.ExecuteFunction(request)
+
+            # Verify success
+            assert response.success is True
+
+            # CRITICAL: Verify manifest refresh WAS called for remote function
+            mock_refresh.assert_called_once()
+
+            # Verify routing happened
+            mock_registry.is_local_function.assert_called_once_with("remote_func")
+            mock_registry.get_endpoint_for_function.assert_called_once_with("remote_func")
+
+    @pytest.mark.asyncio
+    async def test_live_serverless_skips_manifest_logic(self):
+        """Test Live Serverless requests skip manifest refresh and routing."""
+        request = FunctionRequest(
+            function_name="live_func",
+            function_code="def live_func(): return 'live'",
+            args=[],
+            kwargs={},
+        )
+
+        with (
+            patch("remote_executor.refresh_manifest_if_stale") as mock_refresh,
+            patch.object(self.executor.function_executor, "execute") as mock_execute,
+        ):
+            mock_execute.return_value = Mock(success=True, result="live_result")
+
+            response = await self.executor.ExecuteFunction(request)
+
+            # Verify success
+            assert response.success is True
+
+            # CRITICAL: Verify manifest refresh was NOT called for Live Serverless
+            mock_refresh.assert_not_called()
+
+            # Verify function executor was called
+            mock_execute.assert_called_once_with(request)
