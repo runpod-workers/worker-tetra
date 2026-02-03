@@ -3055,6 +3055,7 @@ dependencies = [
 [[package]]
 name = "runpod-flash"
 version = "0.25.1"
+source = { registry = "https://pypi.org/simple" }
 dependencies = [
     { name = "cloudpickle" },
     { name = "pathspec" },
@@ -3065,6 +3066,10 @@ dependencies = [
     { name = "runpod" },
     { name = "tomli", marker = "python_full_version < '3.11'" },
     { name = "typer" },
+]
+sdist = { url = "https://files.pythonhosted.org/packages/e6/ab/8835acbc07d5b47f42e7af345fe4b7c2d8308b408ba6007f4cbcfbb39b95/runpod_flash-0.25.1.tar.gz", hash = "sha256:b0dac0949dcf6afc6da93e255dfb11fb4e8d78aee54f3ca054105b41ad2ff0ad", size = 172730 }
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/83/ff/e22e0653d18d7bb325179055c93c061580f503c457c98767bf0b07468d34/runpod_flash-0.25.1-py3-none-any.whl", hash = "sha256:2f73e1e45c5ed73a75396a9911b9782d328b63f1acc68e0955cf49ed72ee582b", size = 181009 },
 ]
 
 [package.metadata]
