@@ -418,10 +418,13 @@ class TestMaybeUnpack:
 
         mock_logger.info.assert_called_once_with("unpacking app from volume")
 
+    @patch("unpack_volume.sleep")
     @patch("unpack_volume._should_unpack_from_volume")
     @patch("unpack_volume.unpack_app_from_volume")
     @patch("unpack_volume.logger")
-    def test_maybe_unpack_logs_error_on_failure(self, mock_logger, mock_unpack, mock_should_unpack):
+    def test_maybe_unpack_logs_error_on_failure(
+        self, mock_logger, mock_unpack, mock_should_unpack, mock_sleep
+    ):
         """Test that errors are logged when unpacking fails."""
         mock_should_unpack.return_value = True
         error_msg = "Extraction failed"
@@ -430,6 +433,8 @@ class TestMaybeUnpack:
         with pytest.raises(RuntimeError, match="failed to unpack app from volume"):
             maybe_unpack()
 
-        mock_logger.error.assert_called_once()
-        call_args = mock_logger.error.call_args
-        assert "failed to unpack app from volume" in call_args[0][0]
+        # Error should be logged once per retry attempt (3 total)
+        assert mock_logger.error.call_count == 3
+        # Verify all error calls include the expected message
+        for call in mock_logger.error.call_args_list:
+            assert "failed to unpack app from volume" in call[0][0]

@@ -129,9 +129,6 @@ def maybe_unpack():
         _UNPACKED = True
         logger.info("unpacking app from volume")
 
-        import os
-
-        logger.info(f"/root/.runpod/ dir:{os.listdir('/root/.runpod/')}")
         last_error: Exception | None = None
         for attempt in range(DEFAULT_TARBALL_UNPACK_ATTEMPTS):
             try:
