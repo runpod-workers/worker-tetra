@@ -52,7 +52,7 @@ def multiply(a, b):
         (project_src / "config.json").write_text('{"version": "1.0.0"}')
 
         # Create the tarball
-        artifact_path = tmp_path / "archive.tar.gz"
+        artifact_path = tmp_path / "artifact.tar.gz"
         with tarfile.open(artifact_path, mode="w:gz") as tar:
             for root, dirs, files in os.walk(project_src):
                 for file in files:
@@ -92,7 +92,7 @@ def multiply(a, b):
         project_src.mkdir()
         (project_src / "app.py").write_text("print('Hello from app')")
 
-        artifact_path = tmp_path / "archive.tar.gz"
+        artifact_path = tmp_path / "artifact.tar.gz"
         with tarfile.open(artifact_path, mode="w:gz") as tar:
             tar.add(project_src / "app.py", arcname="app.py")
 
@@ -140,7 +140,7 @@ def multiply(a, b):
                 (subdir / f"file_{j}.py").write_text(f"# Module {i} File {j}\n")
 
         # Create the tarball
-        artifact_path = tmp_path / "large_archive.tar.gz"
+        artifact_path = tmp_path / "large_artifact.tar.gz"
         with tarfile.open(artifact_path, mode="w:gz") as tar:
             for root, dirs, files in os.walk(project_src):
                 for file in files:
