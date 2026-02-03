@@ -36,6 +36,8 @@ setup: dev # Initialize project and sync dependencies
 build: # Build both GPU and CPU Docker images
 	make build-gpu
 	make build-cpu
+	make build-lb
+	make build-lb-cpu
 
 build-gpu: setup # Build GPU Docker image (linux/amd64)
 	docker buildx build \
