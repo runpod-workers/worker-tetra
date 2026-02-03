@@ -1,6 +1,6 @@
 # DEVELOPMENT
 
-Developer guide for contributing to worker-tetra, a RunPod Serverless worker for remote Python execution.
+Developer guide for contributing to worker-flash, a RunPod Serverless worker for remote Python execution.
 
 ## Table of Contents
 
@@ -11,7 +11,7 @@ Developer guide for contributing to worker-tetra, a RunPod Serverless worker for
 - [Architecture Overview](#architecture-overview)
 - [Common Development Tasks](#common-development-tasks)
 - [Docker Development](#docker-development)
-- [tetra-rp Dependency Management](#tetra-rp-dependency-management)
+- [runpod-flash Dependency Management](#runpod-flash-dependency-management)
 - [CI/CD Pipeline](#cicd-pipeline)
 - [Contributing Guidelines](#contributing-guidelines)
 - [Debugging Guide](#debugging-guide)
@@ -30,8 +30,8 @@ Developer guide for contributing to worker-tetra, a RunPod Serverless worker for
 
 ```bash
 # Clone repository
-git clone https://github.com/runpod/worker-tetra.git
-cd worker-tetra
+git clone https://github.com/runpod/worker-flash.git
+cd worker-flash
 
 # Initialize project (creates venv, syncs deps)
 make setup
@@ -43,15 +43,15 @@ source .venv/bin/activate
 make test
 ```
 
-### Local Development with tetra-rp
+### Local Development with runpod-flash
 
-For local development on both worker-tetra and tetra-rp:
+For local development on both worker-flash and runpod-flash:
 
 ```bash
-# Install tetra-rp in editable mode from your local checkout
-uv pip install -e ~/Github/python/tetra-rp
+# Install runpod-flash in editable mode from your local checkout
+uv pip install -e ~/Github/python/runpod-flash
 
-# Now your changes to tetra-rp are reflected immediately in worker-tetra
+# Now your changes to runpod-flash are reflected immediately in worker-flash
 make test
 ```
 
@@ -59,7 +59,7 @@ To switch back to the remote version:
 
 ```bash
 # Reinstall from remote repository
-uv pip install tetra-rp @ git+https://github.com/runpod/tetra-rp.git@main
+uv pip install runpod-flash @ git+https://github.com/runpod/runpod-flash.git@main
 make test
 ```
 
@@ -528,7 +528,7 @@ make build-cpu
 docker run -it --rm \
   -v $(pwd):/workspace \
   -e RUNPOD_TEST_INPUT="$(cat src/tests/test_input.json)" \
-  runpod/worker-tetra:dev \
+  runpod/worker-flash:dev \
   /bin/bash
 
 # Inside container, run handler
@@ -542,11 +542,11 @@ CI builds for multiple platforms:
 - GPU: `linux/amd64`
 - CPU: `linux/amd64`, `linux/arm64`
 
-## tetra-rp Dependency Management
+## runpod-flash Dependency Management
 
-### Understanding tetra-rp
+### Understanding runpod-flash
 
-The `tetra-rp` package is a pip dependency containing the Tetra SDK:
+The `runpod-flash` package is a pip dependency containing the Tetra SDK:
 - Client library with `@remote` decorator
 - Resource management (`LiveServerless`)
 - Protocol definitions
@@ -554,9 +554,9 @@ The `tetra-rp` package is a pip dependency containing the Tetra SDK:
 
 ### Default Configuration
 
-By default, worker-tetra uses the remote tetra-rp from GitHub:
+By default, worker-flash uses the remote runpod-flash from GitHub:
 ```
-tetra-rp @ git+https://github.com/runpod/tetra-rp.git@main
+runpod-flash @ git+https://github.com/runpod/runpod-flash.git@main
 ```
 
 ### Local Development Workflow
@@ -566,40 +566,40 @@ When making changes to both projects:
 ```bash
 # Clone both repositories
 cd ~/Github/python
-git clone https://github.com/runpod/tetra-rp.git
-git clone https://github.com/runpod/worker-tetra.git
-cd worker-tetra
+git clone https://github.com/runpod/runpod-flash.git
+git clone https://github.com/runpod/worker-flash.git
+cd worker-flash
 
-# Install tetra-rp in editable mode
-uv pip install -e ~/Github/python/tetra-rp
+# Install runpod-flash in editable mode
+uv pip install -e ~/Github/python/runpod-flash
 
-# Now edit files in tetra-rp - changes are reflected immediately
-cd ~/Github/python/tetra-rp
+# Now edit files in runpod-flash - changes are reflected immediately
+cd ~/Github/python/runpod-flash
 git checkout -b feature/my-change
 # ... make changes ...
-make test  # Run tetra-rp tests
+make test  # Run runpod-flash tests
 
-# Run worker-tetra tests to verify integration
-cd ~/Github/python/worker-tetra
+# Run worker-flash tests to verify integration
+cd ~/Github/python/worker-flash
 make test
 
-# Commit changes in tetra-rp first
-cd ~/Github/python/tetra-rp
+# Commit changes in runpod-flash first
+cd ~/Github/python/runpod-flash
 git commit -m "feat: my change"
 git push origin feature/my-change
 # Create PR and merge
 
-# After tetra-rp PR merges, switch back to remote
-cd ~/Github/python/worker-tetra
-uv pip install tetra-rp @ git+https://github.com/runpod/tetra-rp.git@main
+# After runpod-flash PR merges, switch back to remote
+cd ~/Github/python/worker-flash
+uv pip install runpod-flash @ git+https://github.com/runpod/runpod-flash.git@main
 make test
 ```
 
-### Updating to Latest tetra-rp
+### Updating to Latest runpod-flash
 
 ```bash
-# Update tetra-rp to latest main from remote
-uv pip install --upgrade tetra-rp @ git+https://github.com/runpod/tetra-rp.git@main
+# Update runpod-flash to latest main from remote
+uv pip install --upgrade runpod-flash @ git+https://github.com/runpod/runpod-flash.git@main
 
 # Verify compatibility
 make test
@@ -677,10 +677,10 @@ Automated with [release-please](https://github.com/googleapis/release-please):
    - Triggers Docker production builds
 
 4. **Docker images published**
-   - `runpod/worker-tetra:latest`
-   - `runpod/worker-tetra:X.Y.Z`
-   - `runpod/worker-tetra:X.Y`
-   - `runpod/worker-tetra:X`
+   - `runpod/worker-flash:latest`
+   - `runpod/worker-flash:X.Y.Z`
+   - `runpod/worker-flash:X.Y`
+   - `runpod/worker-flash:X`
 
 ### Fixing CI Failures Locally
 
@@ -706,7 +706,7 @@ make lint
 make build-cpu
 
 # Test built image
-docker run --rm runpod/worker-tetra:dev python -c "import handler"
+docker run --rm runpod/worker-flash:dev python -c "import handler"
 ```
 
 ## Contributing Guidelines
@@ -1087,12 +1087,12 @@ docker system prune -a
 docker image prune
 ```
 
-### tetra-rp Dependency Issues
+### runpod-flash Dependency Issues
 
-**Incompatible tetra-rp version:**
+**Incompatible runpod-flash version:**
 ```bash
 # Update to latest main branch
-uv pip install --upgrade tetra-rp @ git+https://github.com/runpod/tetra-rp.git@main
+uv pip install --upgrade runpod-flash @ git+https://github.com/runpod/runpod-flash.git@main
 
 # Verify compatibility
 make test
@@ -1101,22 +1101,22 @@ make test
 **Editable install not reflecting changes:**
 ```bash
 # Reinstall in editable mode
-uv pip install -e ~/Github/python/tetra-rp
+uv pip install -e ~/Github/python/runpod-flash
 
 # If issues persist, rebuild
-uv pip install --force-reinstall -e ~/Github/python/tetra-rp
+uv pip install --force-reinstall -e ~/Github/python/runpod-flash
 ```
 
-**Import errors from tetra-rp:**
+**Import errors from runpod-flash:**
 ```bash
-# Verify tetra-rp is installed
-uv pip show tetra-rp
+# Verify runpod-flash is installed
+uv pip show runpod-flash
 
 # Check the import path
 python -c "import tetra_rp; print(tetra_rp.__file__)"
 
 # Reinstall if missing
-uv pip install tetra-rp @ git+https://github.com/runpod/tetra-rp.git@main
+uv pip install runpod-flash @ git+https://github.com/runpod/runpod-flash.git@main
 ```
 
 ### CI/CD Issues
@@ -1134,7 +1134,7 @@ python --version  # Should be 3.11+ for lint, 3.9-3.13 for tests
 **Docker push fails:**
 - Check Docker Hub credentials in GitHub Secrets
 - Verify `DOCKERHUB_USERNAME` and `DOCKERHUB_TOKEN`
-- Ensure permissions for `runpod/worker-tetra` repository
+- Ensure permissions for `runpod/worker-flash` repository
 
 **Release Please not creating PR:**
 - Ensure commits follow conventional format
@@ -1147,12 +1147,12 @@ python --version  # Should be 3.11+ for lint, 3.9-3.13 for tests
 
 - **Architecture Details:** [CLAUDE.md](CLAUDE.md)
 - **Design Documents:** [docs/](docs/)
-- **Tetra SDK Repository:** https://github.com/runpod/tetra-rp
-- **Tetra SDK Documentation:** https://github.com/runpod/tetra-rp#readme
+- **Tetra SDK Repository:** https://github.com/runpod/runpod-flash
+- **Tetra SDK Documentation:** https://github.com/runpod/runpod-flash#readme
 - **RunPod Docs:** https://docs.runpod.io/
 
 ## Getting Help
 
-- **GitHub Issues:** https://github.com/runpod/worker-tetra/issues
+- **GitHub Issues:** https://github.com/runpod/worker-flash/issues
 - **RunPod Discord:** https://discord.gg/runpod
 - **Internal:** Slack #tetra-development channel
