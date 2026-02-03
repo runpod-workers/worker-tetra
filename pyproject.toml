@@ -74,6 +74,7 @@ strict_optional = true
 show_error_codes = true
 show_column_numbers = true
 pretty = true
+disable_error_code = ["import-untyped"]
 
 [[tool.mypy.overrides]]
 module = [
@@ -86,8 +87,11 @@ module = [
 ignore_missing_imports = true
 
 [[tool.mypy.overrides]]
-module = "runpod_flash.*"
-ignore_errors = true
+module = [
+    "runpod_flash",
+    "runpod_flash.*",
+]
+follow_imports = "skip"
 
 [tool.ruff]
 line-length = 100
