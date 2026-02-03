@@ -1,6 +1,6 @@
 # Runtime Execution Paths
 
-Worker-tetra now supports **dual-mode runtime** - the same handler can serve both Live Serverless and Flash Deployed Apps without code changes.
+worker-flash supports **dual-mode runtime** - the same handler can serve both Live Serverless and Flash Deployed Apps without code changes.
 
 ## Unified Handler Architecture
 

@@ -49,7 +49,7 @@ sequenceDiagram
 ## Technical Changes
 
 ### Log Namespace Consolidation
-- Changed from `worker_tetra` to `flash` namespace
+- Use `flash` namespace
 - Consistent logging hierarchy across all components
 - Better alignment with runpod-flash logging standards
 

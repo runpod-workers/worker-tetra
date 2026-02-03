@@ -216,7 +216,7 @@ gpu_config = LiveServerless(
 
 ### Dependency Management
 - Root project uses `uv` with `pyproject.toml`
-- Tetra SDK installed as pip dependency from GitHub repository
+- Runpod Flash SDK installed as pip dependency from GitHub repository
 - System dependencies installed via `apt-get` in containerized environment
 - Python dependencies installed via `uv pip install` at runtime
 - **Differential Installation**: Only installs packages missing from environment

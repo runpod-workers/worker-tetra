@@ -327,7 +327,7 @@ graph TB
 
 ```mermaid
 sequenceDiagram
-    participant Client as Tetra Client
+    participant Client as Flash Client
     participant Handler as handler.py
     participant Remote as remote_executor.py
     participant DepInst as dependency_installer.py
@@ -546,7 +546,7 @@ CI builds for multiple platforms:
 
 ### Understanding runpod-flash
 
-The `runpod-flash` package is a pip dependency containing the Tetra SDK:
+The `runpod-flash` package is a pip dependency containing the Flash SDK:
 - Client library with `@remote` decorator
 - Resource management (`LiveServerless`)
 - Protocol definitions
@@ -1113,7 +1113,7 @@ uv pip install --force-reinstall -e ~/Github/python/runpod-flash
 uv pip show runpod-flash
 
 # Check the import path
-python -c "import tetra_rp; print(tetra_rp.__file__)"
+python -c "import runpod_flash; print(runpod_flash.__file__)"
 
 # Reinstall if missing
 uv pip install runpod-flash @ git+https://github.com/runpod/runpod-flash.git@main
@@ -1147,12 +1147,11 @@ python --version  # Should be 3.11+ for lint, 3.9-3.13 for tests
 
 - **Architecture Details:** [CLAUDE.md](CLAUDE.md)
 - **Design Documents:** [docs/](docs/)
-- **Tetra SDK Repository:** https://github.com/runpod/runpod-flash
-- **Tetra SDK Documentation:** https://github.com/runpod/runpod-flash#readme
+- **Runpod Flash SDK Repository:** https://github.com/runpod/runpod-flash
+- **Runpod Flash SDK Documentation:** https://github.com/runpod/runpod-flash#readme
 - **RunPod Docs:** https://docs.runpod.io/
 
 ## Getting Help
 
 - **GitHub Issues:** https://github.com/runpod/worker-flash/issues
 - **RunPod Discord:** https://discord.gg/runpod
-- **Internal:** Slack #tetra-development channel
