@@ -1,5 +1,18 @@
 # Changelog
 
+## [0.7.5](https://github.com/runpod-workers/worker-tetra/compare/v0.7.4...v0.7.5) (2026-02-03)
+
+
+### Features
+
+* add code intelligence with dependency indexing support ([#54](https://github.com/runpod-workers/worker-tetra/issues/54)) ([528ff8a](https://github.com/runpod-workers/worker-tetra/commit/528ff8a96d6100c282ebf0646a6f2e5f9b057160))
+* add mothership mode for Flash deployment hosting ([#55](https://github.com/runpod-workers/worker-tetra/issues/55)) ([e82dadf](https://github.com/runpod-workers/worker-tetra/commit/e82dadf98276dcc333b75b3dd64a74e69024025c))
+
+
+### Bug Fixes
+
+* AE-1968: archive.tar.gz -&gt; artifact.tar.gz ([#57](https://github.com/runpod-workers/worker-tetra/issues/57)) ([1c3d0d9](https://github.com/runpod-workers/worker-tetra/commit/1c3d0d950f0b61ed6f19aa47232539104a0c6dcc))
+
 ## [0.7.4](https://github.com/runpod-workers/worker-tetra/compare/v0.7.3...v0.7.4) (2026-01-27)
 
 
