@@ -29,7 +29,7 @@ VOLUME_CACHE_PATH = "/runpod-volume/.cache"
 DEFAULT_APP_DIR = "/app"
 """Default application directory for unpacking build artifacts."""
 
-DEFAULT_ARTIFACT_PATH = "/root/.runpod/archive.tar.gz"
+DEFAULT_ARTIFACT_PATH = "/root/.runpod/artifact.tar.gz"
 """Default path for build artifact tarball.
 
 Can be overridden via FLASH_BUILD_ARTIFACT_PATH environment variable.
@@ -45,3 +45,8 @@ FLASH_MANIFEST_PATH = "/app/flash_manifest.json"
 
 DEFAULT_ENDPOINT_TIMEOUT = 300
 """Default timeout in seconds for cross-endpoint HTTP requests."""
+
+DEFAULT_TARBALL_UNPACK_ATTEMPTS = 3
+"""Number of times the mothership CPU will attempt to unpack the worker-tetra tarball from mounted volume"""
+DEFAULT_TARBALL_UNPACK_INTERVAL = 30
+"""Time in seconds mothership CPU endpoint will wait between tarball unpack attempts"""

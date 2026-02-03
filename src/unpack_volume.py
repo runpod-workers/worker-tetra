@@ -6,8 +6,14 @@ import sys
 import tarfile
 import threading
 from pathlib import Path
+from time import sleep
 
-from constants import DEFAULT_APP_DIR, DEFAULT_ARTIFACT_PATH
+from constants import (
+    DEFAULT_APP_DIR,
+    DEFAULT_ARTIFACT_PATH,
+    DEFAULT_TARBALL_UNPACK_ATTEMPTS,
+    DEFAULT_TARBALL_UNPACK_INTERVAL,
+)
 from manifest_reconciliation import is_flash_deployment
 
 logger = logging.getLogger(__name__)
@@ -123,8 +129,23 @@ def maybe_unpack():
         _UNPACKED = True
         logger.info("unpacking app from volume")
 
-        try:
-            unpack_app_from_volume()
-        except (FileNotFoundError, RuntimeError) as e:
-            logger.error("failed to unpack app from volume: %s", e, exc_info=True)
-            raise RuntimeError(f"failed to unpack app from volume: {e}") from e
+        last_error: Exception | None = None
+        for attempt in range(DEFAULT_TARBALL_UNPACK_ATTEMPTS):
+            try:
+                unpack_app_from_volume()
+                _UNPACKED = True
+                return
+            except (FileNotFoundError, RuntimeError) as e:
+                last_error = e
+                logger.error(
+                    "failed to unpack app from volume (attempt %s/%s): %s",
+                    attempt,
+                    DEFAULT_TARBALL_UNPACK_ATTEMPTS,
+                    e,
+                    exc_info=True,
+                )
+                if attempt < DEFAULT_TARBALL_UNPACK_ATTEMPTS:
+                    sleep(DEFAULT_TARBALL_UNPACK_INTERVAL)
+        raise RuntimeError(
+            f"failed to unpack app from volume after retries: {last_error}"
+        ) from last_error

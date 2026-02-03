@@ -2,7 +2,7 @@
 
 ## Overview
 
-The volume unpacking system extracts pre-packaged application artifacts from persistent storage into the runtime environment. When a RunPod pod starts, the handler automatically detects and extracts `archive.tar.gz` from `/root/.runpod/archive.tar.gz` into `/app/`, making all code and dependencies immediately available for execution.
+The volume unpacking system extracts pre-packaged application artifacts from persistent storage into the runtime environment. When a RunPod pod starts, the handler automatically detects and extracts `artifact.tar.gz` from `/root/.runpod/artifact.tar.gz` into `/app/`, making all code and dependencies immediately available for execution.
 
 ### Key Features
 
@@ -29,7 +29,7 @@ sequenceDiagram
     Handler->>Unpack: maybe_unpack()
     Unpack->>Unpack: Check _UNPACKED flag (fast path)
     Unpack->>Unpack: Check RUNPOD_POD_ID env
-    Unpack->>Volume: Read /root/.runpod/archive.tar.gz
+    Unpack->>Volume: Read /root/.runpod/artifact.tar.gz
     Volume-->>Unpack: Tarball data
     Unpack->>Unpack: Validate paths (security)
     Unpack->>App: Extract all files
@@ -179,7 +179,7 @@ from flash_manifest import load_manifest
 
 | Variable | Purpose | Default | Example |
 |----------|---------|---------|---------|
-| `FLASH_BUILD_ARTIFACT_PATH` | Override artifact location | `/root/.runpod/archive.tar.gz` | `/custom/path/artifact.tar.gz` |
+| `FLASH_BUILD_ARTIFACT_PATH` | Override artifact location | `/root/.runpod/artifact.tar.gz` | `/custom/path/artifact.tar.gz` |
 | `FLASH_DISABLE_UNPACK` | Skip unpacking (testing) | `""` (enabled) | `true`, `1`, `yes` |
 | `RUNPOD_POD_ID` | RunPod detection | Set by RunPod | `abc123` |
 | `RUNPOD_ENDPOINT_ID` | Endpoint detection | Set by RunPod | `ep_xyz789` |
@@ -191,7 +191,7 @@ from flash_manifest import load_manifest
 ```python
 # src/constants.py
 DEFAULT_APP_DIR = "/app"                                 # Extraction target
-DEFAULT_ARTIFACT_PATH = "/root/.runpod/archive.tar.gz"  # Default source
+DEFAULT_ARTIFACT_PATH = "/root/.runpod/artifact.tar.gz"  # Default source
 ```
 
 ## Error Handling
@@ -264,7 +264,7 @@ maybe_unpack()
 # Output:
 # DEBUG:unpack_volume:Checking if unpacking should occur...
 # INFO:unpack_volume:unpacking app from volume
-# DEBUG:unpack_volume:Extracting /root/.runpod/archive.tar.gz
+# DEBUG:unpack_volume:Extracting /root/.runpod/artifact.tar.gz
 # DEBUG:unpack_volume:Validating 127 tar members...
 # INFO:unpack_volume:successfully extracted build artifact to /app
 ```

@@ -114,7 +114,7 @@ class TestCanonicalProjectArtifactPath:
             # Remove the env var if it exists
             os.environ.pop("FLASH_BUILD_ARTIFACT_PATH", None)
             path = _canonical_project_artifact_path()
-            assert path == Path("/root/.runpod/archive.tar.gz")
+            assert path == Path("/root/.runpod/artifact.tar.gz")
 
     def test_custom_artifact_path(self):
         """Test custom artifact path from environment variable."""
@@ -130,7 +130,7 @@ class TestUnpackAppFromVolume:
     def test_unpack_app_from_volume_success(self, tmp_path):
         """Test successful extraction of build artifact."""
         # Create a mock artifact
-        artifact_path = tmp_path / "archive.tar.gz"
+        artifact_path = tmp_path / "artifact.tar.gz"
         with tarfile.open(artifact_path, mode="w:gz") as tar:
             test_file = tmp_path / "app.py"
             test_file.write_text("print('hello from app')")
@@ -150,7 +150,7 @@ class TestUnpackAppFromVolume:
     def test_unpack_app_from_volume_adds_to_syspath(self, tmp_path):
         """Test that app directory is added to sys.path."""
         # Create a mock artifact
-        artifact_path = tmp_path / "archive.tar.gz"
+        artifact_path = tmp_path / "artifact.tar.gz"
         with tarfile.open(artifact_path, mode="w:gz") as tar:
             test_file = tmp_path / "module.py"
             test_file.write_text("value = 42")
@@ -198,7 +198,7 @@ class TestUnpackAppFromVolume:
 
     def test_unpack_app_from_volume_creates_app_dir(self, tmp_path):
         """Test that app directory is created if it doesn't exist."""
-        artifact_path = tmp_path / "archive.tar.gz"
+        artifact_path = tmp_path / "artifact.tar.gz"
         with tarfile.open(artifact_path, mode="w:gz") as tar:
             test_file = tmp_path / "test.py"
             test_file.write_text("test")
@@ -418,10 +418,13 @@ class TestMaybeUnpack:
 
         mock_logger.info.assert_called_once_with("unpacking app from volume")
 
+    @patch("unpack_volume.sleep")
     @patch("unpack_volume._should_unpack_from_volume")
     @patch("unpack_volume.unpack_app_from_volume")
     @patch("unpack_volume.logger")
-    def test_maybe_unpack_logs_error_on_failure(self, mock_logger, mock_unpack, mock_should_unpack):
+    def test_maybe_unpack_logs_error_on_failure(
+        self, mock_logger, mock_unpack, mock_should_unpack, mock_sleep
+    ):
         """Test that errors are logged when unpacking fails."""
         mock_should_unpack.return_value = True
         error_msg = "Extraction failed"
@@ -430,6 +433,8 @@ class TestMaybeUnpack:
         with pytest.raises(RuntimeError, match="failed to unpack app from volume"):
             maybe_unpack()
 
-        mock_logger.error.assert_called_once()
-        call_args = mock_logger.error.call_args
-        assert "failed to unpack app from volume" in call_args[0][0]
+        # Error should be logged once per retry attempt (3 total)
+        assert mock_logger.error.call_count == 3
+        # Verify all error calls include the expected message
+        for call in mock_logger.error.call_args_list:
+            assert "failed to unpack app from volume" in call[0][0]
