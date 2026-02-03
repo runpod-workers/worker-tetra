@@ -2,7 +2,7 @@ import pytest
 import base64
 import cloudpickle
 from unittest.mock import MagicMock
-from tetra_rp.protos.remote_execution import FunctionRequest
+from runpod_flash.protos.remote_execution import FunctionRequest
 from handler import RemoteExecutor
 
 

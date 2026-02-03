@@ -1,15 +1,15 @@
 # Docker Build Pipeline
 
-This document covers the CI/CD infrastructure for building and deploying worker-tetra Docker images.
+This document covers the CI/CD infrastructure for building and deploying worker-flash Docker images.
 
 ## Overview
 
-The worker-tetra repository maintains four Docker images:
+The worker-flash repository maintains four Docker images:
 
-1. **GPU Image** (`runpod/tetra-rp`) - Queue-based serverless worker with CUDA
-2. **CPU Image** (`runpod/tetra-rp-cpu`) - Queue-based serverless worker for CPU-only
-3. **Load Balancer GPU Image** (`runpod/tetra-rp-lb`) - HTTP-based Load Balancer worker with CUDA
-4. **Load Balancer CPU Image** (`runpod/tetra-rp-lb-cpu`) - HTTP-based Load Balancer worker for CPU-only
+1. **GPU Image** (`runpod/flash`) - Queue-based serverless worker with CUDA
+2. **CPU Image** (`runpod/flash-cpu`) - Queue-based serverless worker for CPU-only
+3. **Load Balancer GPU Image** (`runpod/flash-lb`) - HTTP-based Load Balancer worker with CUDA
+4. **Load Balancer CPU Image** (`runpod/flash-lb-cpu`) - HTTP-based Load Balancer worker for CPU-only
 
 All images are automatically built and pushed via GitHub Actions workflows.
 
@@ -49,10 +49,10 @@ All images are automatically built and pushed via GitHub Actions workflows.
 - Skipped if a release was just created
 
 **Image tags**:
-- `runpod/tetra-rp:main`
-- `runpod/tetra-rp-cpu:main`
-- `runpod/tetra-rp-lb:main`
-- `runpod/tetra-rp-lb-cpu:main`
+- `runpod/flash:main`
+- `runpod/flash-cpu:main`
+- `runpod/flash-lb:main`
+- `runpod/flash-lb-cpu:main`
 
 ### Stage 3: Release Deployment
 
@@ -71,10 +71,10 @@ All images are automatically built and pushed via GitHub Actions workflows.
 - Automatically triggered by release-please
 
 **Image tags**:
-- `runpod/tetra-rp:0.7.3` and `runpod/tetra-rp:latest`
-- `runpod/tetra-rp-cpu:0.7.3` and `runpod/tetra-rp-cpu:latest`
-- `runpod/tetra-rp-lb:0.7.3` and `runpod/tetra-rp-lb:latest`
-- `runpod/tetra-rp-lb-cpu:0.7.3` and `runpod/tetra-rp-lb-cpu:latest`
+- `runpod/flash:0.7.3` and `runpod/flash:latest`
+- `runpod/flash-cpu:0.7.3` and `runpod/flash-cpu:latest`
+- `runpod/flash-lb:0.7.3` and `runpod/flash-lb:latest`
+- `runpod/flash-lb-cpu:0.7.3` and `runpod/flash-lb-cpu:latest`
 
 ## Pipeline Flow
 
@@ -116,7 +116,7 @@ graph TD
 make build-gpu
 ```
 
-Builds `runpod/tetra-rp:local` for testing locally.
+Builds `runpod/flash:local` for testing locally.
 
 ### Build CPU Image
 
@@ -124,7 +124,7 @@ Builds `runpod/tetra-rp:local` for testing locally.
 make build-cpu
 ```
 
-Builds `runpod/tetra-rp-cpu:local` for testing locally.
+Builds `runpod/flash-cpu:local` for testing locally.
 
 ### Build Load Balancer Image
 
@@ -132,7 +132,7 @@ Builds `runpod/tetra-rp-cpu:local` for testing locally.
 make build-lb
 ```
 
-Builds `runpod/tetra-rp-lb:local` for testing locally.
+Builds `runpod/flash-lb:local` for testing locally.
 
 ### Build CPU Load Balancer Image
 
@@ -140,7 +140,7 @@ Builds `runpod/tetra-rp-lb:local` for testing locally.
 make build-lb-cpu
 ```
 
-Builds `runpod/tetra-rp-lb-cpu:local` for testing locally.
+Builds `runpod/flash-lb-cpu:local` for testing locally.
 
 ### Build All Images
 

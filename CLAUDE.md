@@ -4,10 +4,10 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Project Overview
 
-This is `worker-tetra`, a RunPod Serverless worker template that provides dynamic GPU provisioning for ML workloads with transparent execution and persistent workspace management. The project consists of two main components:
+This is `worker-flash`, a RunPod Serverless worker template that provides dynamic GPU provisioning for ML workloads with transparent execution and persistent workspace management. The project consists of two main components:
 
 1. **RunPod Worker Handler** (`src/handler.py`) - A serverless function that executes remote Python functions with dependency management and workspace support
-2. **Tetra SDK** (pip dependency) - Python library for distributed inference and serving of ML models
+2. **Flash SDK** (pip dependency) - Python library for distributed inference and serving of ML models
 
 ## Key Areas of Responsibility
 
@@ -33,16 +33,16 @@ This is `worker-tetra`, a RunPod Serverless worker template that provides dynami
 - **Timeout Management**: Configurable timeouts with proper cleanup on timeout/cancellation
 
 ### 4. Serialization & Protocol Management
-- **Protocol Definitions** (`tetra_rp.protos.remote_execution`): Pydantic models for request/response with validation
+- **Protocol Definitions** (`runpod_flash.protos.remote_execution`): Pydantic models for request/response with validation
 - **Serialization Utils** (`src/serialization_utils.py`): CloudPickle-based data serialization for function arguments and results
 - **Base Executor** (`src/base_executor.py`): Common execution interface and environment setup
 
-### 5. Tetra SDK Integration (pip dependency)
+### 5. Flash SDK Integration (pip dependency)
 - **Installation**: Installed via pip from GitHub repository
 - **Client Interface**: `@remote` decorator for marking functions for remote execution
 - **Resource Management**: GPU/CPU configuration and provisioning through LiveServerless objects
 - **Live Serverless**: Dynamic infrastructure provisioning with auto-scaling
-- **Repository**: https://github.com/runpod/tetra-rp
+- **Repository**: https://github.com/runpod/runpod-flash
 
 ### 6. Testing Infrastructure (`tests/`)
 - **Unit Tests** (`tests/unit/`): Component-level testing for individual modules with mocking
@@ -72,10 +72,10 @@ This is `worker-tetra`, a RunPod Serverless worker template that provides dynami
   - Serializes/deserializes function arguments and results using cloudpickle
   - Captures stdout, stderr, and logs from remote execution
 
-- **`tetra_rp.protos.remote_execution`**: Protocol definitions from tetra-rp
+- **`runpod_flash.protos.remote_execution`**: Protocol definitions from runpod-flash
   - `FunctionRequest`: Defines function execution requests with dependencies
   - `FunctionResponse`: Standardized response format with success/error handling
-  - Imported from installed tetra-rp package via `from tetra_rp.protos.remote_execution import ...`
+  - Imported from installed runpod-flash package via `from runpod_flash.protos.remote_execution import ...`
 
 ### Key Patterns
 
@@ -89,16 +89,16 @@ This is `worker-tetra`, a RunPod Serverless worker template that provides dynami
 
 ## Code Intelligence with MCP
 
-This project has a worker-tetra-code-intel MCP server configured for efficient codebase exploration. The code intelligence index includes both project source code and the tetra_rp dependency.
+This project has a worker-flash-code-intel MCP server configured for efficient codebase exploration. The code intelligence index includes both project source code and the runpod_flash dependency.
 
 ### Indexed Codebase
 
 The following are automatically indexed and searchable via MCP tools:
-- **Project source** (`src/`) - All 83 worker-tetra symbols
-- **tetra_rp dependency** - All 552 protocol definitions, resources, and core components
-  - Protocol definitions: `tetra_rp.protos.remote_execution` (`FunctionRequest`, `FunctionResponse`, etc.)
-  - Resources: `tetra_rp.core.resources` (`LiveServerless`, `Serverless`, `NetworkVolume`, etc.)
-  - Stubs: `tetra_rp.stubs` (stub implementations for local development)
+- **Project source** (`src/`) - All 83 worker-flash symbols
+- **runpod_flash dependency** - All 552 protocol definitions, resources, and core components
+  - Protocol definitions: `runpod_flash.protos.remote_execution` (`FunctionRequest`, `FunctionResponse`, etc.)
+  - Resources: `runpod_flash.core.resources` (`LiveServerless`, `Serverless`, `NetworkVolume`, etc.)
+  - Stubs: `runpod_flash.stubs` (stub implementations for local development)
 
 To regenerate the index (when dependencies change), run: `make index`
 
@@ -130,7 +130,7 @@ To add more dependencies to the index, edit `DEPENDENCIES_TO_INDEX` in `scripts/
 ### Tool Selection Guidelines
 
 **When to use MCP vs Grep/Glob:**
-- **MCP tools**: Semantic searches (class names, function definitions, decorators, symbols) - including tetra_rp
+- **MCP tools**: Semantic searches (class names, function definitions, decorators, symbols) - including runpod_flash
 - **Grep**: Content searches (error messages, comments, string literals, log statements)
 - **Glob**: File path patterns when you know the exact file structure
 - **Task tool with Explore agent**: Complex multi-step exploration requiring multiple searches
@@ -260,7 +260,7 @@ gpu_config = LiveServerless(
 ### Automated Releases
 - Uses `release-please` for automated semantic versioning and changelog generation
 - Releases are triggered by conventional commit messages on `main` branch
-- Docker images are automatically built and pushed to Docker Hub (`runpod/tetra-rp`) on release
+- Docker images are automatically built and pushed to Docker Hub (`runpod/flash`) on release
 
 ### GitHub Actions Workflows
 - **CI/CD** (`.github/workflows/ci.yml`): Single workflow handling tests, linting, releases, and Docker builds

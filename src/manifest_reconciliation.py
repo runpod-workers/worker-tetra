@@ -96,7 +96,7 @@ async def _fetch_and_save_manifest(
         True if successful, False on error.
     """
     try:
-        from tetra_rp.runtime.state_manager_client import StateManagerClient  # type: ignore[import-untyped]
+        from runpod_flash.runtime.state_manager_client import StateManagerClient  # type: ignore[import-untyped]
 
         state_client = StateManagerClient()
         state_manifest = await state_client.get_persisted_manifest(endpoint_id)

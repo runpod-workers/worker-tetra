@@ -14,7 +14,7 @@ from mcp.types import Tool, TextContent, CallToolResult
 
 
 # Initialize MCP server
-server = Server("worker-tetra-code-intel")
+server = Server("worker-flash-code-intel")
 
 
 def get_db_path() -> Path:

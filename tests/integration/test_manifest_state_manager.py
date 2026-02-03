@@ -133,7 +133,8 @@ class TestRequestScopedManifestRefresh:
             clear=True,
         ):
             with patch(
-                "tetra_rp.runtime.state_manager_client.StateManagerClient", return_value=mock_client
+                "runpod_flash.runtime.state_manager_client.StateManagerClient",
+                return_value=mock_client,
             ):
                 result = await refresh_manifest_if_stale(manifest_path, ttl_seconds=300)
 
@@ -165,7 +166,8 @@ class TestRequestScopedManifestRefresh:
             clear=True,
         ):
             with patch(
-                "tetra_rp.runtime.state_manager_client.StateManagerClient", return_value=mock_client
+                "runpod_flash.runtime.state_manager_client.StateManagerClient",
+                return_value=mock_client,
             ):
                 result = await refresh_manifest_if_stale(manifest_path, ttl_seconds=300)
 
@@ -200,7 +202,8 @@ class TestRequestScopedManifestRefresh:
             clear=True,
         ):
             with patch(
-                "tetra_rp.runtime.state_manager_client.StateManagerClient", return_value=mock_client
+                "runpod_flash.runtime.state_manager_client.StateManagerClient",
+                return_value=mock_client,
             ):
                 result = await refresh_manifest_if_stale(manifest_path, ttl_seconds=300)
 
@@ -235,7 +238,7 @@ class TestRequestScopedManifestRefresh:
             clear=True,
         ):
             with patch(
-                "tetra_rp.runtime.state_manager_client.StateManagerClient",
+                "runpod_flash.runtime.state_manager_client.StateManagerClient",
                 side_effect=Exception("Connection refused"),
             ):
                 result = await refresh_manifest_if_stale(manifest_path, ttl_seconds=300)
@@ -262,7 +265,8 @@ class TestRequestScopedManifestRefresh:
 
         with patch.dict("os.environ", {}, clear=True):
             with patch(
-                "tetra_rp.runtime.state_manager_client.StateManagerClient", return_value=mock_client
+                "runpod_flash.runtime.state_manager_client.StateManagerClient",
+                return_value=mock_client,
             ):
                 result = await refresh_manifest_if_stale(manifest_path, ttl_seconds=300)
 
@@ -322,7 +326,8 @@ class TestManifestAsSourceOfTruth:
             clear=True,
         ):
             with patch(
-                "tetra_rp.runtime.state_manager_client.StateManagerClient", return_value=mock_client
+                "runpod_flash.runtime.state_manager_client.StateManagerClient",
+                return_value=mock_client,
             ):
                 result = await refresh_manifest_if_stale(manifest_path, ttl_seconds=300)
 
@@ -379,7 +384,8 @@ class TestManifestAsSourceOfTruth:
             clear=True,
         ):
             with patch(
-                "tetra_rp.runtime.state_manager_client.StateManagerClient", return_value=mock_client
+                "runpod_flash.runtime.state_manager_client.StateManagerClient",
+                return_value=mock_client,
             ):
                 result = await refresh_manifest_if_stale(manifest_path, ttl_seconds=300)
 
@@ -421,7 +427,8 @@ class TestErrorHandling:
             clear=True,
         ):
             with patch(
-                "tetra_rp.runtime.state_manager_client.StateManagerClient", return_value=mock_client
+                "runpod_flash.runtime.state_manager_client.StateManagerClient",
+                return_value=mock_client,
             ):
                 result = await refresh_manifest_if_stale(manifest_path, ttl_seconds=300)
 
@@ -455,7 +462,7 @@ class TestErrorHandling:
             clear=True,
         ):
             with patch(
-                "tetra_rp.runtime.state_manager_client.StateManagerClient",
+                "runpod_flash.runtime.state_manager_client.StateManagerClient",
                 return_value=mock_client,
             ):
                 result = await refresh_manifest_if_stale(mock_path)
@@ -487,7 +494,8 @@ class TestTTLBasedStaleness:
             clear=True,
         ):
             with patch(
-                "tetra_rp.runtime.state_manager_client.StateManagerClient", return_value=mock_client
+                "runpod_flash.runtime.state_manager_client.StateManagerClient",
+                return_value=mock_client,
             ):
                 # First refresh - manifest is fresh, no State Manager query
                 result1 = await refresh_manifest_if_stale(manifest_path, ttl_seconds=60)

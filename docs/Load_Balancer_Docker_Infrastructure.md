@@ -2,7 +2,7 @@
 
 ## Overview
 
-This document covers the Docker infrastructure supporting **LiveLoadBalancerSLSResource remote code execution** in worker-tetra. This enables executing serialized Python functions via HTTP `/execute` endpoint during local development and testing.
+This document covers the Docker infrastructure supporting **LiveLoadBalancerSLSResource remote code execution** in worker-flash. This enables executing serialized Python functions via HTTP `/execute` endpoint during local development and testing.
 
 ### Purpose
 
@@ -11,15 +11,15 @@ This document covers the Docker infrastructure supporting **LiveLoadBalancerSLSR
 - **Local development**: LiveLoadBalancer resource provides `/execute` for testing before production deployment
 - **HTTP-based communication**: Direct HTTP requests/responses instead of RunPod job queue
 
-### Integration with tetra-rp
+### Integration with runpod-flash
 
-The tetra-rp pip dependency provides:
+The runpod-flash pip dependency provides:
 
 - **Resource Classes**: `LoadBalancerSlsResource` (base) and `LiveLoadBalancer` (local dev with /execute)
 - **Stub Implementation**: `LoadBalancerSlsStub` routes HTTP requests to handler functions
 - **Protocol**: `FunctionRequest`/`FunctionResponse` for serialized code execution
 
-Worker-tetra provides the Docker infrastructure to run the handler that processes these requests.
+Worker-flash provides the Docker infrastructure to run the handler that processes these requests.
 
 ## Architecture
 
@@ -27,13 +27,13 @@ Worker-tetra provides the Docker infrastructure to run the handler that processe
 
 ```mermaid
 graph TB
-    subgraph SDK["tetra-rp SDK"]
+    subgraph SDK["runpod-flash SDK"]
         A["LiveLoadBalancerSLSResource<br/>Resource Config"]
         B["LoadBalancerSlsStub<br/>Client-side stub"]
         C["FunctionRequest/Response<br/>Protocol"]
     end
 
-    subgraph Infrastructure["worker-tetra"]
+    subgraph Infrastructure["worker-flash"]
         D["Dockerfile-lb<br/>FastAPI + uvicorn"]
         E["src/handler.py<br/>Serverless entry point"]
         F["RemoteExecutor<br/>Executes serialized code"]
@@ -46,7 +46,7 @@ graph TB
     end
 
     subgraph Registry["Docker Hub"]
-        J["runpod/tetra-rp-lb:tag<br/>Base Image"]
+        J["runpod/flash-lb:tag<br/>Base Image"]
     end
 
     subgraph Runtime["RunPod Deployment"]
@@ -79,7 +79,7 @@ graph TB
 
 ```mermaid
 sequenceDiagram
-    participant Client as tetra-rp SDK<br/>LoadBalancerSlsStub
+    participant Client as runpod-flash SDK<br/>LoadBalancerSlsStub
     participant Handler as FastAPI Handler<br/>POST /execute
     participant Executor as RemoteExecutor
     participant System as System
@@ -163,7 +163,7 @@ Build the Load Balancer image locally for testing:
 make build-lb
 ```
 
-This builds and tags as `runpod/tetra-rp-lb:local` and loads into local Docker daemon.
+This builds and tags as `runpod/flash-lb:local` and loads into local Docker daemon.
 
 ### CI/CD Build
 
@@ -221,7 +221,7 @@ curl -X POST http://localhost:80/execute \
 LiveLoadBalancer enables testing the `/execute` endpoint locally before deployment:
 
 ```python
-from tetra_rp import remote, LiveLoadBalancer
+from runpod_flash import remote, LiveLoadBalancer
 
 config = LiveLoadBalancer(name="test-endpoint")
 
@@ -335,5 +335,5 @@ Note: Arguments must be base64-encoded cloudpickle serialized values.
 
 - [Docker Build Pipeline](./Docker_Build_Pipeline.md) - CI/CD infrastructure for building and pushing images
 - [System Python Runtime Architecture](./System_Python_Runtime_Architecture.md) - Details on the execution engine
-- [tetra-rp Repository](https://github.com/runpod/tetra-rp) - SDK source code and documentation
-- [tetra-rp LiveLoadBalancer Documentation](https://github.com/runpod/tetra-rp#liveloadbalancer) - Load balancer resource documentation
+- [runpod-flash Repository](https://github.com/runpod/runpod-flash) - SDK source code and documentation
+- [runpod-flash LiveLoadBalancer Documentation](https://github.com/runpod/runpod-flash#liveloadbalancer) - Load balancer resource documentation

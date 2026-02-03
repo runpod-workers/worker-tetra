@@ -186,7 +186,7 @@ class TestFetchAndSaveManifest:
         mock_client.get_persisted_manifest = AsyncMock(return_value=sample_manifest)
 
         with patch(
-            "tetra_rp.runtime.state_manager_client.StateManagerClient", return_value=mock_client
+            "runpod_flash.runtime.state_manager_client.StateManagerClient", return_value=mock_client
         ):
             result = await _fetch_and_save_manifest(manifest_path, endpoint_id)
 
@@ -202,7 +202,7 @@ class TestFetchAndSaveManifest:
         endpoint_id = "ep-test-001"
 
         with patch(
-            "tetra_rp.runtime.state_manager_client.StateManagerClient",
+            "runpod_flash.runtime.state_manager_client.StateManagerClient",
             side_effect=Exception("API error"),
         ):
             result = await _fetch_and_save_manifest(manifest_path, endpoint_id)
@@ -219,7 +219,7 @@ class TestFetchAndSaveManifest:
         mock_client.get_persisted_manifest = AsyncMock(return_value=None)
 
         with patch(
-            "tetra_rp.runtime.state_manager_client.StateManagerClient", return_value=mock_client
+            "runpod_flash.runtime.state_manager_client.StateManagerClient", return_value=mock_client
         ):
             result = await _fetch_and_save_manifest(manifest_path, endpoint_id)
 
@@ -235,7 +235,7 @@ class TestFetchAndSaveManifest:
         mock_client.get_persisted_manifest = AsyncMock(return_value=sample_manifest)
 
         with patch(
-            "tetra_rp.runtime.state_manager_client.StateManagerClient", return_value=mock_client
+            "runpod_flash.runtime.state_manager_client.StateManagerClient", return_value=mock_client
         ):
             result = await _fetch_and_save_manifest(mock_path, "ep-test-001")
 
@@ -302,7 +302,8 @@ class TestRefreshManifestIfStale:
             clear=True,
         ):
             with patch(
-                "tetra_rp.runtime.state_manager_client.StateManagerClient", return_value=mock_client
+                "runpod_flash.runtime.state_manager_client.StateManagerClient",
+                return_value=mock_client,
             ):
                 result = await refresh_manifest_if_stale(manifest_path, ttl_seconds=300)
 
@@ -348,7 +349,8 @@ class TestRefreshManifestIfStale:
             clear=True,
         ):
             with patch(
-                "tetra_rp.runtime.state_manager_client.StateManagerClient", return_value=mock_client
+                "runpod_flash.runtime.state_manager_client.StateManagerClient",
+                return_value=mock_client,
             ):
                 result = await refresh_manifest_if_stale(manifest_path, ttl_seconds=300)
 
@@ -386,7 +388,8 @@ class TestRefreshManifestIfStale:
             clear=True,
         ):
             with patch(
-                "tetra_rp.runtime.state_manager_client.StateManagerClient", return_value=mock_client
+                "runpod_flash.runtime.state_manager_client.StateManagerClient",
+                return_value=mock_client,
             ):
                 result = await refresh_manifest_if_stale(manifest_path, ttl_seconds=300)
 
@@ -421,7 +424,8 @@ class TestRefreshManifestIfStale:
             clear=True,
         ):
             with patch(
-                "tetra_rp.runtime.state_manager_client.StateManagerClient", return_value=mock_client
+                "runpod_flash.runtime.state_manager_client.StateManagerClient",
+                return_value=mock_client,
             ):
                 # With TTL of 100 seconds, 50-second-old manifest should be fresh
                 result = await refresh_manifest_if_stale(manifest_path, ttl_seconds=100)

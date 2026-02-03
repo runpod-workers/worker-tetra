@@ -25,7 +25,7 @@ graph TB
 Unified logging configuration with:
 - **Debug Format**: `timestamp | level | name | file:line | message`
 - **Production Format**: `timestamp | level | message`
-- **Namespace**: All logs use `tetra.*` hierarchy
+- **Namespace**: All logs use `flash.*` hierarchy
 
 ### 3. Integration Points
 
@@ -49,9 +49,9 @@ sequenceDiagram
 ## Technical Changes
 
 ### Log Namespace Consolidation
-- Changed from `worker_tetra` to `tetra` namespace
+- Changed from `worker_tetra` to `flash` namespace
 - Consistent logging hierarchy across all components
-- Better alignment with tetra-rp logging standards
+- Better alignment with runpod-flash logging standards
 
 ### Memory Management
 - Configurable buffer size (default: 1000 entries)

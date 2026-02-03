@@ -11,7 +11,7 @@ import logging
 import inspect
 from typing import List, Optional, Any
 
-from tetra_rp.protos.remote_execution import FunctionResponse  # type: ignore[import-untyped]
+from runpod_flash.protos.remote_execution import FunctionResponse
 
 
 def run_logged_subprocess(

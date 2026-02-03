@@ -18,8 +18,8 @@ This allows any endpoint to route incoming function calls to the appropriate res
 graph TB
     Client["Client<br/>Request"]
 
-    CPU["CPU Endpoint<br/>(tetra-rp)"]
-    GPU["GPU Endpoint<br/>(tetra-rp)"]
+    CPU["CPU Endpoint<br/>(runpod-flash)"]
+    GPU["GPU Endpoint<br/>(runpod-flash)"]
 
     SM["State Manager<br/>(Manifest Store)"]
 
@@ -97,7 +97,7 @@ if not has_function_code and not has_class_code:
         result = await self._execute_flash_function(request)
 ```
 
-#### In `ServiceRegistry` (tetra-rp)
+#### In `ServiceRegistry` (runpod-flash)
 
 The ServiceRegistry automatically calls `_ensure_manifest_loaded()`:
 

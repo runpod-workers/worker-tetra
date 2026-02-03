@@ -4,7 +4,7 @@ import asyncio
 import platform
 from typing import List
 
-from tetra_rp.protos.remote_execution import FunctionResponse  # type: ignore[import-untyped]
+from runpod_flash.protos.remote_execution import FunctionResponse
 from constants import LARGE_SYSTEM_PACKAGES, NAMESPACE
 from subprocess_utils import run_logged_subprocess
 

@@ -5,7 +5,7 @@ import base64
 import cloudpickle
 from unittest.mock import patch, AsyncMock
 from handler import handler
-from tetra_rp.protos.remote_execution import FunctionResponse
+from runpod_flash.protos.remote_execution import FunctionResponse
 
 
 class TestHandler:

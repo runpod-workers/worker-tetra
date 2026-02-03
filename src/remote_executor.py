@@ -6,7 +6,11 @@ import os
 from pathlib import Path
 from typing import List, Any, Optional
 import aiohttp
-from tetra_rp.protos.remote_execution import FunctionRequest, FunctionResponse, RemoteExecutorStub  # type: ignore[import-untyped]
+from runpod_flash.protos.remote_execution import (
+    FunctionRequest,
+    FunctionResponse,
+    RemoteExecutorStub,
+)
 from dependency_installer import DependencyInstaller
 from function_executor import FunctionExecutor
 from class_executor import ClassExecutor
@@ -18,9 +22,7 @@ from constants import NAMESPACE, DEFAULT_ENDPOINT_TIMEOUT, FLASH_MANIFEST_PATH
 
 # Service discovery for cross-endpoint routing
 try:
-    from tetra_rp.runtime.service_registry import (  # type: ignore[import-untyped]
-        ServiceRegistry,
-    )
+    from runpod_flash.runtime.service_registry import ServiceRegistry
 except ImportError:
     ServiceRegistry = None
 
@@ -51,7 +53,7 @@ class RemoteExecutor(RemoteExecutorStub):
                 self.logger.debug(f"Failed to initialize service registry: {e}")
                 self.service_registry = None
         else:
-            self.logger.debug("ServiceRegistry not available (tetra-rp not installed)")
+            self.logger.debug("ServiceRegistry not available (runpod-flash not installed)")
 
     async def ExecuteFunction(self, request: FunctionRequest) -> FunctionResponse:
         """

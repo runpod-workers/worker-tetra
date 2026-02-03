@@ -10,7 +10,7 @@ from pathlib import Path
 from typing import Any, Optional
 
 # Configuration: which dependencies to index
-DEPENDENCIES_TO_INDEX = ["tetra_rp"]
+DEPENDENCIES_TO_INDEX = ["runpod_flash"]
 
 
 class ASTIndexer(ast.NodeVisitor):
@@ -269,7 +269,7 @@ def get_dependency_path(dep_name: str, site_packages: Path) -> Optional[Path]:
     """Get the actual path to a dependency, handling editable installs.
 
     Args:
-        dep_name: The dependency package name (e.g., "tetra_rp")
+        dep_name: The dependency package name (e.g., "runpod_flash")
         site_packages: The site-packages directory path
 
     Returns:

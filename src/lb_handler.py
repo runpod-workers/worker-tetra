@@ -6,7 +6,7 @@ It supports:
 - /execute: Remote function execution via HTTP POST (queue-based mode)
 - User's FastAPI app routes (mothership mode)
 
-The handler uses worker-tetra's RemoteExecutor for function execution.
+The handler uses worker-flash's RemoteExecutor for function execution.
 
 Mothership Mode (FLASH_IS_MOTHERSHIP=true):
 - Imports user's FastAPI application from FLASH_MAIN_FILE
@@ -28,7 +28,7 @@ from fastapi import FastAPI
 
 from logger import setup_logging
 from unpack_volume import maybe_unpack
-from tetra_rp.protos.remote_execution import FunctionRequest, FunctionResponse  # type: ignore[import-untyped]
+from runpod_flash.protos.remote_execution import FunctionRequest, FunctionResponse
 from remote_executor import RemoteExecutor
 
 # Initialize logging configuration

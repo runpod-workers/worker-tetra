@@ -3,7 +3,7 @@ import pytest
 from unittest.mock import patch
 from pathlib import Path
 from cache_sync_manager import CacheSyncManager
-from tetra_rp.protos.remote_execution import FunctionResponse
+from runpod_flash.protos.remote_execution import FunctionResponse
 
 
 @pytest.fixture
