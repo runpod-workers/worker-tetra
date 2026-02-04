@@ -510,7 +510,9 @@ jobs:
         with:
           images: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}
           tags: |
-            type=semver,pattern={{version}}
+            type=semver,pattern={{version}},value=${{ needs.release.outputs.tag_name }}
+            type=semver,pattern={{major}}.{{minor}},value=${{ needs.release.outputs.tag_name }}
+            type=semver,pattern={{major}},value=${{ needs.release.outputs.tag_name }}
             type=raw,value=latest,enable={{is_default_branch}}
 
       - name: Set up uv
@@ -571,7 +573,9 @@ jobs:
         with:
           images: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}-cpu
           tags: |
-            type=semver,pattern={{version}}
+            type=semver,pattern={{version}},value=${{ needs.release.outputs.tag_name }}
+            type=semver,pattern={{major}}.{{minor}},value=${{ needs.release.outputs.tag_name }}
+            type=semver,pattern={{major}},value=${{ needs.release.outputs.tag_name }}
             type=raw,value=latest,enable={{is_default_branch}}
 
       - name: Set up uv
@@ -638,7 +642,9 @@ jobs:
         with:
           images: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}-lb
           tags: |
-            type=semver,pattern={{version}}
+            type=semver,pattern={{version}},value=${{ needs.release.outputs.tag_name }}
+            type=semver,pattern={{major}}.{{minor}},value=${{ needs.release.outputs.tag_name }}
+            type=semver,pattern={{major}},value=${{ needs.release.outputs.tag_name }}
             type=raw,value=latest,enable={{is_default_branch}}
 
       - name: Set up uv
@@ -705,7 +711,9 @@ jobs:
         with:
           images: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}-lb-cpu
           tags: |
-            type=semver,pattern={{version}}
+            type=semver,pattern={{version}},value=${{ needs.release.outputs.tag_name }}
+            type=semver,pattern={{major}}.{{minor}},value=${{ needs.release.outputs.tag_name }}
+            type=semver,pattern={{major}},value=${{ needs.release.outputs.tag_name }}
             type=raw,value=latest,enable={{is_default_branch}}
 
       - name: Set up uv
