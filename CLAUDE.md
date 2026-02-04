@@ -267,9 +267,9 @@ gpu_config = LiveServerless(
   - Runs tests and linting on PRs and pushes to main
   - **Local execution testing**: Automatically tests all `test_*.json` files in src directory to validate handler functionality
   - Manages releases via `release-please` on main branch
-  - Builds and pushes `:dev` tagged images on main branch pushes
+  - Builds and pushes `:main` tagged images on main branch pushes
   - Builds and pushes production images with semantic versioning on releases
-- **Deploy** (`.github/workflows/deploy.yml`): Manual deployment workflow for custom Docker tags and emergency deployments
+  - Supports manual triggering via `workflow_dispatch` for ad-hoc runs
 
 ### Required Secrets
 Configure these in GitHub repository settings:
