@@ -16,15 +16,9 @@ for test_file in tests/test_*.json; do
     echo "Testing with $test_file..."
     
     # Run the test and capture output
-    # In Docker: python is available and has system-installed packages
-    # Locally: use uv run to manage dependencies
-    if command -v python &> /dev/null; then
-        output=$(python handler.py --test_input "$(cat "$test_file")" 2>&1)
-        exit_code=$?
-    else
-        output=$(uv run python3 handler.py --test_input "$(cat "$test_file")" 2>&1)
-        exit_code=$?
-    fi
+    # Use uv run to ensure all dependencies are available
+    output=$(uv run python handler.py --test_input "$(cat "$test_file")" 2>&1)
+    exit_code=$?
     
     if [ $exit_code -eq 0 ]; then
         echo "✓ $test_file: PASSED"
