@@ -1,5 +1,21 @@
 # Changelog
 
+## [1.0.0](https://github.com/runpod-workers/worker-tetra/compare/v0.7.5...v1.0.0) (2026-02-04)
+
+
+### ⚠ BREAKING CHANGES
+
+* rename tetra to flash ([#59](https://github.com/runpod-workers/worker-tetra/issues/59))
+
+### Bug Fixes
+
+* enable proper semantic versioning for breaking changes ([#61](https://github.com/runpod-workers/worker-tetra/issues/61)) ([7c4da51](https://github.com/runpod-workers/worker-tetra/commit/7c4da510c2797f11e610419cb61a6d532a5f1473))
+
+
+### Code Refactoring
+
+* rename tetra to flash ([#59](https://github.com/runpod-workers/worker-tetra/issues/59)) ([0580129](https://github.com/runpod-workers/worker-tetra/commit/058012909953cc2187a285bca8cfaadb75637160))
+
 ## [0.7.5](https://github.com/runpod-workers/flash/compare/v0.7.4...v0.7.5) (2026-02-03)
 
 
