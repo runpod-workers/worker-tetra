@@ -48,9 +48,6 @@ jobs:
       - name: Run all tests with coverage
         run: make test-coverage
 
-      - name: Test handler locally with test JSON files
-        run: make test-handler
-
       - name: Run unit tests separately (main branch only)
         if: github.ref == 'refs/heads/main'
         run: make test-unit
