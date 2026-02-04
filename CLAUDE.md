@@ -42,7 +42,7 @@ This is `worker-flash`, a RunPod Serverless worker template that provides dynami
 - **Client Interface**: `@remote` decorator for marking functions for remote execution
 - **Resource Management**: GPU/CPU configuration and provisioning through LiveServerless objects
 - **Live Serverless**: Dynamic infrastructure provisioning with auto-scaling
-- **Repository**: https://github.com/runpod/runpod-flash
+- **Repository**: https://github.com/runpod/flash
 
 ### 6. Testing Infrastructure (`tests/`)
 - **Unit Tests** (`tests/unit/`): Component-level testing for individual modules with mocking

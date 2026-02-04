@@ -30,7 +30,7 @@ Developer guide for contributing to worker-flash, a RunPod Serverless worker for
 
 ```bash
 # Clone repository
-git clone https://github.com/runpod/worker-flash.git
+git clone https://github.com/runpod-workers/flash.git worker-flash
 cd worker-flash
 
 # Initialize project (creates venv, syncs deps)
@@ -528,7 +528,7 @@ make build-cpu
 docker run -it --rm \
   -v $(pwd):/workspace \
   -e RUNPOD_TEST_INPUT="$(cat src/tests/test_input.json)" \
-  runpod/worker-flash:dev \
+  runpod/flash:dev \
   /bin/bash
 
 # Inside container, run handler
@@ -566,8 +566,8 @@ When making changes to both projects:
 ```bash
 # Clone both repositories
 cd ~/Github/python
-git clone https://github.com/runpod/runpod-flash.git
-git clone https://github.com/runpod/worker-flash.git
+git clone https://github.com/runpod/flash.git runpod-flash
+git clone https://github.com/runpod-workers/flash.git worker-flash
 cd worker-flash
 
 # Install runpod-flash in editable mode
@@ -680,10 +680,10 @@ Automated with [release-please](https://github.com/googleapis/release-please):
    - Triggers Docker production builds
 
 4. **Docker images published**
-   - `runpod/worker-flash:latest`
-   - `runpod/worker-flash:X.Y.Z`
-   - `runpod/worker-flash:X.Y`
-   - `runpod/worker-flash:X`
+   - `runpod/flash:latest`
+   - `runpod/flash:X.Y.Z`
+   - `runpod/flash:X.Y`
+   - `runpod/flash:X`
 
 ### Fixing CI Failures Locally
 
@@ -709,7 +709,7 @@ make lint
 make build-cpu
 
 # Test built image
-docker run --rm runpod/worker-flash:dev python -c "import handler"
+docker run --rm runpod/flash:dev python -c "import handler"
 ```
 
 ## Contributing Guidelines
@@ -1137,7 +1137,7 @@ python --version  # Should be 3.11+ for lint, 3.9-3.13 for tests
 **Docker push fails:**
 - Check Docker Hub credentials in GitHub Secrets
 - Verify `DOCKERHUB_USERNAME` and `DOCKERHUB_TOKEN`
-- Ensure permissions for `runpod/worker-flash` repository
+- Ensure permissions for `runpod/flash` repository
 
 **Release Please not creating PR:**
 - Ensure commits follow conventional format
@@ -1150,11 +1150,11 @@ python --version  # Should be 3.11+ for lint, 3.9-3.13 for tests
 
 - **Architecture Details:** [CLAUDE.md](CLAUDE.md)
 - **Design Documents:** [docs/](docs/)
-- **Runpod Flash SDK Repository:** https://github.com/runpod/runpod-flash
-- **Runpod Flash SDK Documentation:** https://github.com/runpod/runpod-flash#readme
+- **Runpod Flash SDK Repository:** https://github.com/runpod/flash
+- **Runpod Flash SDK Documentation:** https://github.com/runpod/flash#readme
 - **RunPod Docs:** https://docs.runpod.io/
 
 ## Getting Help
 
-- **GitHub Issues:** https://github.com/runpod/worker-flash/issues
+- **GitHub Issues:** https://github.com/runpod-workers/flash/issues
 - **RunPod Discord:** https://discord.gg/runpod

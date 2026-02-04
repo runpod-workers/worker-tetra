@@ -335,5 +335,5 @@ Note: Arguments must be base64-encoded cloudpickle serialized values.
 
 - [Docker Build Pipeline](./Docker_Build_Pipeline.md) - CI/CD infrastructure for building and pushing images
 - [System Python Runtime Architecture](./System_Python_Runtime_Architecture.md) - Details on the execution engine
-- [runpod-flash Repository](https://github.com/runpod/runpod-flash) - SDK source code and documentation
-- [runpod-flash LiveLoadBalancer Documentation](https://github.com/runpod/runpod-flash#liveloadbalancer) - Load balancer resource documentation
+- [runpod-flash Repository](https://github.com/runpod/flash) - SDK source code and documentation
+- [runpod-flash LiveLoadBalancer Documentation](https://github.com/runpod/flash#liveloadbalancer) - Load balancer resource documentation
