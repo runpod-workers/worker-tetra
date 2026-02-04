@@ -11,14 +11,20 @@ for test_file in tests/test_*.json; do
         echo "No test_*.json files found"
         exit 1
     fi
-    
+
     test_count=$((test_count + 1))
     echo "Testing with $test_file..."
-    
-    # Run the test and capture output
-    # Use uv run to ensure all dependencies are available
-    output=$(uv run python handler.py --test_input "$(cat "$test_file")" 2>&1)
-    exit_code=$?
+
+    # Detect if running in Docker
+    if [ -f /.dockerenv ]; then
+        # Docker: use system python with pre-installed packages
+        output=$(python handler.py --test_input "$(cat "$test_file")" 2>&1)
+        exit_code=$?
+    else
+        # Local: use uv run to manage dependencies
+        output=$(uv run python handler.py --test_input "$(cat "$test_file")" 2>&1)
+        exit_code=$?
+    fi
     
     if [ $exit_code -eq 0 ]; then
         echo "✓ $test_file: PASSED"
