@@ -1,4 +1,3 @@
-import runpod
 from typing import Dict, Any
 
 from runpod_flash.protos.remote_execution import FunctionRequest, FunctionResponse
@@ -34,6 +33,8 @@ async def handler(event: Dict[str, Any]) -> Dict[str, Any]:
     return output.model_dump()  # type: ignore[no-any-return]
 
 
-# Start the RunPod serverless handler
+# Start the RunPod serverless handler (only available on RunPod platform)
 if __name__ == "__main__":
+    import runpod
+
     runpod.serverless.start({"handler": handler})
