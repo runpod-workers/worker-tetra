@@ -58,8 +58,8 @@ make test
 To switch back to the remote version:
 
 ```bash
-# Reinstall from remote repository
-uv pip install runpod-flash @ git+https://github.com/runpod/runpod-flash.git@main
+# Reinstall from PyPI
+uv pip install runpod-flash
 make test
 ```
 
@@ -554,9 +554,9 @@ The `runpod-flash` package is a pip dependency containing the Flash SDK:
 
 ### Default Configuration
 
-By default, worker-flash uses the remote runpod-flash from GitHub:
+By default, worker-flash uses runpod-flash from PyPI:
 ```
-runpod-flash @ git+https://github.com/runpod/runpod-flash.git@main
+runpod-flash==1.0.0
 ```
 
 ### Local Development Workflow
@@ -589,17 +589,20 @@ git commit -m "feat: my change"
 git push origin feature/my-change
 # Create PR and merge
 
-# After runpod-flash PR merges, switch back to remote
+# After runpod-flash PR merges, switch back to PyPI release
 cd ~/Github/python/worker-flash
-uv pip install runpod-flash @ git+https://github.com/runpod/runpod-flash.git@main
+uv pip install runpod-flash
 make test
 ```
 
 ### Updating to Latest runpod-flash
 
 ```bash
-# Update runpod-flash to latest main from remote
-uv pip install --upgrade runpod-flash @ git+https://github.com/runpod/runpod-flash.git@main
+# Update runpod-flash to latest version from PyPI
+uv pip install --upgrade runpod-flash
+
+# Or pin to a specific version
+uv pip install runpod-flash==1.0.0
 
 # Verify compatibility
 make test
@@ -1091,8 +1094,8 @@ docker image prune
 
 **Incompatible runpod-flash version:**
 ```bash
-# Update to latest main branch
-uv pip install --upgrade runpod-flash @ git+https://github.com/runpod/runpod-flash.git@main
+# Update to latest version from PyPI
+uv pip install --upgrade runpod-flash
 
 # Verify compatibility
 make test
@@ -1116,7 +1119,7 @@ uv pip show runpod-flash
 python -c "import runpod_flash; print(runpod_flash.__file__)"
 
 # Reinstall if missing
-uv pip install runpod-flash @ git+https://github.com/runpod/runpod-flash.git@main
+uv pip install runpod-flash
 ```
 
 ### CI/CD Issues
