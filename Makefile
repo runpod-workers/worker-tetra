@@ -131,17 +131,17 @@ build-wip-lb-cpu: setup # Build and push LB CPU image (multi-platform)
 	. --push
 
 # Test commands
-test: # Run all tests
-	uv run pytest tests/ -v
+test: # Run all tests in parallel
+	uv run pytest tests/ -v -n auto --dist loadscope
 
 test-unit: # Run unit tests only
-	uv run pytest tests/unit/ -v -m "not integration"
+	uv run pytest tests/unit/ -v -m "not integration" -n auto --dist loadscope
 
 test-integration: # Run integration tests only
 	uv run pytest tests/integration/ -v -m integration
 
-test-coverage: # Run tests with coverage report
-	uv run pytest tests/ -v --cov=handler --cov=remote_execution --cov-report=term-missing
+test-coverage: # Run tests with coverage report (parallel)
+	uv run pytest tests/ -v -n auto --dist loadscope --cov=handler --cov=remote_execution --cov-report=term-missing
 
 test-fast: # Run tests with fast-fail mode
 	uv run pytest tests/ -v -x --tb=short

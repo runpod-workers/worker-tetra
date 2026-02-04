@@ -396,9 +396,10 @@ class TestMaybeUnpack:
         mock_should_unpack.assert_called_once()
         mock_unpack.assert_not_called()
 
+    @patch("unpack_volume.sleep")
     @patch("unpack_volume._should_unpack_from_volume")
     @patch("unpack_volume.unpack_app_from_volume")
-    def test_maybe_unpack_propagates_exceptions(self, mock_unpack, mock_should_unpack):
+    def test_maybe_unpack_propagates_exceptions(self, mock_unpack, mock_should_unpack, mock_sleep):
         """Test that exceptions during unpacking are propagated."""
         mock_should_unpack.return_value = True
         mock_unpack.side_effect = FileNotFoundError("Artifact not found")

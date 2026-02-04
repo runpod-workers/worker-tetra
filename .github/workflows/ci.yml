@@ -21,8 +21,8 @@ jobs:
     runs-on: ubuntu-latest
     strategy:
       matrix:
-        python-version: ['3.10', '3.11', '3.12', '3.13', '3.14']
-    
+        python-version: ${{ github.event_name == 'pull_request' && fromJSON('["3.11", "3.12"]') || fromJSON('["3.10", "3.11", "3.12", "3.13", "3.14"]') }}
+
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
@@ -38,18 +38,23 @@ jobs:
         uses: astral-sh/setup-uv@v4
         with:
           enable-cache: true
+          cache-dependency-glob: |
+            **/pyproject.toml
+            **/uv.lock
 
       - name: Setup dependencies
         run: make setup
 
-      - name: Run unit tests
-        run: make test-unit
-
-      - name: Run integration tests
-        run: make test-integration
-
       - name: Run all tests with coverage
         run: make test-coverage
+
+      - name: Run unit tests separately (main branch only)
+        if: github.ref == 'refs/heads/main'
+        run: make test-unit
+
+      - name: Run integration tests separately (main branch only)
+        if: github.ref == 'refs/heads/main'
+        run: make test-integration
 
   lint:
     runs-on: ubuntu-latest
@@ -75,7 +80,7 @@ jobs:
 
   docker-test:
     runs-on: ubuntu-latest
-    needs: [test, lint]
+    needs: [lint]
     steps:
       - name: Clear Space
         # Note: Manual cleanup sufficient for CPU images (python:3.12-slim base ~150MB)
@@ -126,7 +131,7 @@ jobs:
 
   docker-test-lb:
     runs-on: ubuntu-latest
-    needs: [test, lint]
+    needs: [lint]
     steps:
       - name: Free Disk Space
         uses: jlumbroso/free-disk-space@v1.3.1
@@ -176,20 +181,16 @@ jobs:
 
   docker-test-lb-cpu:
     runs-on: ubuntu-latest
-    needs: [test, lint]
+    needs: [lint]
     steps:
-      - name: Free Disk Space
-        uses: jlumbroso/free-disk-space@v1.3.1
-        with:
-          tool-cache: true
-          android: true
-          dotnet: true
-          haskell: true
-          large-packages: true
-          swap-storage: true
-
-      - name: Additional cleanup and report
+      - name: Clear Space
+        # Note: Manual cleanup sufficient for CPU images (python:3.12-slim base ~150MB)
+        # Only CUDA images need aggressive cleanup due to their ~10-15GB size
         run: |
+          rm -rf /usr/share/dotnet
+          rm -rf /opt/ghc
+          rm -rf "/usr/local/share/boost"
+          rm -rf "$AGENT_TOOLSDIRECTORY"
           docker system prune -af
           df -h
 
@@ -224,9 +225,25 @@ jobs:
           cache-to: type=gha,mode=max
           load: true
 
-  release:
+  docker-validation:
     runs-on: ubuntu-latest
     needs: [test, lint, docker-test, docker-test-lb, docker-test-lb-cpu]
+    if: always()
+    steps:
+      - name: Check all jobs succeeded
+        run: |
+          if [[ "${{ needs.test.result }}" != "success" ]] || \
+             [[ "${{ needs.lint.result }}" != "success" ]] || \
+             [[ "${{ needs.docker-test.result }}" != "success" ]] || \
+             [[ "${{ needs.docker-test-lb.result }}" != "success" ]] || \
+             [[ "${{ needs.docker-test-lb-cpu.result }}" != "success" ]]; then
+            echo "One or more quality checks failed"
+            exit 1
+          fi
+
+  release:
+    runs-on: ubuntu-latest
+    needs: [docker-validation]
     if: github.ref == 'refs/heads/main'
     outputs:
       release_created: ${{ steps.release.outputs.release_created }}
@@ -243,228 +260,6 @@ jobs:
         id: release
         with:
           token: ${{ steps.app-token.outputs.token }}
-
-  docker-main-gpu:
-    runs-on: ubuntu-latest
-    needs: [test, lint, docker-test, release]
-    if: github.ref == 'refs/heads/main' && github.event_name == 'push' && !needs.release.outputs.release_created
-    steps:
-      - name: Free Disk Space
-        uses: jlumbroso/free-disk-space@v1.3.1
-        with:
-          tool-cache: true
-          android: true
-          dotnet: true
-          haskell: true
-          large-packages: true
-          swap-storage: true
-
-      - name: Additional cleanup and report
-        run: |
-          docker system prune -af
-          df -h
-
-      - name: Checkout repository
-        uses: actions/checkout@v4
-        with:
-          fetch-depth: 0
-
-      - name: Set up QEMU
-        uses: docker/setup-qemu-action@v3
-
-      - name: Set up Docker Buildx
-        uses: docker/setup-buildx-action@v3
-
-      - name: Login to Docker Hub
-        uses: docker/login-action@v3
-        with:
-          registry: ${{ env.REGISTRY }}
-          username: ${{ secrets.DOCKERHUB_USERNAME }}
-          password: ${{ secrets.DOCKERHUB_TOKEN }}
-
-      - name: Set up uv
-        uses: astral-sh/setup-uv@v4
-        with:
-          enable-cache: true
-
-      - name: Setup dependencies
-        run: uv sync
-
-      - name: Build and push GPU Docker image (main)
-        uses: docker/build-push-action@v6
-        with:
-          context: .
-          file: ./Dockerfile
-          platforms: linux/amd64,linux/arm64
-          push: true
-          tags: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:main
-          cache-from: type=gha
-          cache-to: type=gha,mode=max
-
-  docker-main-cpu:
-    runs-on: ubuntu-latest
-    needs: [test, lint, docker-test, release]
-    if: github.ref == 'refs/heads/main' && github.event_name == 'push' && !needs.release.outputs.release_created
-    steps:
-      - name: Clear Space
-        run: |
-          rm -rf /usr/share/dotnet
-          rm -rf /opt/ghc
-          rm -rf "/usr/local/share/boost"
-          rm -rf "$AGENT_TOOLSDIRECTORY"
-          docker system prune -af
-          df -h
-
-      - name: Checkout repository
-        uses: actions/checkout@v4
-        with:
-          fetch-depth: 0
-
-      - name: Set up QEMU
-        uses: docker/setup-qemu-action@v3
-
-      - name: Set up Docker Buildx
-        uses: docker/setup-buildx-action@v3
-
-      - name: Login to Docker Hub
-        uses: docker/login-action@v3
-        with:
-          registry: ${{ env.REGISTRY }}
-          username: ${{ secrets.DOCKERHUB_USERNAME }}
-          password: ${{ secrets.DOCKERHUB_TOKEN }}
-
-      - name: Set up uv
-        uses: astral-sh/setup-uv@v4
-        with:
-          enable-cache: true
-
-      - name: Setup dependencies
-        run: uv sync
-
-      - name: Build and push CPU Docker image (main)
-        uses: docker/build-push-action@v6
-        with:
-          context: .
-          file: ./Dockerfile-cpu
-          platforms: linux/amd64,linux/arm64
-          push: true
-          tags: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}-cpu:main
-          cache-from: type=gha
-          cache-to: type=gha,mode=max
-
-  docker-main-lb:
-    runs-on: ubuntu-latest
-    needs: [test, lint, docker-test, docker-test-lb, release]
-    if: github.ref == 'refs/heads/main' && github.event_name == 'push' && !needs.release.outputs.release_created
-    steps:
-      - name: Free Disk Space
-        uses: jlumbroso/free-disk-space@v1.3.1
-        with:
-          tool-cache: true
-          android: true
-          dotnet: true
-          haskell: true
-          large-packages: true
-          swap-storage: true
-
-      - name: Additional cleanup and report
-        run: |
-          docker system prune -af
-          df -h
-
-      - name: Checkout repository
-        uses: actions/checkout@v4
-        with:
-          fetch-depth: 0
-
-      - name: Set up QEMU
-        uses: docker/setup-qemu-action@v3
-
-      - name: Set up Docker Buildx
-        uses: docker/setup-buildx-action@v3
-
-      - name: Login to Docker Hub
-        uses: docker/login-action@v3
-        with:
-          registry: ${{ env.REGISTRY }}
-          username: ${{ secrets.DOCKERHUB_USERNAME }}
-          password: ${{ secrets.DOCKERHUB_TOKEN }}
-
-      - name: Set up uv
-        uses: astral-sh/setup-uv@v4
-        with:
-          enable-cache: true
-
-      - name: Setup dependencies
-        run: uv sync
-
-      - name: Build and push Load Balancer Docker image (main)
-        uses: docker/build-push-action@v6
-        with:
-          context: .
-          file: ./Dockerfile-lb
-          platforms: linux/amd64,linux/arm64
-          push: true
-          tags: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}-lb:main
-          cache-from: type=gha
-          cache-to: type=gha,mode=max
-
-  docker-main-lb-cpu:
-    runs-on: ubuntu-latest
-    needs: [test, lint, docker-test, docker-test-lb-cpu, release]
-    if: github.ref == 'refs/heads/main' && github.event_name == 'push' && !needs.release.outputs.release_created
-    steps:
-      - name: Free Disk Space
-        uses: jlumbroso/free-disk-space@v1.3.1
-        with:
-          tool-cache: true
-          android: true
-          dotnet: true
-          haskell: true
-          large-packages: true
-          swap-storage: true
-
-      - name: Additional cleanup and report
-        run: |
-          docker system prune -af
-          df -h
-
-      - name: Checkout repository
-        uses: actions/checkout@v4
-        with:
-          fetch-depth: 0
-
-      - name: Set up QEMU
-        uses: docker/setup-qemu-action@v3
-
-      - name: Set up Docker Buildx
-        uses: docker/setup-buildx-action@v3
-
-      - name: Login to Docker Hub
-        uses: docker/login-action@v3
-        with:
-          registry: ${{ env.REGISTRY }}
-          username: ${{ secrets.DOCKERHUB_USERNAME }}
-          password: ${{ secrets.DOCKERHUB_TOKEN }}
-
-      - name: Set up uv
-        uses: astral-sh/setup-uv@v4
-        with:
-          enable-cache: true
-
-      - name: Setup dependencies
-        run: uv sync
-
-      - name: Build and push CPU Load Balancer Docker image (main)
-        uses: docker/build-push-action@v6
-        with:
-          context: .
-          file: ./Dockerfile-lb-cpu
-          platforms: linux/amd64,linux/arm64
-          push: true
-          tags: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}-lb-cpu:main
-          cache-from: type=gha
-          cache-to: type=gha,mode=max
 
   docker-prod-gpu:
     runs-on: ubuntu-latest

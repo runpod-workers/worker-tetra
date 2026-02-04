@@ -18,7 +18,5 @@
       ]
     }
   },
-  "bootstrap-sha": "040347b5859ccc7ed230c398721e16d651fae887",
-  "bump-minor-pre-major": true,
-  "bump-patch-for-minor-pre-major": true
+  "bootstrap-sha": "040347b5859ccc7ed230c398721e16d651fae887"
 }
