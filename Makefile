@@ -1,5 +1,5 @@
-IMAGE = runpod/tetra-rp
-TAG = $(or $(TETRA_IMAGE_TAG),local)
+IMAGE = runpod/flash
+TAG = $(or $(FLASH_IMAGE_TAG),local)
 FULL_IMAGE = $(IMAGE):$(TAG)
 FULL_IMAGE_CPU = $(IMAGE)-cpu:$(TAG)
 
@@ -85,7 +85,7 @@ build-lb-cpu: setup # Build CPU-only Load Balancer Docker image for host platfor
 # WIP Build Targets (multi-platform, requires Docker Hub push)
 # Usage: make build-wip
 # Custom tag: make build-wip WIP_TAG=myname-feature
-# Then deploy with: export TETRA_IMAGE_TAG=wip (or your custom tag)
+# Then deploy with: export FLASH_IMAGE_TAG=wip (or your custom tag)
 
 build-wip: # Build and push all WIP images (multi-platform)
 	@echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
@@ -99,7 +99,7 @@ build-wip: # Build and push all WIP images (multi-platform)
 	@echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
 	@echo "✅ WIP images pushed to Docker Hub with tag :$(WIP_TAG)"
 	@echo "Next steps:"
-	@echo "  1. export TETRA_IMAGE_TAG=$(WIP_TAG)"
+	@echo "  1. export FLASH_IMAGE_TAG=$(WIP_TAG)"
 	@echo "  2. Deploy to RunPod and test"
 	@echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
 

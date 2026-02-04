@@ -4,16 +4,16 @@
   },
   "enableAllProjectMcpServers": true,
   "enabledMcpServers": [
-    "worker-tetra-code-intel"
+    "worker-flash-code-intel"
   ],
   "permissions": {
     "allow": [
-      "mcp__worker-tetra-code-intel__find_symbol",
-      "mcp__worker-tetra-code-intel__find_by_decorator",
-      "mcp__worker-tetra-code-intel__get_class_interface",
-      "mcp__worker-tetra-code-intel__list_classes",
-      "mcp__worker-tetra-code-intel__list_file_symbols",
-      "mcp__worker-tetra-code-intel__parse_test_output",
+      "mcp__worker-flash-code-intel__find_symbol",
+      "mcp__worker-flash-code-intel__find_by_decorator",
+      "mcp__worker-flash-code-intel__get_class_interface",
+      "mcp__worker-flash-code-intel__list_classes",
+      "mcp__worker-flash-code-intel__list_file_symbols",
+      "mcp__worker-flash-code-intel__parse_test_output",
       "Bash(git diff:*)",
       "Bash(git fetch:*)",
       "Bash(git log:*)",

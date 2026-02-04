@@ -7,7 +7,7 @@ from contextlib import redirect_stdout, redirect_stderr
 from datetime import datetime
 from typing import Dict, Any, Tuple
 
-from tetra_rp.protos.remote_execution import FunctionRequest, FunctionResponse  # type: ignore[import-untyped]
+from runpod_flash.protos.remote_execution import FunctionRequest, FunctionResponse
 from serialization_utils import SerializationUtils
 
 

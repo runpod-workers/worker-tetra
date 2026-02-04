@@ -1,7 +1,7 @@
 """
-Logging configuration for worker-tetra.
+Logging configuration for worker-flash.
 
-Provides centralized logging setup matching tetra-rp style with level-based formatting.
+Provides centralized logging setup matching runpod-flash style with level-based formatting.
 """
 
 import logging
@@ -17,7 +17,7 @@ def get_log_level() -> int:
 
 
 def get_log_format(level: int) -> str:
-    """Get appropriate log format based on level, matching tetra-rp style."""
+    """Get appropriate log format based on level, matching runpod-flash style."""
     if level == logging.DEBUG:
         return "%(asctime)s | %(levelname)-5s | %(name)s | %(filename)s:%(lineno)d | %(message)s"
     else:
@@ -30,8 +30,8 @@ def setup_logging(
     fmt: Optional[str] = None,
 ) -> None:
     """
-    Setup logging configuration for worker-tetra.
-    Only shows DEBUG logs from tetra namespace when LOG_LEVEL=DEBUG.
+    Setup logging configuration for worker-flash.
+    Only shows DEBUG logs from flash namespace when LOG_LEVEL=DEBUG.
 
     Args:
         level: Log level (defaults to LOG_LEVEL env var or INFO)

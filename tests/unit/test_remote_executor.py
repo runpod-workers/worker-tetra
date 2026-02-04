@@ -4,7 +4,7 @@ import cloudpickle
 from unittest.mock import Mock, patch, AsyncMock
 
 from remote_executor import RemoteExecutor
-from tetra_rp.protos.remote_execution import FunctionRequest
+from runpod_flash.protos.remote_execution import FunctionRequest
 
 
 class TestRemoteExecutor:
@@ -100,7 +100,7 @@ class TestRemoteExecutor:
             ) as mock_py_deps_async:
                 with patch.object(self.executor.function_executor, "execute") as mock_execute:
                     # Mock async methods with proper FunctionResponse returns
-                    from tetra_rp.protos.remote_execution import FunctionResponse
+                    from runpod_flash.protos.remote_execution import FunctionResponse
 
                     mock_sys_deps_async.return_value = FunctionResponse(
                         success=True, stdout="System deps installed"
@@ -135,7 +135,7 @@ class TestRemoteExecutor:
         ) as mock_py_deps_async:
             with patch.object(self.executor.function_executor, "execute") as mock_execute:
                 # Mock async method with FunctionResponse
-                from tetra_rp.protos.remote_execution import FunctionResponse
+                from runpod_flash.protos.remote_execution import FunctionResponse
 
                 mock_py_deps_async.return_value = FunctionResponse(
                     success=False, error="Package not found"
@@ -212,7 +212,7 @@ class TestRemoteExecutor:
                 new_callable=AsyncMock,
             ) as mock_sync,
         ):
-            from tetra_rp.protos.remote_execution import FunctionResponse
+            from runpod_flash.protos.remote_execution import FunctionResponse
 
             mock_deps.return_value = FunctionResponse(success=True, stdout="Deps installed")
             mock_execute.return_value = Mock(success=True, result="encoded_result")
@@ -262,7 +262,7 @@ class TestRemoteExecutor:
         )
 
         with patch.object(self.executor, "_execute_flash_function") as mock_flash_execute:
-            from tetra_rp.protos.remote_execution import FunctionResponse
+            from runpod_flash.protos.remote_execution import FunctionResponse
 
             mock_flash_execute.return_value = FunctionResponse(success=True, result="flash_result")
 
@@ -284,7 +284,7 @@ class TestRemoteExecutor:
         )
 
         with patch.object(self.executor, "_execute_flash_function") as mock_flash_execute:
-            from tetra_rp.protos.remote_execution import FunctionResponse
+            from runpod_flash.protos.remote_execution import FunctionResponse
 
             mock_flash_execute.return_value = FunctionResponse(success=True, result="flash_result")
 

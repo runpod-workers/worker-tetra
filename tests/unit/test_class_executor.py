@@ -5,7 +5,7 @@ import cloudpickle
 from datetime import datetime
 
 from class_executor import ClassExecutor
-from tetra_rp.protos.remote_execution import FunctionRequest
+from runpod_flash.protos.remote_execution import FunctionRequest
 
 
 class TestClassExecution:

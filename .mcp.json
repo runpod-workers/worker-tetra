@@ -1,6 +1,6 @@
 {
   "mcpServers": {
-    "worker-tetra-code-intel": {
+    "worker-flash-code-intel": {
       "command": "uv",
       "args": [
         "run",

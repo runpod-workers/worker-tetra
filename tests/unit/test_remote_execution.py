@@ -2,7 +2,7 @@ import pytest
 import base64
 import cloudpickle
 from pydantic import ValidationError
-from tetra_rp.protos.remote_execution import FunctionRequest, FunctionResponse
+from runpod_flash.protos.remote_execution import FunctionRequest, FunctionResponse
 
 
 class TestFunctionRequest:

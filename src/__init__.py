@@ -1,1 +1,1 @@
-"""Worker Tetra package."""
+"""Worker Flash package."""

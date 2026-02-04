@@ -8,7 +8,7 @@ import pytest
 from unittest.mock import patch
 
 from remote_executor import RemoteExecutor
-from tetra_rp.protos.remote_execution import FunctionRequest
+from runpod_flash.protos.remote_execution import FunctionRequest
 
 
 class TestFlashIntegration:

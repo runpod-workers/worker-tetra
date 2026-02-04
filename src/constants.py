@@ -1,5 +1,5 @@
 # Logger Configuration
-NAMESPACE = "tetra"
+NAMESPACE = "flash"
 """Application logger namespace for all components."""
 
 # System Package Acceleration with Nala
@@ -47,6 +47,6 @@ DEFAULT_ENDPOINT_TIMEOUT = 300
 """Default timeout in seconds for cross-endpoint HTTP requests."""
 
 DEFAULT_TARBALL_UNPACK_ATTEMPTS = 3
-"""Number of times the mothership CPU will attempt to unpack the worker-tetra tarball from mounted volume"""
+"""Number of times the mothership CPU will attempt to unpack the worker-flash tarball from mounted volume"""
 DEFAULT_TARBALL_UNPACK_INTERVAL = 30
 """Time in seconds mothership CPU endpoint will wait between tarball unpack attempts"""

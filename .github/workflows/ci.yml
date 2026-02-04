@@ -14,7 +14,7 @@ permissions:
 
 env:
   REGISTRY: docker.io
-  IMAGE_NAME: runpod/tetra-rp
+  IMAGE_NAME: runpod/flash
 
 jobs:
   test:
@@ -114,7 +114,7 @@ jobs:
           file: ./Dockerfile-cpu
           platforms: linux/amd64
           push: false
-          tags: tetra-rp-cpu:test
+          tags: flash-cpu:test
           cache-from: type=gha
           cache-to: type=gha,mode=max
           load: true
@@ -122,7 +122,7 @@ jobs:
       - name: Test CPU handler execution in Docker environment
         run: |
           echo "Testing CPU handler in Docker environment..."
-          docker run --rm tetra-rp-cpu:test ./test-handler.sh
+          docker run --rm flash-cpu:test ./test-handler.sh
 
   docker-test-lb:
     runs-on: ubuntu-latest
@@ -169,7 +169,7 @@ jobs:
           file: ./Dockerfile-lb
           platforms: linux/amd64
           push: false
-          tags: tetra-rp-lb:test
+          tags: flash-lb:test
           cache-from: type=gha
           cache-to: type=gha,mode=max
           load: true
@@ -219,7 +219,7 @@ jobs:
           file: ./Dockerfile-lb-cpu
           platforms: linux/amd64
           push: false
-          tags: tetra-rp-lb-cpu:test
+          tags: flash-lb-cpu:test
           cache-from: type=gha
           cache-to: type=gha,mode=max
           load: true
@@ -510,7 +510,9 @@ jobs:
         with:
           images: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}
           tags: |
-            type=semver,pattern={{version}}
+            type=semver,pattern={{version}},value=${{ needs.release.outputs.tag_name }}
+            type=semver,pattern={{major}}.{{minor}},value=${{ needs.release.outputs.tag_name }}
+            type=semver,pattern={{major}},value=${{ needs.release.outputs.tag_name }}
             type=raw,value=latest,enable={{is_default_branch}}
 
       - name: Set up uv
@@ -571,7 +573,9 @@ jobs:
         with:
           images: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}-cpu
           tags: |
-            type=semver,pattern={{version}}
+            type=semver,pattern={{version}},value=${{ needs.release.outputs.tag_name }}
+            type=semver,pattern={{major}}.{{minor}},value=${{ needs.release.outputs.tag_name }}
+            type=semver,pattern={{major}},value=${{ needs.release.outputs.tag_name }}
             type=raw,value=latest,enable={{is_default_branch}}
 
       - name: Set up uv
@@ -638,7 +642,9 @@ jobs:
         with:
           images: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}-lb
           tags: |
-            type=semver,pattern={{version}}
+            type=semver,pattern={{version}},value=${{ needs.release.outputs.tag_name }}
+            type=semver,pattern={{major}}.{{minor}},value=${{ needs.release.outputs.tag_name }}
+            type=semver,pattern={{major}},value=${{ needs.release.outputs.tag_name }}
             type=raw,value=latest,enable={{is_default_branch}}
 
       - name: Set up uv
@@ -705,7 +711,9 @@ jobs:
         with:
           images: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}-lb-cpu
           tags: |
-            type=semver,pattern={{version}}
+            type=semver,pattern={{version}},value=${{ needs.release.outputs.tag_name }}
+            type=semver,pattern={{major}}.{{minor}},value=${{ needs.release.outputs.tag_name }}
+            type=semver,pattern={{major}},value=${{ needs.release.outputs.tag_name }}
             type=raw,value=latest,enable={{is_default_branch}}
 
       - name: Set up uv

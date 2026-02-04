@@ -6,7 +6,7 @@ This repository serves as a starting point for creating your own custom RunPod S
 
 ---
 
-[![RunPod](https://api.runpod.io/badge/runpod-workers/worker-template)](https://www.runpod.io/console/hub/runpod-workers/worker-template)
+[![RunPod](https://api.runpod.io/badge/runpod-workers/flash)](https://www.runpod.io/console/hub/runpod-workers/flash)
 
 ---
 

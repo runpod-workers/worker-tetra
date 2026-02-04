@@ -1,5 +1,5 @@
 [project]
-name = "worker-tetra"
+name = "worker-flash"
 version = "0.7.5"
 description = "Dynamic GPU provisioning for ML workloads with transparent execution"
 readme = "README.md"
@@ -14,7 +14,7 @@ dependencies = [
     "huggingface_hub>=0.32.0",
     "fastapi>=0.115.0",
     "uvicorn[standard]>=0.34.0",
-    "tetra-rp",
+    "runpod-flash",
 ]
 
 [dependency-groups]
@@ -74,6 +74,7 @@ strict_optional = true
 show_error_codes = true
 show_column_numbers = true
 pretty = true
+disable_error_code = ["import-untyped"]
 
 [[tool.mypy.overrides]]
 module = [
@@ -84,6 +85,13 @@ module = [
     "huggingface_hub",
 ]
 ignore_missing_imports = true
+
+[[tool.mypy.overrides]]
+module = [
+    "runpod_flash",
+    "runpod_flash.*",
+]
+follow_imports = "skip"
 
 [tool.ruff]
 line-length = 100

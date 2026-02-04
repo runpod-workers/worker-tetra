@@ -5,7 +5,7 @@ import cloudpickle
 from pathlib import Path
 
 from handler import handler, RemoteExecutor
-from tetra_rp.protos.remote_execution import FunctionRequest
+from runpod_flash.protos.remote_execution import FunctionRequest
 
 
 class TestHandlerIntegration:

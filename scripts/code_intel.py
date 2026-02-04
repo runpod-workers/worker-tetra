@@ -11,7 +11,7 @@ from rich.console import Console
 from rich.table import Table
 
 
-app = typer.Typer(help="Query code intelligence database for worker-tetra")
+app = typer.Typer(help="Query code intelligence database for worker-flash")
 console = Console()
 
 

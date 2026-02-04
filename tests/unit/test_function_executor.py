@@ -4,7 +4,7 @@ import base64
 import cloudpickle
 
 from function_executor import FunctionExecutor
-from tetra_rp.protos.remote_execution import FunctionRequest
+from runpod_flash.protos.remote_execution import FunctionRequest
 
 
 class TestFunctionExecution:

@@ -1,7 +1,7 @@
 import runpod
 from typing import Dict, Any
 
-from tetra_rp.protos.remote_execution import FunctionRequest, FunctionResponse  # type: ignore[import-untyped]
+from runpod_flash.protos.remote_execution import FunctionRequest, FunctionResponse
 from remote_executor import RemoteExecutor
 from logger import setup_logging
 from unpack_volume import maybe_unpack
